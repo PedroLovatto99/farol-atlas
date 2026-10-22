@@ -9,6 +9,7 @@ resultado_coleta.json
 __pycache__/
 .venv/
 venv/
+env/
 
 # Sistema e IDE
 .idea/

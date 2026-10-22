@@ -12,10 +12,14 @@
 
 ### Session 2026-10-22
 
-- Q: Quando um país pode ser mostrado como "sem alerta"? → A: Quando não consta na lista de alertas da última **coleta completa**. Uma coleta é completa quando a lista foi lida inteira, no formato esperado, com pelo menos um alerta, e pelo menos 70% das páginas esperadas foram lidas. Uma coleta que falha não muda os níveis: vale o resultado da última coleta completa, com a data dela. Um país só fica "não verificado" por falta de dado se nunca houve uma coleta completa.
+- Q: Quando um país pode ser mostrado como "sem alerta"? → A: Quando nenhum alerta de viagem da última **coleta completa** o cita, ou quando o alerta mais recente que o cita informa que a situação se normalizou (ver a pergunta sobre o histórico, abaixo). Uma coleta é completa quando a lista foi lida inteira, no formato esperado, com pelo menos um alerta, e pelo menos 70% das páginas esperadas foram lidas. Uma coleta que falha não muda os níveis: vale o resultado da última coleta completa, com a data dela. Um país só fica "não verificado" por falta de dado se nunca houve uma coleta completa.
 - Q: Que nível mostrar para um país que consta na lista de alertas, mas cuja página não foi lida numa coleta completa? → A: Se o alerta é o mesmo já conhecido (mesmo link e mesma data da última coleta completa), o país mantém o nível anterior. Se o alerta é novo ou mudou, o país fica "não verificado", com link para o alerta original. Para um alerta novo cuja página não foi lida, o país é identificado pelo título que aparece na lista de alertas.
-- Q: Qual a cor de um país que só tem alerta para uma região? → A: A cor do país segue só os alertas que valem para o país inteiro. Se há apenas alerta regional, o país fica "sem alerta", com o destaque de região, e o painel diz que o alerta vale só para aquela região. Os alertas regionais aparecem só no destaque, no painel e no filtro.
-- Q: Uma dependência com alerta próprio herda o nível do país soberano ou o alerta prevalece? → A: Para qualquer dependência, o alerta específico prevalece sobre o nível herdado, como no Taiwan. Sem alerta específico, herda o nível do país soberano.
+- Q: Qual a cor de um país que só tem alerta para uma região? → A: A cor do país segue só o nível para o país inteiro do alerta que rege o país (ver a pergunta sobre o histórico, abaixo). Se há apenas alerta regional, o país fica "sem alerta", com o destaque de região, e o painel diz que o alerta vale só para aquela região. Os alertas regionais aparecem só no destaque, no painel e no filtro.
+- Q: Uma dependência com alerta próprio herda o nível do país soberano ou o alerta prevalece? → A: A dependência segue o **mais recente** entre o seu alerta próprio e o alerta do país soberano. Sem alerta próprio, segue o soberano. O mesmo vale para o Taiwan (ver a pergunta sobre a dependência, abaixo).
+- Q: A lista de alertas do Portal Consular é de alertas em vigor ou um histórico? → A: É um histórico (ex.: o alerta mais recente sobre a Bolívia informa que a situação se normalizou). Para cada país, vale o alerta de viagem mais recente que o cita, considerando o nível para o país inteiro e as regiões. Se esse alerta informa que a situação se normalizou, o país fica "sem alerta". O painel continua listando todos os alertas que citam o país, com as datas. Itens da lista que não são alertas de viagem (ex.: aviso de fraudes) não afetam o mapa.
+- Q: Como definir o "mais recente" e como desempatar? → A: Vale a data e hora da última modificação do alerta ou, na falta dela, a data de publicação. Se ainda assim empatar, vale o nível mais grave, para nunca mostrar a situação mais favorável sem certeza.
+- Q: Como a dependência (e o Taiwan) segue o alerta do país soberano? → A: Segue o mais recente entre o seu alerta próprio e o alerta do soberano. Ex.: se a dependência teve alerta de normalização em março e o soberano recebeu "não viaje" em maio, ela fica "não viaje"; se a ordem for a inversa, fica "sem alerta".
+- Q: Um alerta pode citar vários países ou regiões? → A: Sim, cada um com seu nível. Nos dados reais, o alerta de 04/07/2026 sobre o Oriente Médio cita Irã, Israel, Sul do Líbano e Palestina (Faixa de Gaza), e o de 01/06/2026 cita a República Democrática do Congo e Uganda.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -32,7 +36,7 @@ O usuário abre o site e vê um mapa-múndi em que cada país tem a cor do seu n
 
 **Why this priority**: é a entrega central do produto; sozinha já responde "qual a situação do meu destino?" e é a base visual para todas as outras histórias.
 
-**Independent Test**: abrir o site com dados de alerta de exemplo e verificar que cada país aparece na cor do seu nível, que a legenda descreve os quatro níveis em texto, que a data de atualização e o aviso de site não oficial estão visíveis e que países sem dado aparecem como "não verificado".
+**Independent Test**: abrir o site com dados de alerta de exemplo (inclusive um país cujo alerta mais recente informa normalização) e verificar que cada país aparece na cor do seu nível, que a legenda descreve os quatro níveis em texto, que a data de atualização e o aviso de site não oficial estão visíveis e que países sem dado aparecem como "não verificado".
 
 **Acceptance Scenarios**:
 
@@ -41,12 +45,14 @@ O usuário abre o site e vê um mapa-múndi em que cada país tem a cor do seu n
 3. **Given** um país com alerta mais grave só para uma região, **When** o mapa é exibido, **Then** o país mostra um destaque visual adicional além da cor do seu nível geral.
 4. **Given** o site aberto, **When** o usuário olha a página, **Then** vê a data da última atualização, o aviso de que não é um serviço oficial e um link para o portal do Itamaraty.
 5. **Given** o site aberto, **When** o usuário lê a legenda ou o aviso, **Then** entende que "sem alerta" não significa que o governo recomenda a viagem.
+6. **Given** um país cujo alerta mais recente informa que a situação se normalizou (ex.: Bolívia), **When** o mapa é exibido, **Then** o país aparece como "sem alerta", mesmo que alertas anteriores sobre ele fossem mais graves.
+7. **Given** um item da lista de alertas que não é alerta de viagem (ex.: aviso de fraudes), **When** o mapa é exibido, **Then** nenhum país tem o nível alterado por ele.
 
 ---
 
 ### User Story 2 - Ver os detalhes de um país e onde buscar ajuda (Priority: P2)
 
-Ao tocar em um país, o mapa se aproxima dele e abre um painel com: bandeira e nome; nível de alerta com texto explicativo; regiões com alerta mais grave; link para o alerta original no gov.br, com a data; e a lista dos postos brasileiros no país (embaixadas, consulados e escritórios). Cada posto mostra o tipo e a cidade e pode ser expandido para mostrar endereço, telefone de plantão e um link "Abrir no Google Maps". Se o país não tem posto brasileiro, o painel indica qual posto, em outro país, atende quem está lá.
+Ao tocar em um país, o mapa se aproxima dele e abre um painel com: bandeira e nome; nível de alerta com texto explicativo; regiões com alerta mais grave; a lista de todos os alertas que citam o país, cada um com data e link para o original no gov.br; e a lista dos postos brasileiros no país (embaixadas, consulados e escritórios). Cada posto mostra o tipo e a cidade e pode ser expandido para mostrar endereço, telefone de plantão e um link "Abrir no Google Maps". Se o país não tem posto brasileiro, o painel indica qual posto, em outro país, atende quem está lá.
 
 **Why this priority**: transforma o panorama em informação acionável — o que fazer e a quem recorrer — e atende diretamente quem já está no exterior.
 
@@ -55,7 +61,7 @@ Ao tocar em um país, o mapa se aproxima dele e abre um painel com: bandeira e n
 **Acceptance Scenarios**:
 
 1. **Given** o mapa exibido, **When** o usuário toca em um país, **Then** o mapa se aproxima dele e abre o painel com bandeira, nome, nível de alerta e texto explicativo.
-2. **Given** um país com alerta, **When** o painel é aberto, **Then** mostra o link para o alerta original no gov.br com a data do alerta.
+2. **Given** um país citado por um ou mais alertas, **When** o painel é aberto, **Then** lista todos os alertas que o citam, cada um com data e link para o original no gov.br, e indica qual deles define o nível exibido (o mais recente).
 3. **Given** um país com região de alerta mais grave, **When** o painel é aberto, **Then** lista essas regiões e seu nível.
 4. **Given** um país com postos brasileiros, **When** o painel é aberto, **Then** lista cada posto com tipo e cidade, e ao expandir um posto mostra endereço, telefone de plantão e o link "Abrir no Google Maps".
 5. **Given** um país sem posto brasileiro e com posto responsável indicado, **When** o painel é aberto, **Then** informa qual posto, em qual país, atende quem está lá.
@@ -119,8 +125,12 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 
 - **Coleta falha, é parcial ou gov.br fora do ar**: nada muda; o site continua mostrando o resultado da última coleta completa, com a data dela; se tiver mais de 3 dias, mostra aviso de dados desatualizados.
 - **Nunca houve uma coleta completa**: todos os países aparecem como "não verificado" e o site informa que os dados ainda não foram obtidos.
-- **País com mais de um alerta**: a cor do país segue o mais grave entre os que valem para o país inteiro.
-- **Dependência com alerta específico**: o alerta da dependência prevalece sobre o nível herdado do país soberano.
+- **País com mais de um alerta**: a lista é um histórico; vale o alerta de viagem mais recente que cita o país, mesmo que um alerta anterior fosse mais grave.
+- **Dois alertas empatados como mais recentes** (mesma data e hora de modificação ou, na falta dela, mesma data de publicação): vale o nível mais grave.
+- **Alerta que cita vários países e regiões** (ex.: Oriente Médio: Irã, Israel, Sul do Líbano, Faixa de Gaza): cada país ou região recebe o nível próprio indicado no alerta.
+- **Alerta mais recente informa que a situação se normalizou**: o país fica "sem alerta", sem destaque de região; o painel continua listando os alertas anteriores, com as datas.
+- **Item da lista que não é alerta de viagem** (ex.: aviso de fraudes): não afeta o mapa.
+- **Dependência com alerta próprio**: a dependência segue o mais recente entre o seu alerta e o do país soberano; se o próprio alerta é mais antigo que o do soberano, vale o do soberano.
 - **País com alerta só para uma região**: o país fica "sem alerta" com o destaque de região, e o painel informa que o alerta vale só para aquela região.
 - **País sem posto e sem posto responsável indicado** (hoje, a Líbia): o painel orienta a procurar o Itamaraty.
 - **Posto sem endereço exato cadastrado**: o painel mostra a cidade, e o link do Google Maps leva à cidade.
@@ -139,19 +149,21 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 **Mapa e níveis (P1)**
 
 - **FR-001**: O sistema MUST exibir um mapa-múndi em que cada país tem a cor correspondente ao seu nível: sem alerta, evite viagens não essenciais, não viaje ou não verificado.
-- **FR-002**: O sistema MUST usar "não verificado" como nível padrão de qualquer país sem dado confirmado, e MUST NOT exibir "sem alerta" sem confirmação. Um país só conta como "sem alerta" quando não consta na lista de alertas da última coleta completa (FR-040); enquanto nunca tiver havido uma coleta completa, todos os países MUST aparecer como "não verificado".
+- **FR-002**: O sistema MUST usar "não verificado" como nível padrão de qualquer país sem dado confirmado, e MUST NOT exibir "sem alerta" sem confirmação. Um país só conta como "sem alerta" quando nenhum alerta de viagem da última coleta completa o cita ou quando o alerta mais recente que o cita informa que a situação se normalizou (FR-007 e FR-040); enquanto nunca tiver havido uma coleta completa, todos os países MUST aparecer como "não verificado".
 - **FR-003**: O sistema MUST exibir uma legenda que explica cada nível com texto, de modo que a informação não dependa só da cor.
 - **FR-004**: O sistema MUST dar destaque visual adicional a países com alerta para apenas uma região (mais grave que o nível do país, ou único alerta do país).
 - **FR-005**: O sistema MUST exibir a data da última atualização dos dados (a data da última coleta completa) e um aviso de que não é um serviço oficial, com link para o portal do Itamaraty.
 - **FR-006**: O sistema MUST deixar claro que ausência de alerta não significa que o governo recomenda a viagem.
-- **FR-007**: A cor do país MUST seguir o alerta mais grave entre os que valem para o país inteiro. Alertas regionais MUST NOT alterar a cor do país: aparecem só no destaque visual, no painel e no filtro. Se o país só tem alerta regional, ele fica "sem alerta" com o destaque de região, e o painel MUST informar que o alerta vale só para aquela região.
-- **FR-008**: Se não for possível determinar com segurança o nível de um alerta novo ou alterado (inclusive quando a página do alerta não foi lida), o sistema MUST mostrar o país como "não verificado", com link para o alerta original, até a próxima atualização. Para um alerta novo cuja página não foi lida, o país MUST ser identificado pelo título do alerta na lista de alertas.
+- **FR-007**: A lista de alertas do Portal Consular é um histórico, não uma lista de alertas em vigor. Para cada país, vale o alerta de viagem mais recente que o cita, considerando o nível para o país inteiro e as regiões. Um alerta pode citar vários países e regiões, cada um com seu nível. A cor do país MUST seguir o nível para o país inteiro desse alerta; os níveis regionais MUST aparecer só no destaque visual, no painel e no filtro, sem alterar a cor do país. Se esse alerta informa que a situação se normalizou, o país MUST ficar "sem alerta", sem destaque de região. Se o alerta só tem nível regional, o país fica "sem alerta" com o destaque de região, e o painel MUST informar que o alerta vale só para aquela região.
+- **FR-007a**: Itens da lista que não são alertas de viagem (ex.: aviso de fraudes) MUST NOT afetar o nível, o destaque nem o filtro de nenhum país.
+- **FR-007b**: O "mais recente" MUST ser definido pela data e hora da última modificação do alerta ou, na falta dela, pela data de publicação. Se ainda houver empate, MUST valer o nível mais grave.
+- **FR-008**: Se não for possível determinar com segurança o nível do alerta mais recente que cita o país, por ser novo ou alterado (inclusive quando a página do alerta não foi lida), o sistema MUST mostrar o país como "não verificado", com link para o alerta original, até a próxima atualização. Para um alerta novo cuja página não foi lida, o país MUST ser identificado pelo título do alerta na lista de alertas.
 - **FR-008a**: Se um alerta consta na lista com o mesmo link e a mesma data da última coleta completa, mas sua página não foi lida na coleta atual, o país MUST manter o nível anterior.
 
 **Detalhes do país e postos (P2)**
 
 - **FR-009**: Ao tocar em um país, o sistema MUST aproximar o mapa dele e abrir um painel com bandeira, nome, nível de alerta com texto explicativo e regiões com alerta mais grave.
-- **FR-010**: O painel MUST mostrar o link para o alerta original no gov.br e a data do alerta.
+- **FR-010**: O painel MUST listar todos os alertas de viagem que citam o país, cada um com data e link para o original no gov.br, e MUST indicar qual deles define o nível exibido (o mais recente).
 - **FR-011**: O painel MUST listar os postos brasileiros no país (embaixadas, consulados e escritórios), cada um com tipo e cidade, expansível para endereço, telefone de plantão e o link "Abrir no Google Maps".
 - **FR-012**: Para um posto sem endereço exato cadastrado, o painel MUST mostrar a cidade, e o link do Google Maps MUST levar à cidade.
 - **FR-013**: Para um país sem posto brasileiro, o painel MUST indicar qual posto, em outro país, atende quem está lá.
@@ -184,9 +196,9 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 
 - **FR-029**: O mapa MUST cobrir os 198 países da lista do Itamaraty, incluindo o Brasil, e todos MUST poder ser selecionados.
 - **FR-030**: O mapa MUST seguir a posição do Brasil sobre territórios: o Kosovo aparece como parte da Sérvia, com a observação de que o Brasil não reconhece a independência; tocar nele abre o painel da Sérvia com essa observação.
-- **FR-031**: Dependências (ex.: Groenlândia, territórios ultramarinos) MUST herdar o nível do país soberano e aparecer como "Nome (País)", com a própria bandeira. Quando houver alerta específico para a dependência, esse alerta MUST prevalecer sobre o nível herdado. A Guiana Francesa MUST aparecer separada da França, com o nível da França (salvo alerta específico).
+- **FR-031**: Dependências (ex.: Groenlândia, territórios ultramarinos) MUST seguir o nível do país soberano e aparecer como "Nome (País)", com a própria bandeira. A dependência MUST seguir o mais recente entre o seu alerta próprio e o alerta do país soberano (FR-007b); sem alerta próprio, segue o soberano. Ex.: se a dependência teve alerta de normalização em março e o soberano recebeu "não viaje" em maio, ela fica "não viaje"; se a ordem for a inversa, fica "sem alerta". A Guiana Francesa MUST aparecer separada da França, com o nível da França (salvo alerta próprio mais recente).
 - **FR-032**: Antártida, Saara Ocidental e outras áreas sem soberania reconhecida MUST aparecer neutras, sem nível.
-- **FR-033**: Taiwan MUST aparecer como "Taiwan (China)", sem bandeira, e seguir a regra das dependências do FR-031: herda o nível da China, exceto quando houver alerta específico para Taiwan, que então prevalece.
+- **FR-033**: Taiwan MUST aparecer como "Taiwan (China)", sem bandeira, e seguir a regra das dependências do FR-031: segue o mais recente entre o seu alerta próprio e o da China.
 - **FR-034**: As Malvinas MUST aparecer como parte da Argentina; ao tocá-las, o painel da Argentina MUST abrir com, no topo, a observação de que são administradas pelo Reino Unido e de que o Brasil apoia os direitos argentinos e defende a negociação entre os dois países.
 - **FR-035**: O painel de cada lugar com regra especial (Kosovo, Taiwan, Malvinas, Saara Ocidental, Antártida e dependências) MUST mostrar uma observação curta com link para a explicação "Sobre as fronteiras deste mapa".
 - **FR-036**: Ao lado da legenda, o sistema MUST oferecer o link "Sobre as fronteiras deste mapa", que abre uma explicação curta: o mapa segue a posição oficial do Brasil e lista os casos especiais.
@@ -207,8 +219,9 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 
 - **País ou território**: lugar selecionável no mapa. Atributos: nome, bandeira (exceto Taiwan), país soberano (para dependências), indicação de área neutra (sem nível), observação de fronteira quando aplicável.
 - **Nível de alerta**: um de sem alerta, evite viagens não essenciais, não viaje ou não verificado, com texto explicativo e ordem de gravidade.
-- **Alerta**: publicação do Itamaraty sobre um país. Atributos: nível, data, link para o original no gov.br e abrangência (país inteiro ou região). Um país pode ter vários alertas.
-- **Região de alerta**: parte de um país com alerta próprio, que não altera a cor do país (ex.: sul do Líbano, com nível mais grave que o do resto do país).
+- **Item da lista de alertas**: entrada do histórico do Portal Consular. Pode ser um alerta de viagem ou outro aviso (ex.: fraudes); só os alertas de viagem afetam o mapa.
+- **Alerta de viagem**: item da lista que trata de viagem a um ou mais países. Atributos: data de publicação, data e hora da última modificação (quando existir), link para o original no gov.br, e para cada país ou região citado, o nível e a indicação de que a situação se normalizou. Um alerta pode citar vários países e regiões, e um país pode ser citado por vários alertas; vale o mais recente.
+- **Região de alerta**: parte de um país com nível próprio no alerta mais recente, que não altera a cor do país (ex.: sul do Líbano, com nível mais grave que o do resto do país).
 - **Posto brasileiro**: embaixada, consulado ou escritório. Atributos: tipo, cidade, país, endereço (quando existir), telefone de plantão, localização para o Google Maps.
 - **Atendimento por outro posto**: relação entre um país sem posto próprio e o posto, em outro país, que atende quem está lá (pode não existir, como na Líbia).
 - **Coleta**: uma tentativa de obter os alertas, completa ou não (ver FR-040). Só a última coleta completa define os níveis exibidos, a data de atualização e o aviso de dados desatualizados.
@@ -229,8 +242,8 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 
 ## Assumptions
 
-- Os dados de postos brasileiros e de atendimento por outro posto já existem na pasta `arquivos_iniciais/dados/postos` (209 postos em 137 países ou territórios e 60 países atendidos por outro posto) e servem de ponto de partida; as localizações são do centro da cidade, não do endereço exato do posto.
-- Os níveis de alerta vêm das páginas públicas do Itamaraty no gov.br.
+- Os dados de postos brasileiros e de atendimento por outro posto já existem na pasta `dados/postos` (209 postos em 137 países ou territórios e 60 países atendidos por outro posto) e servem de ponto de partida; as localizações são do centro da cidade, não do endereço exato do posto.
+- Os níveis de alerta vêm das páginas públicas do Itamaraty no gov.br. A lista de alertas do Portal Consular é um histórico e inclui itens que não são alertas de viagem.
 - A atualização dos dados é feita automaticamente, pelo menos uma vez por dia, sem ação do usuário.
 - O site é de uso público, sem login, e todo o conteúdo está em português.
 - A legenda e o painel usam texto, e não só cor, para comunicar o nível (acessibilidade).
