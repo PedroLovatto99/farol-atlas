@@ -1,0 +1,16 @@
+# Segredos
+.env
+
+# Saída do testar_coleta.py
+amostras_coleta/
+resultado_coleta.json
+
+# Python
+__pycache__/
+.venv/
+venv/
+
+# Sistema e IDE
+.idea/
+Thumbs.db
+desktop.ini

@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa de alertas – globo</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.49.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.6.0/css/flag-icons.min.css">
+<style>
+  :root {
+    --espaco: #F4F3EE; --oceano: #DCE8F2; --marinho: #0C447C; --borda-vermelha: #A32D2D;
+    --texto: #1f1f1d; --texto-2: #5f5e5a; --fundo: #ffffff; --linha: #e6e4dc;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--texto); }
+  #mapa { position: absolute; inset: 0; background: var(--espaco); }
+
+  .aviso { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 5; max-width: calc(100% - 24px);
+    background: #FAEEDA; color: #633806; border: 1px solid #EF9F27; border-radius: 8px; padding: 6px 12px; font-size: 13px; text-align: center; }
+
+  .legenda { position: absolute; left: 12px; bottom: 12px; z-index: 5; background: var(--fundo); border: 1px solid var(--linha);
+    border-radius: 12px; padding: 10px 12px; font-size: 13px; line-height: 1.5; }
+  .legenda div { display: flex; align-items: center; gap: 8px; }
+  .legenda .cor { width: 18px; height: 12px; border-radius: 3px; flex: none; }
+
+  /* Marcadores */
+  .mk { display: flex; align-items: center; justify-content: center; border-radius: 50%; position: relative; cursor: pointer; }
+  .mk-embaixada { width: 32px; height: 32px; background: var(--marinho); border: 2px solid #fff; color: #fff; font-size: 17px; }
+  .mk-consulado { width: 28px; height: 28px; background: #fff; border: 2px solid var(--marinho); color: var(--marinho); font-size: 15px; }
+  .mk-escritorio { width: 24px; height: 24px; border-radius: 6px; background: #fff; border: 1.5px solid var(--marinho); color: var(--marinho); font-size: 13px; }
+  .mk-semposto { width: 28px; height: 28px; background: #fff; border: 2px dashed var(--marinho); color: var(--marinho); font-size: 15px; }
+  .mk .selo { position: absolute; top: -8px; right: -10px; background: #fff; color: var(--marinho); border: 1px solid var(--marinho);
+    border-radius: 8px; font-size: 10px; line-height: 14px; padding: 0 4px; font-weight: 600; }
+
+  .maplibregl-marker-covered { pointer-events: none; }   /* pontos do outro lado do globo: invisíveis e sem clique */
+
+  /* Painel: lateral no computador, gaveta no celular */
+  #painel { position: absolute; z-index: 6; background: var(--fundo); border: 1px solid var(--linha); overflow-y: auto;
+    top: 12px; right: 12px; bottom: 12px; width: 340px; border-radius: 16px; padding: 18px; transform: translateX(380px); transition: transform .3s ease; }
+  #painel.aberto { transform: none; }
+  @media (max-width: 700px) {
+    #painel { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 55vh; border-radius: 16px 16px 0 0; transform: translateY(105%); }
+    .legenda { font-size: 12px; padding: 8px 10px; }
+  }
+  .aviso .curto { display: none; }
+  @media (max-width: 700px) {
+    .aviso { font-size: 12px; padding: 5px 10px; white-space: nowrap; }
+    .aviso .longo { display: none; } .aviso .curto { display: inline; }
+    .legenda { bottom: 44px; }
+  }
+  /* No computador, os controles do mapa saem de baixo do painel aberto */
+  .maplibregl-ctrl-bottom-right { transition: right .3s ease; }
+  @media (min-width: 701px) { body.painel-aberto .maplibregl-ctrl-bottom-right { right: 364px; } }
+  @media (prefers-reduced-motion: reduce) { #painel, .maplibregl-ctrl-bottom-right { transition: none; } }
+  #painel h2 { margin: 0 0 6px; font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 10px; padding-right: 112px; line-height: 1.25; }
+  #painel h2 .fi { flex: none; width: 28px; height: 21px; border-radius: 3px; background-size: cover; box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); }
+  #painel h3 { margin: 18px 0 8px; font-size: 14px; font-weight: 600; color: var(--texto-2); }
+  #painel .chip { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 600; }
+  #painel .chip.sem_alerta { background: #EAF3DE; color: #27500A; }
+  #painel .chip.evitar { background: #FAEEDA; color: #633806; }
+  #painel .chip.nao_viajar { background: #FCEBEB; color: #791F1F; }
+  #painel .chip.nao_verificado { background: #F1EFE8; color: #444441; }
+  #painel ul { list-style: none; margin: 0; padding: 0; }
+  #painel li { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--linha); font-size: 14px; }
+  #painel li i { color: var(--marinho); font-size: 18px; }
+  #painel .nota { font-size: 13px; color: var(--texto-2); margin: 8px 0 0; }
+  #painel li.posto { display: block; padding: 0; }
+  #painel details summary { display: flex; gap: 10px; align-items: center; padding: 10px 0; cursor: pointer; list-style: none; }
+  #painel details summary::-webkit-details-marker { display: none; }
+  #painel details .seta { margin-left: auto; color: var(--texto-2); font-size: 16px; transition: transform .2s; }
+  #painel details[open] .seta { transform: rotate(180deg); }
+  #painel .detalhe { padding: 0 0 12px 28px; font-size: 13px; color: var(--texto-2); }
+  #painel .detalhe p { margin: 0 0 8px; }
+  #painel .detalhe a { display: inline-flex; align-items: center; gap: 6px; color: var(--marinho); font-weight: 600; text-decoration: none;
+    border: 1px solid var(--linha); border-radius: 8px; padding: 6px 10px; }
+  #painel .detalhe a:hover { background: #E6F1FB; }
+  #fechar { position: absolute; top: 12px; right: 12px; border: 1px solid var(--linha); background: #fff; border-radius: 8px;
+    padding: 4px 10px; font-size: 13px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="mapa"></div>
+<div class="aviso"><span class="longo">Alertas de exemplo, baseados no alerta consular de julho de 2026. Não use como informação atual.</span><span class="curto">Alertas de exemplo. Não use como informação atual.</span></div>
+
+<div class="legenda">
+  <div><span class="cor" style="background:#C0DD97"></span>Sem alerta do Itamaraty</div>
+  <div><span class="cor" style="background:#FAC775"></span>Evite viagens não essenciais</div>
+  <div><span class="cor" style="background:#E24B4A"></span>Não viaje</div>
+  <div><span class="cor" style="background:#D3D1C7"></span>Ainda não verificado</div>
+  <div><span class="cor" style="background:#FAC775;outline:2.5px solid #A32D2D;outline-offset:-2.5px"></span>Região mais grave</div>
+</div>
+
+<aside id="painel" aria-live="polite">
+  <button id="fechar"><i class="ti ti-world"></i> Ver mundo</button>
+  <div id="conteudo"></div>
+</aside>
+
+<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+<script>
+const DADOS = __DADOS__;
+
+// ------------------------------------------------------------------ Configuração
+const ZOOM_MARCADORES = 3.5;   // a partir deste zoom, todos os marcadores aparecem
+const REDUZIR_MOVIMENTO = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const CELULAR = () => innerWidth <= 700;
+const VISAO_MUNDO = () => ({ center: [25, 18], zoom: CELULAR() ? 0.85 : 1.75 });
+const NIVEIS = {
+  sem_alerta:     { hex: "#C0DD97", rotulo: "Sem alerta do Itamaraty", texto: "Precauções normais de viagem." },
+  evitar:         { hex: "#FAC775", rotulo: "Evite viagens não essenciais", texto: "Viaje só se for necessário." },
+  nao_viajar:     { hex: "#E24B4A", rotulo: "Não viaje", texto: "O Itamaraty desaconselha viagens." },
+  nao_verificado: { hex: "#D3D1C7", rotulo: "Ainda não verificado", texto: "Ainda não conferimos as páginas do Itamaraty sobre este país." },
+};
+const NIVEL_PADRAO = "nao_verificado";   // país sem dado nenhum: cinza, nunca verde
+const GRAVIDADE = { nao_verificado: -1, sem_alerta: 0, evitar: 1, nao_viajar: 2 };
+// Bandeira ao lado do nome. Territórios sem bandeira por decisão de critério (visão do Brasil):
+const SEM_BANDEIRA = new Set(["TW"]);   // Taiwan: o Itamaraty trata como "Taiwan (China)"
+function bandeira(iso) {
+  if (!iso || SEM_BANDEIRA.has(iso)) return "";
+  return `<span class="fi fi-${iso.toLowerCase()}" aria-hidden="true"></span>`;
+}
+const ORDEM_TIPO = ["Embaixada", "Consulado-Geral", "Consulado", "Vice-Consulado", "Escritório de Representação", "Escritório Comercial"];
+
+// ------------------------------------------------------------------ Cor de cada país calculada antes de desenhar
+function alertaDe(iso) { return DADOS.alertas[iso] || { nivel: NIVEL_PADRAO }; }
+function bordaRegional(alerta) {
+  const piores = (alerta.regioes || []).filter(r => GRAVIDADE[r.nivel] > GRAVIDADE[alerta.nivel]);
+  if (!piores.length) return null;
+  return piores.some(r => r.nivel === "nao_viajar") ? "#A32D2D" : "#854F0B";
+}
+DADOS.paises.features.forEach(f => {
+  const p = f.properties;
+  if (p.tipo === "neutro") { p.cor = "#F1EFE8"; return; }
+  const alerta = alertaDe(p.iso_mapa);
+  p.cor = NIVEIS[alerta.nivel].hex;
+  const borda = bordaRegional(alerta);
+  if (borda) p.borda_regional = borda;
+});
+
+// ------------------------------------------------------------------ Mapa em globo, sem mapa de fundo
+const mapa = new maplibregl.Map({
+  container: "mapa",
+  ...VISAO_MUNDO(),
+  attributionControl: false,
+  style: {
+    version: 8,
+    sources: {
+      paises: { type: "geojson", data: DADOS.paises },
+      linha: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
+    },
+    layers: [
+      { id: "oceano", type: "background", paint: { "background-color": "#DCE8F2" } },
+      { id: "paises", type: "fill", source: "paises", paint: { "fill-color": ["get", "cor"] } },
+      { id: "fronteiras", type: "line", source: "paises", paint: { "line-color": "#ffffff", "line-width": 0.6 } },
+      { id: "regional", type: "line", source: "paises", filter: ["has", "borda_regional"],
+        paint: { "line-color": ["get", "borda_regional"], "line-width": 2.5 } },
+      { id: "selecao", type: "line", source: "paises", filter: ["==", ["get", "iso_mapa"], "__nenhum__"],
+        paint: { "line-color": "#1f1f1d", "line-width": 2 } },
+      { id: "linha-responsavel", type: "line", source: "linha",
+        paint: { "line-color": "#0C447C", "line-width": 2, "line-dasharray": [3, 3] } },
+    ],
+  },
+});
+mapa.on("style.load", () => mapa.setProjection({ type: "globe" }));
+mapa.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+mapa.addControl(new maplibregl.AttributionControl({ compact: true,
+  customAttribution: "Fronteiras: Natural Earth (visão do Brasil) · Postos: Wikipédia e Itamaraty" }), CELULAR() ? "bottom-left" : "bottom-right");
+
+// Clique e cursor nos países (áreas neutras não respondem)
+mapa.on("click", "paises", e => {
+  const p = e.features[0].properties;
+  if (p.tipo !== "neutro") selecionar(p);
+});
+mapa.on("mousemove", "paises", e => {
+  mapa.getCanvas().style.cursor = e.features[0].properties.tipo === "neutro" ? "" : "pointer";
+});
+mapa.on("mouseleave", "paises", () => { mapa.getCanvas().style.cursor = ""; });
+
+// ------------------------------------------------------------------ Enquadramento: só a maior parte de cada território
+function maiorParte(geom) {
+  const partes = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+  const area = anel => Math.abs(anel.reduce((s, [x1, y1], i) => {
+    const [x2, y2] = anel[(i + 1) % anel.length]; return s + x1 * y2 - x2 * y1; }, 0) / 2);
+  return partes.reduce((a, b) => area(b[0]) > area(a[0]) ? b : a);
+}
+function enquadramento(zoomGrupo) {
+  let caixa = null;
+  DADOS.paises.features.forEach(f => {
+    if (f.properties.zoom !== zoomGrupo) return;
+    maiorParte(f.geometry)[0].forEach(([x, y]) => {
+      caixa = caixa ? [Math.min(caixa[0], x), Math.min(caixa[1], y), Math.max(caixa[2], x), Math.max(caixa[3], y)] : [x, y, x, y];
+    });
+  });
+  return caixa && [[caixa[0], caixa[1]], [caixa[2], caixa[3]]];
+}
+
+// ------------------------------------------------------------------ Marcadores
+function elementoPosto(grupo) {
+  const tipos = grupo.postos.map(p => p.tipo).sort((a, b) => ORDEM_TIPO.indexOf(a) - ORDEM_TIPO.indexOf(b));
+  const principal = tipos[0];
+  const classe = principal === "Embaixada" ? "mk-embaixada" : principal.startsWith("Escritório") ? "mk-escritorio" : "mk-consulado";
+  const icone = principal === "Embaixada" ? "ti-building-bank" : principal.startsWith("Escritório") ? "ti-briefcase" : "ti-building";
+  // O elemento externo é posicionado pelo MapLibre; o desenho fica dentro dele
+  const el = document.createElement("div");
+  el.innerHTML = `<div class="mk ${classe}"><i class="ti ${icone}"></i>` + (tipos.length > 1 ? `<span class="selo">+${tipos.length - 1}</span>` : "") + `</div>`;
+  return el;
+}
+function elementoSemPosto() {
+  const el = document.createElement("div");
+  el.innerHTML = `<div class="mk mk-semposto"><i class="ti ti-map-pin-share"></i></div>`;
+  return el;
+}
+
+const marcadores = [];   // { marcador, isos, visivel }
+function criarMarcador(el, lon, lat, isos) {
+  const item = { marcador: new maplibregl.Marker({ element: el, anchor: "center", opacityWhenCovered: 0 }).setLngLat([lon, lat]), isos, visivel: false };
+  el.addEventListener("click", e => { e.stopPropagation(); selecionar({ iso_mapa: isos[0], zoom: isos[0] }); });
+  marcadores.push(item);
+}
+DADOS.marcadores.forEach(g => criarMarcador(elementoPosto(g), g.lon, g.lat, [...new Set(g.postos.map(p => p.pais_iso))]));
+DADOS.sem_posto.forEach(s => criarMarcador(elementoSemPosto(), s.lon, s.lat, [s.pais_iso]));
+
+let selecao = null;
+function atualizarMarcadores() {
+  const zoomAlto = mapa.getZoom() >= ZOOM_MARCADORES;
+  marcadores.forEach(m => {
+    const mostrar = zoomAlto || (selecao && m.isos.includes(selecao));
+    if (mostrar && !m.visivel) { m.marcador.addTo(mapa); m.visivel = true; }
+    if (!mostrar && m.visivel) { m.marcador.remove(); m.visivel = false; }
+  });
+}
+mapa.on("zoomend", atualizarMarcadores);
+
+// ------------------------------------------------------------------ Seleção e painel
+const painel = document.getElementById("painel");
+const conteudo = document.getElementById("conteudo");
+
+function nomePais(iso) {
+  const f = DADOS.paises.features.find(x => x.properties.iso_mapa === iso && x.properties.tipo === "pais");
+  return f ? f.properties.titulo : iso;
+}
+
+function selecionar(props) {
+  const iso = props.iso_mapa;
+  selecao = iso;
+  mapa.setFilter("selecao", ["==", ["get", "iso_mapa"], iso]);
+
+  const semPosto = DADOS.sem_posto.find(s => s.pais_iso === iso);
+  const linha = semPosto && semPosto.responsavel
+    ? [{ type: "Feature", geometry: { type: "LineString", coordinates: [[semPosto.lon, semPosto.lat], [semPosto.responsavel.lon, semPosto.responsavel.lat]] } }]
+    : [];
+  mapa.getSource("linha").setData({ type: "FeatureCollection", features: linha });
+
+  let limites = enquadramento(props.zoom || iso);
+  if (limites && semPosto && semPosto.responsavel) {
+    const { lon, lat } = semPosto.responsavel;
+    const junto = [[Math.min(limites[0][0], lon), Math.min(limites[0][1], lat)], [Math.max(limites[1][0], lon), Math.max(limites[1][1], lat)]];
+    if (junto[1][0] - junto[0][0] < 180) limites = junto;   // no Pacífico, juntar daria a volta ao mundo
+  }
+  if (limites) {
+    const padding = CELULAR()
+      ? { top: 60, left: 20, right: 20, bottom: innerHeight * 0.55 }
+      : { top: 60, left: 20, right: 380, bottom: 20 };
+    mapa.fitBounds(limites, { padding, maxZoom: 5.5, duration: REDUZIR_MOVIMENTO ? 0 : 1600 });
+  }
+  atualizarMarcadores();
+  mostrarPainel(props, semPosto);
+}
+
+function mostrarPainel(props, semPosto) {
+  const iso = props.iso_mapa;
+  if (iso === "BR") {
+    conteudo.innerHTML = `<h2>${bandeira("BR")}<span>Brasil</span></h2><p class="nota">Toque em outro país para ver o alerta e onde fica a representação brasileira mais próxima.</p>`;
+    painel.classList.add("aberto");
+    document.body.classList.add("painel-aberto");
+    return;
+  }
+  const alerta = alertaDe(iso);
+  const nivel = NIVEIS[alerta.nivel];
+  const titulo = props.tipo === "dependencia" ? props.titulo : nomePais(iso);
+
+  // Dependência mostra a própria bandeira; país (inclusive Kosovo → Sérvia) mostra a do país
+  const isoBandeira = props.tipo === "dependencia" ? props.iso_original : iso;
+  let html = `<h2>${bandeira(isoBandeira)}<span>${titulo}</span></h2><span class="chip ${alerta.nivel}">${nivel.rotulo}</span><p class="nota">${nivel.texto}</p>`;
+  if (props.obs) html += `<p class="nota">${props.obs}</p>`;
+  if (props.tipo === "dependencia") html += `<p class="nota">Território sob responsabilidade de ${nomePais(iso)}. Segue o alerta e o atendimento de lá.</p>`;
+
+  if (alerta.regioes && alerta.regioes.length) {
+    html += `<h3>Alertas regionais</h3><ul>` + alerta.regioes.map(r =>
+      `<li><i class="ti ti-alert-triangle"></i><span><b>${r.regiao}:</b> ${NIVEIS[r.nivel].rotulo}</span></li>`).join("") + `</ul>`;
+  }
+
+  html += `<h3>Representação brasileira</h3>`;
+  if (semPosto) {
+    html += semPosto.responsavel
+      ? `<p class="nota">Sem posto no país. O atendimento é feito por:</p><ul>${itemPosto(semPosto.responsavel.tipo, semPosto.responsavel.cidade, semPosto.responsavel.pais)}</ul>`
+      : `<ul><li><i class="ti ti-map-pin-off"></i><span>Sem posto no país e sem posto indicado na lista oficial.</span></li></ul>`;
+  } else {
+    const lista = DADOS.marcadores.flatMap(g => g.postos.filter(p => p.pais_iso === iso).map(p => ({ ...p, cidade: g.cidade })))
+      .sort((a, b) => ORDEM_TIPO.indexOf(a.tipo) - ORDEM_TIPO.indexOf(b.tipo));
+    html += lista.length
+      ? `<ul>` + lista.map(p => itemPosto(p.tipo, p.cidade, p.pais)).join("") + `</ul>`
+      : `<p class="nota">Nenhum posto encontrado.</p>`;
+  }
+
+  html += `<h3>Notícias</h3><p class="nota">Em breve: as 5 notícias mais recentes sobre o país.</p>`;
+  conteudo.innerHTML = html;
+  painel.classList.add("aberto");
+  document.body.classList.add("painel-aberto");
+}
+
+// Um posto na lista: toca para abrir o endereço e o link do Google Maps
+function itemPosto(tipo, cidade, pais) {
+  const icone = tipo === "Embaixada" ? "ti-building-bank" : tipo.startsWith("Escritório") ? "ti-briefcase" : "ti-building";
+  const busca = encodeURIComponent(`${tipo} do Brasil, ${cidade}, ${pais}`);
+  return `<li class="posto"><details>
+    <summary><i class="ti ${icone}"></i><span>${tipo} em ${cidade}</span><i class="ti ti-chevron-down seta"></i></summary>
+    <div class="detalhe">
+      <p>Endereço ainda não cadastrado.</p>
+      <a href="https://www.google.com/maps/search/?api=1&query=${busca}" target="_blank" rel="noopener">
+        <i class="ti ti-map-2"></i>Abrir no Google Maps</a>
+    </div>
+  </details></li>`;
+}
+
+function verMundo() {
+  selecao = null;
+  mapa.setFilter("selecao", ["==", ["get", "iso_mapa"], "__nenhum__"]);
+  mapa.getSource("linha").setData({ type: "FeatureCollection", features: [] });
+  painel.classList.remove("aberto");
+  document.body.classList.remove("painel-aberto");
+  mapa.flyTo({ ...VISAO_MUNDO(), duration: REDUZIR_MOVIMENTO ? 0 : 1400 });
+  atualizarMarcadores();
+}
+document.getElementById("fechar").addEventListener("click", verMundo);
+document.addEventListener("keydown", e => { if (e.key === "Escape") verMundo(); });
+</script>
+</body>
+</html>
