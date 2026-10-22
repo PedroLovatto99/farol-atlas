@@ -1,50 +1,150 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Relatório de Impacto da Sincronização
+- Mudança de versão: (modelo sem versão) → 1.0.0
+- Princípios: todos novos (I a VIII); os 5 espaços do modelo foram ampliados para 8
+- Seções adicionadas: Idioma e Convenções; Governança
+- Seções removidas: nenhuma
+- Modelos:
+  ✅ .specify/templates/tasks-template.md — testes deixaram de ser opcionais (Princípio II)
+  ✅ .specify/templates/plan-template.md — "Constitution Check" já deriva os critérios deste arquivo
+  ✅ .specify/templates/spec-template.md — sem mudança necessária
+- TODOs pendentes: nenhum
+-->
+# Constituição do Farol Atlas
 
-## Core Principles
+Site pessoal e **não oficial** que mostra num mapa-múndi a situação de viagem de cada país para
+brasileiros, a partir dos alertas do Itamaraty, com um chat que responde perguntas sobre esses
+alertas. Backend em Python (FastAPI); frontend em TypeScript (React + Vite). Bibliotecas e versões
+são definidas no plano.
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+As palavras MUST, MUST NOT e SHOULD seguem a RFC 2119.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+## Princípios Fundamentais
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### I. Qualidade verificada por ferramenta
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+- Todo código Python MUST ter type hints; lint, formatação e checagem de tipos MUST passar sem erros.
+- O TypeScript MUST usar `strict: true`. `any`, implícito ou explícito, MUST NOT ser usado; usar
+  `unknown` e validar.
+- Nenhuma mudança MUST ser aceita se lint, tipos ou testes falharem.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+**Justificativa**: ferramentas pegam defeitos de forma barata e igual para todos; revisão humana
+não é o filtro principal.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### II. Testes antes do código (TDD)
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- Toda regra de negócio, rota da API e extração de dados MUST começar por um teste que falha.
+- Testes MUST NOT acessar a internet: páginas do gov.br vêm de arquivos salvos e o LLM é
+  substituído por um modelo falso.
+- Na interface, testes MUST verificar comportamento (o que o usuário vê e faz), não aparência.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+**Justificativa**: a coleta depende de páginas externas instáveis; testes determinísticos e
+offline são a única forma de detectar regressões na extração.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### III. Arquitetura
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+**Backend**
+- MUST ser um monolito modular organizado por domínio. Um módulo MUST importar apenas a interface
+  pública de módulos das camadas abaixo dele, e isso MUST ser conferido automaticamente.
+- Cada responsabilidade MUST ter sua camada: rotas (controllers) recebem a requisição e devolvem a
+  resposta; serviços contêm as regras de negócio e não conhecem HTTP; repositórios são os únicos
+  que acessam o banco; a configuração do banco MUST ficar num único lugar.
+- Rotas MUST NOT acessar o banco nem conter regra de negócio.
+- Entradas e saídas da API MUST ser DTOs Pydantic; nenhuma rota devolve objetos do banco. Os tipos
+  do frontend MUST ser gerados a partir do OpenAPI da API.
+- O backend MUST devolver apenas JSON e MUST NOT gerar HTML nem CSS. Ler HTML na coleta é permitido.
+- Consultas que devolvem listas MUST carregar os relacionamentos de uma vez (sem N+1: nunca uma
+  consulta por item dentro de um laço). Rotas de lista MUST ter teste que limita o número de
+  consultas ao banco.
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+**Frontend**
+- MUST ser organizado por funcionalidade (mapa, painel, chat), com componentes pequenos e de
+  responsabilidade única.
+- Componentes MUST NOT conter regra de negócio nem chamar a API diretamente: recebem dados prontos
+  por props, vindos de hooks ou serviços.
+- MUST NOT fazer uma requisição por país: o mapa recebe seus dados numa única chamada.
+- A biblioteca do mapa MUST ficar isolada atrás de uma interface própria; trocá-la não pode exigir
+  mudança em outros componentes.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Justificativa**: fronteiras claras mantêm o projeto pequeno, testável e fácil de trocar peças
+(banco, biblioteca de mapa) sem reescrever o resto.
+
+### IV. Coleta responsável
+
+- A coleta MUST respeitar o `robots.txt`, usar User-Agent honesto com contato e pausar entre
+  requisições.
+- A coleta MUST NOT contornar CAPTCHA, verificação humana ou bloqueio; se acontecer, MUST parar e
+  registrar o motivo.
+
+**Justificativa**: o projeto depende da boa vontade de sites públicos e não pode sobrecarregá-los
+nem burlar suas proteções.
+
+### V. Informação confiável
+
+- Sem dado confirmado, o sistema MUST mostrar "não verificado" e MUST NOT mostrar o estado mais
+  favorável.
+- Toda informação exibida MUST mostrar a fonte e a data da coleta, e o site MUST avisar que não é
+  oficial.
+- O chat MUST responder apenas com base nos documentos coletados, citar as fontes e dizer quando
+  não sabe.
+
+**Justificativa**: decisões de viagem têm risco real; um falso "tudo bem" é pior que admitir
+incerteza.
+
+### VI. Acessível e pensado para o celular
+
+- Toda tela MUST funcionar no celular.
+- Cor MUST NOT ser a única forma de transmitir informação; usar também texto, legenda ou ícone.
+- A interface MUST respeitar `prefers-reduced-motion`.
+
+**Justificativa**: o mapa depende fortemente de cor e animação, e o acesso é majoritariamente
+móvel.
+
+### VII. Simples e gratuito de operar
+
+- O sistema inteiro MUST subir com `docker compose`.
+- MUST usar apenas serviços com plano gratuito; nenhuma dependência paga é obrigatória.
+- O modelo de LLM MUST ser configurável, e o chat MUST continuar respondendo se o provedor
+  principal falhar.
+
+**Justificativa**: é um projeto pessoal sem orçamento; operar barato e sem dependência de um único
+fornecedor garante que continue no ar.
+
+### VIII. Segurança
+
+- Chaves e senhas MUST ficar apenas em variáveis de ambiente do servidor, nunca no repositório nem
+  no frontend. Toda chamada ao LLM MUST sair do backend.
+- Rotas públicas MUST ser de leitura, exceto a pergunta do chat. Qualquer rota que altere dados
+  (como a futura administração) MUST exigir autenticação.
+- O chat MUST ter limite de perguntas por IP, tamanho máximo de pergunta e tempo máximo de resposta.
+- Toda entrada MUST ser validada com Pydantic. Consultas ao banco MUST usar parâmetros; MUST NOT
+  montar SQL com texto do usuário.
+- Textos externos (alertas coletados, Wikipédia, respostas do LLM) MUST ser tratados como dados: o
+  frontend MUST NOT inseri-los como HTML sem sanitizar, e o chat MUST NOT seguir instruções contidas
+  neles.
+- O CORS MUST aceitar apenas o domínio do frontend. Banco e Chroma MUST NOT ficar expostos na
+  internet, apenas na rede interna do Docker.
+- Dados pessoais MUST ser limitados ao necessário: perguntas do chat MUST NOT ficar associadas ao IP
+  de quem perguntou.
+- As dependências MUST ser conferidas contra vulnerabilidades conhecidas a cada mudança.
+
+**Justificativa**: o chat é público e repassa texto externo a um LLM; sem essas barreiras, abre-se
+espaço para abuso, vazamento de chaves e injeção de instruções.
+
+## Idioma e Convenções
+
+Interface, documentação, comentários e nomes no código MUST ser em português. Termos técnicos
+consagrados podem ficar em inglês.
+
+## Governança
+
+- Esta constituição prevalece sobre outras práticas do projeto. Planos (`plan.md`) MUST passar pelo
+  "Constitution Check" contra estes princípios; qualquer violação MUST ser justificada na tabela de
+  Complexity Tracking.
+- Emendas exigem alteração deste arquivo, atualização do Relatório de Impacto e propagação aos
+  modelos em `.specify/templates/`.
+- Versionamento semântico: MAJOR para remoção ou redefinição incompatível de princípio; MINOR para
+  novo princípio ou ampliação material; PATCH para esclarecimentos e correções de redação.
+- Toda revisão de mudança MUST verificar a conformidade com os princípios acima.
+
+**Versão**: 1.0.0 | **Ratificada em**: 2026-10-22 | **Última emenda**: 2026-10-22
