@@ -166,7 +166,7 @@ components:
       type: object
       required:
         [codigo, nome, tipo, soberano, bandeira, identidade_do_soberano, nivel, regioes, observacao,
-         observacao_no_topo, eh_brasil, alertas, postos, posto_responsavel, sem_posto_indicado]
+         observacao_no_topo, eh_brasil, alertas, postos, posto_responsavel, sem_posto_indicado, fonte_postos]
       properties:
         codigo: { type: string }
         nome: { type: string }
@@ -205,6 +205,11 @@ components:
         sem_posto_indicado:
           type: boolean
           description: Verdadeiro se não há posto nem posto responsável (FR-014).
+        fonte_postos:
+          description: Fonte e data dos dados de postos, para a linha abaixo da lista (FR-011a). Nulo quando o painel não lista nenhum posto (Brasil e Líbia).
+          anyOf:
+            - { $ref: "#/components/schemas/FontePostos" }
+            - { type: "null" }
     AlertaDoPais:
       type: object
       required: [titulo, url, publicado_em, modificado_em, define_nivel, situacao_normalizada]
@@ -229,6 +234,20 @@ components:
         telefone_plantao: { type: [string, "null"] }
         contato_coletado_em: { type: [string, "null"], format: date-time }
         contato_fonte_url: { type: [string, "null"], format: uri }
+    FontePostos:
+      type: object
+      required: [conferido_em, fontes]
+      properties:
+        conferido_em: { type: string, format: date }
+        fontes:
+          type: array
+          items:
+            type: object
+            required: [nome, url]
+            properties:
+              nome: { type: string, examples: ["Itamaraty", "Wikipédia"] }
+              url: { type: string, format: uri }
+              licenca: { type: [string, "null"], examples: ["CC BY-SA"] }
     Saude:
       type: object
       required: [banco, ultima_coleta_completa_em, ultima_tentativa_em, alertas_pendentes]

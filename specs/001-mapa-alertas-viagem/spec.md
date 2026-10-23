@@ -27,6 +27,11 @@
 - Q: Ao tocar num ícone compartilhado por dois postos, qual abre expandido? → A: Os dois postos abrem expandidos, e o ícone compartilhado fica em destaque.
 - Q: O ícone destacado aparece com o mapa afastado (abaixo do zoom dos ícones)? → A: Sim, em qualquer nível de zoom; o mapa não se aproxima só por causa do destaque. Ele só se move se o ícone estiver fora da área visível.
 - Q: Tocar num ícone de posto com o painel de outro país aberto? → A: O painel troca para o país do posto tocado, com o posto já expandido. O enquadramento do mapa não muda, porque o ícone tocado já está à vista.
+- Q: Como o painel mostra a fonte dos dados dos postos (princípio V)? → A: Abaixo da lista de postos, uma linha com a fonte e a data dos dados, com links: "Postos: Itamaraty e Wikipédia (CC BY-SA), conferidos em 21/10/2026". Isso também cumpre a atribuição da licença da Wikipédia. A fonte e a data ficam guardadas nos dados do seed e a linha se atualiza quando os CSVs mudam. Endereço e telefone continuam com a própria fonte e data.
+- Q: Um alerta novo ou alterado lido numa coleta incompleta vale para o nível? → A: Não. O nível só usa alertas confirmados por uma coleta completa; até lá vale o que a última coleta completa confirmou.
+- Q: O que acontece com Saara Ocidental e Antártida no FR-035? → A: Saem do FR-035. A explicação delas fica só em "Sobre as fronteiras deste mapa". Áreas neutras continuam sem painel.
+- Q: Como Kosovo e Malvinas aparecem e são encontrados? → A: São um caso especial das dependências: usam o nome, a bandeira e o painel do soberano (Sérvia e Argentina), nunca uma bandeira própria, com a observação no topo. A busca encontra "Kosovo" e "Malvinas" e abre o painel do soberano.
+- Q: Como abrem "Sobre" e "Sobre as fronteiras deste mapa"? → A: Como modal, sem roteador.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -143,7 +148,7 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 
 ### Edge Cases
 
-- **Coleta falha, é parcial ou gov.br fora do ar**: nada muda; o site continua mostrando o resultado da última coleta completa, com a data dela; se tiver mais de 3 dias, mostra aviso de dados desatualizados.
+- **Coleta falha, é parcial ou gov.br fora do ar**: nada muda; o site continua mostrando o resultado da última coleta completa, com a data dela; se tiver mais de 3 dias, mostra aviso de dados desatualizados. Alertas novos ou alterados lidos nessa coleta só valem depois de confirmados por uma coleta completa.
 - **Nunca houve uma coleta completa**: todos os países aparecem como "não verificado" e o site informa que os dados ainda não foram obtidos.
 - **País com mais de um alerta**: a lista é um histórico; vale o alerta de viagem mais recente que cita o país, mesmo que um alerta anterior fosse mais grave.
 - **Dois alertas empatados como mais recentes** (mesma data e hora de modificação ou, na falta dela, mesma data de publicação): vale o nível mais grave.
@@ -189,6 +194,7 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 - **FR-009**: Ao tocar em um país, o sistema MUST aproximar o mapa dele e abrir um painel com bandeira, nome, nível de alerta com texto explicativo e regiões com alerta mais grave.
 - **FR-010**: O painel MUST listar todos os alertas de viagem que citam o país, cada um com data e link para o original no gov.br, e MUST indicar qual deles define o nível exibido (o mais recente).
 - **FR-011**: O painel MUST listar os postos brasileiros no país (embaixadas, consulados e escritórios), cada um com tipo e cidade, expansível para endereço, telefone de plantão e o link "Abrir no Google Maps".
+- **FR-011a**: Abaixo da lista de postos, o painel MUST mostrar uma linha com a fonte e a data dos dados dos postos, com links, no formato "Postos: Itamaraty e Wikipédia (CC BY-SA), conferidos em 21/10/2026". A linha MUST vir de fonte e data guardadas nos dados do seed, para se atualizar quando os CSVs mudarem, e MUST NOT aparecer quando o painel não lista nenhum posto (Brasil e Líbia). Endereço e telefone, quando existirem, MUST continuar mostrando a própria fonte e a data da coleta.
 - **FR-012**: Para um posto sem endereço exato cadastrado, o painel MUST mostrar a cidade, e o link do Google Maps MUST levar à cidade.
 - **FR-013**: Para um país sem posto brasileiro, o painel MUST indicar qual posto, em outro país, atende quem está lá.
 - **FR-014**: Para um país sem posto e sem posto responsável indicado (hoje, a Líbia), o painel MUST orientar a procurar o Itamaraty.
@@ -211,7 +217,7 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 **Busca (P4)**
 
 - **FR-019**: O sistema MUST oferecer um campo de busca que sugere países enquanto o usuário digita.
-- **FR-020**: A busca MUST ignorar acentos e maiúsculas e MUST encontrar também territórios e dependências (ex.: Groenlândia).
+- **FR-020**: A busca MUST ignorar acentos e maiúsculas e MUST encontrar também territórios e dependências (ex.: Groenlândia). A busca MUST encontrar "Kosovo" e "Malvinas" pelos nomes próprios e abrir o painel do soberano (FR-030 e FR-034).
 - **FR-021**: Ao escolher um resultado, o sistema MUST levar o mapa até o país e abrir o painel, como no toque.
 - **FR-022**: Em busca sem resultado, o sistema MUST mostrar uma mensagem e MUST NOT mover o mapa.
 - **FR-023**: Todo país, inclusive os muito pequenos (Vaticano, Mônaco), MUST ser alcançável pela busca.
@@ -227,20 +233,20 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 **Regras do mapa**
 
 - **FR-029**: O mapa MUST cobrir os 198 países da lista do Itamaraty, incluindo o Brasil, e todos MUST poder ser selecionados.
-- **FR-030**: O mapa MUST seguir a posição do Brasil sobre territórios: o Kosovo aparece como parte da Sérvia, com a observação de que o Brasil não reconhece a independência; tocar nele abre o painel da Sérvia com essa observação.
-- **FR-031**: Dependências (ex.: Groenlândia, territórios ultramarinos) MUST seguir o nível do país soberano e aparecer como "Nome (País)", com a própria bandeira. A dependência MUST seguir o mais recente entre o seu alerta próprio e o alerta do país soberano (FR-007b); sem alerta próprio, segue o soberano. Ex.: se a dependência teve alerta de normalização em março e o soberano recebeu "não viaje" em maio, ela fica "não viaje"; se a ordem for a inversa, fica "sem alerta". A Guiana Francesa MUST aparecer separada da França, com o nível da França (salvo alerta próprio mais recente).
-- **FR-032**: Antártida, Saara Ocidental e outras áreas sem soberania reconhecida MUST aparecer neutras, sem nível.
+- **FR-030**: O mapa MUST seguir a posição do Brasil sobre territórios: o Kosovo aparece como parte da Sérvia, com a observação de que o Brasil não reconhece a independência; tocar nele abre o painel da Sérvia, com o nome e a bandeira da Sérvia (nunca uma bandeira própria) e a observação no topo.
+- **FR-031**: Dependências (ex.: Groenlândia, territórios ultramarinos) MUST seguir o nível do país soberano e aparecer como "Nome (País)", com a própria bandeira (exceto Kosovo e Malvinas, que usam o nome, a bandeira e o painel do soberano: FR-030 e FR-034). A dependência MUST seguir o mais recente entre o seu alerta próprio e o alerta do país soberano (FR-007b); sem alerta próprio, segue o soberano. Ex.: se a dependência teve alerta de normalização em março e o soberano recebeu "não viaje" em maio, ela fica "não viaje"; se a ordem for a inversa, fica "sem alerta". A Guiana Francesa MUST aparecer separada da França, com o nível da França (salvo alerta próprio mais recente).
+- **FR-032**: Antártida, Saara Ocidental e outras áreas sem soberania reconhecida MUST aparecer neutras, sem nível e sem painel. A explicação sobre elas fica só em "Sobre as fronteiras deste mapa" (FR-036).
 - **FR-033**: Taiwan MUST aparecer como "Taiwan (China)", sem bandeira, e seguir a regra das dependências do FR-031: segue o mais recente entre o seu alerta próprio e o da China.
-- **FR-034**: As Malvinas MUST aparecer como parte da Argentina; ao tocá-las, o painel da Argentina MUST abrir com, no topo, a observação de que são administradas pelo Reino Unido e de que o Brasil apoia os direitos argentinos e defende a negociação entre os dois países.
-- **FR-035**: O painel de cada lugar com regra especial (Kosovo, Taiwan, Malvinas, Saara Ocidental, Antártida e dependências) MUST mostrar uma observação curta com link para a explicação "Sobre as fronteiras deste mapa".
-- **FR-036**: Ao lado da legenda, o sistema MUST oferecer o link "Sobre as fronteiras deste mapa", que abre uma explicação curta: o mapa segue a posição oficial do Brasil e lista os casos especiais.
+- **FR-034**: As Malvinas MUST aparecer como parte da Argentina; ao tocá-las, o painel da Argentina MUST abrir, com o nome e a bandeira da Argentina (nunca uma bandeira própria), e com, no topo, a observação de que são administradas pelo Reino Unido e de que o Brasil apoia os direitos argentinos e defende a negociação entre os dois países.
+- **FR-035**: O painel de cada lugar com regra especial que abre painel (Kosovo, Taiwan, Malvinas e dependências) MUST mostrar uma observação curta com link para a explicação "Sobre as fronteiras deste mapa".
+- **FR-036**: Ao lado da legenda, o sistema MUST oferecer o link "Sobre as fronteiras deste mapa", que abre, como modal e sem roteador, uma explicação curta: o mapa segue a posição oficial do Brasil e lista os casos especiais (Kosovo, Taiwan, Malvinas, Saara Ocidental, Antártida e dependências).
 - **FR-037**: O zoom MUST enquadrar a maior parte do território do país, de modo que países com territórios distantes (Rússia, França) não mostrem o mundo inteiro.
 - **FR-038**: Para um país sem posto, o enquadramento MUST incluir o posto responsável, a menos que a área fique larga demais.
 - **FR-039**: As animações MUST respeitar a preferência do sistema por movimento reduzido.
 
 **Atualização e frescor dos dados**
 
-- **FR-040**: Os níveis exibidos MUST vir sempre da última **coleta completa**. Uma coleta é completa quando a lista de alertas foi lida inteira, no formato esperado, com pelo menos um alerta, e pelo menos 70% das páginas esperadas foram lidas. Uma coleta que não seja completa (falha, gov.br fora do ar ou leitura parcial) MUST NOT alterar nenhum nível: o sistema continua mostrando o resultado da última coleta completa, com a data dela.
+- **FR-040**: Os níveis exibidos MUST vir sempre da última **coleta completa**. Uma coleta é completa quando a lista de alertas foi lida inteira, no formato esperado, com pelo menos um alerta, e pelo menos 70% das páginas esperadas foram lidas. Uma coleta que não seja completa (falha, gov.br fora do ar ou leitura parcial) MUST NOT alterar nenhum nível: o sistema continua mostrando o resultado da última coleta completa, com a data dela. Alertas novos ou alterados lidos numa coleta incompleta MUST NOT valer para o nível: só passam a valer quando uma coleta completa os confirma.
 - **FR-041**: Se a última coleta completa tiver mais de 3 dias, o sistema MUST mostrar um aviso de dados desatualizados.
 
 **Uso em celular**
@@ -270,7 +276,7 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 - **SC-005**: Todas as funções descritas funcionam numa tela de celular com 360 px de largura.
 - **SC-006**: Todo país com posto brasileiro mostra pelo menos um posto com link funcional para o Google Maps.
 - **SC-007**: Toda informação de alerta exibida mostra a data e leva ao alerta original; o aviso de site não oficial está visível em toda visita.
-- **SC-008**: Uma coleta que falha ou vem incompleta nunca altera o nível de nenhum país.
+- **SC-008**: Uma coleta que falha ou vem incompleta nunca altera o nível de nenhum país, nem por alertas novos ou alterados que ela tenha lido.
 
 ## Assumptions
 
@@ -280,6 +286,6 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 - O site é de uso público, sem login, e todo o conteúdo está em português.
 - A legenda e o painel usam texto, e não só cor, para comunicar o nível (acessibilidade).
 - O telefone de plantão e o endereço de cada posto podem não estar disponíveis para todos os postos; nesses casos vale a regra de usar a cidade.
-- O site exibe a atribuição das fontes de dados, inclusive a licença dos dados de postos, numa página "Sobre" simples.
+- O site exibe a atribuição das fontes de dados, inclusive a licença dos dados de postos, numa janela "Sobre" (modal), junto com a atribuição da licença dos dados de postos exibida no painel (FR-011a).
 
 **Fora do escopo desta especificação**: chat sobre os alertas (especificação separada); vistos, notícias e tela de administração (fases futuras); login, contas de usuário e notificações; outros idiomas além do português. Não criar código preparatório para esses itens.

@@ -1,7 +1,9 @@
 <!--
 Relatório de Impacto da Sincronização
-- Mudança de versão: 1.0.0 → 1.0.1 (PATCH: esclarecimentos sem mudar a intenção dos princípios)
-- Princípio III, dois esclarecimentos:
+- Mudança de versão: 1.0.1 → 1.0.2 (PATCH: esclarecimento sem mudar a intenção do princípio)
+- Princípio VIII: em desenvolvimento, as portas do banco (e, no futuro, do Chroma) podem ligar só em
+  127.0.0.1; em produção, ficam apenas na rede interna do Docker, sem porta publicada.
+- Princípio III (v1.0.1), dois esclarecimentos:
   1. a proibição de o backend gerar HTML não se aplica à documentação automática da API em
      desenvolvimento (desligada em produção);
   2. "não fazer uma requisição por país" vale para o carregamento do mapa; uma requisição
@@ -10,7 +12,8 @@ Relatório de Impacto da Sincronização
 - Modelos: nenhuma mudança necessária (plan-template, spec-template e tasks-template seguem válidos)
 - TODOs pendentes: nenhum
 - Histórico: 1.0.0 (2026-10-22) criou os princípios I a VIII, Idioma e Convenções e Governança;
-  tornou os testes obrigatórios no tasks-template.
+  tornou os testes obrigatórios no tasks-template; 1.0.1 (2026-10-23) esclareceu o princípio III
+  (documentação automática da API e requisição ao selecionar um país).
 -->
 # Constituição do Farol Atlas
 
@@ -130,7 +133,8 @@ fornecedor garante que continue no ar.
   frontend MUST NOT inseri-los como HTML sem sanitizar, e o chat MUST NOT seguir instruções contidas
   neles.
 - O CORS MUST aceitar apenas o domínio do frontend. Banco e Chroma MUST NOT ficar expostos na
-  internet, apenas na rede interna do Docker.
+  internet. Em produção, MUST ficar apenas na rede interna do Docker, sem porta publicada. Em
+  desenvolvimento, as portas do banco (e, no futuro, do Chroma) podem ligar só em `127.0.0.1`.
 - Dados pessoais MUST ser limitados ao necessário: perguntas do chat MUST NOT ficar associadas ao IP
   de quem perguntou.
 - As dependências MUST ser conferidas contra vulnerabilidades conhecidas a cada mudança.
@@ -154,4 +158,4 @@ consagrados podem ficar em inglês.
   novo princípio ou ampliação material; PATCH para esclarecimentos e correções de redação.
 - Toda revisão de mudança MUST verificar a conformidade com os princípios acima.
 
-**Versão**: 1.0.1 | **Ratificada em**: 2026-10-22 | **Última emenda**: 2026-10-23
+**Versão**: 1.0.2 | **Ratificada em**: 2026-10-22 | **Última emenda**: 2026-10-23

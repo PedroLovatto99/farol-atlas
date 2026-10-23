@@ -93,6 +93,7 @@ Implementa FR-002, FR-007, FR-008, FR-008a, FR-031 e FR-040. O algoritmo está e
 - Cliente HTTP único, usado pelos dois coletores: `requests.Session`, User-Agent `FarolAtlas/… (contato: <CONTATO_COLETA>)`, `protego` por host, pausa configurável (2 s), detecção de verificação humana / HTTP 403/429 (as funções de `ferramentas/testar_coleta.py` são a base). Verificação humana ou bloqueio **para a execução inteira** e grava o motivo (princípio IV).
 - Hash SHA-256 de `título + texto` com espaços normalizados. Extração: o `extrair_alerta` da ferramenta (JSON-LD primeiro, rótulo "Publicado em" como reserva).
 - Remoção: `removido_em` só é preenchido quando a execução é completa. Uma volta do alerta à lista limpa o `removido_em`.
+- **Confirmação (FR-040, SC-008):** o que a coleta lê vai para as colunas comuns de `alerta`; só ao fim de uma execução **completa** o serviço copia a leitura para as colunas `confirmado_*`, e só estas entram no cálculo do nível. Uma coleta incompleta nunca altera nível, mesmo que tenha lido alertas novos ou alterados. A ordem no worker é: coletar → (se completa) confirmar → classificar.
 - Agendamento: APScheduler em processo próprio, `BlockingScheduler`, fuso `America/Sao_Paulo`, cron diário às 06:17, mensal para os postos. Na partida, roda se a última **tentativa** tiver mais de 20 h. Uma falha recente não é repetida antes do dia seguinte (a spec tolera 3 dias).
 - Comando de desenvolvimento: `python -m farol.worker coletar --alertas | --postos`.
 
@@ -109,6 +110,7 @@ Implementa FR-002, FR-007, FR-008, FR-008a, FR-031 e FR-040. O algoritmo está e
 - **Diferenças em relação ao protótipo, a corrigir na implementação:** (a) o protótipo tem a seção "Notícias" no painel, que está **fora do escopo** da spec; (b) o clique no marcador seleciona só o primeiro país do grupo; (c) o marcador do posto responsável de um país sem posto só aparece no zoom alto; a spec (FR-018h) exige que o ícone em destaque apareça em qualquer zoom; (d) não há busca, filtro por nível nem destaque de posto.
 - **Acessibilidade:** a legenda é texto com amostra de cor; região mais grave tem borda **e** item de legenda; o ícone em destaque é maior e com contorno; `prefers-reduced-motion` zera animações do painel e do mapa (`duration: 0`).
 - **Zoom dos ícones:** 3.5 (resolve o ponto deixado em aberto na clarificação). Enquadramento máximo 5.5; o posto responsável só entra se a largura total ficar abaixo de 180° de longitude.
+- **"Sobre" e "Sobre as fronteiras deste mapa"** abrem como modal acessível (foco preso, Esc fecha), sem roteador. A explicação sobre Saara Ocidental e Antártida (áreas neutras, sem painel) fica só ali.
 
 ### D8. Painel: uma requisição por seleção
 
@@ -116,7 +118,7 @@ O painel pede `GET /paises/{codigo}` quando o usuário seleciona um país. A con
 
 ### D9. Testes
 
-- Backend: pytest; PostgreSQL de teste por serviço `postgres-teste` do compose (perfil `teste`), com porta ligada só ao `127.0.0.1`. A coleta usa as fixtures; o classificador usa modelo falso da LangChain (`GenericFakeChatModel`) e há um teste de contrato do schema de saída. `/mapa` e `/paises/{codigo}` têm teste de limite de consultas (princípio III).
+- Backend: pytest; PostgreSQL de teste por serviço `postgres-teste` do compose (perfil `teste`), com porta ligada só ao `127.0.0.1`. A coleta usa as fixtures; o classificador usa modelo falso da LangChain (`GenericFakeChatModel`) e há um teste de contrato do schema de saída. `/mapa` e `/paises/{codigo}` têm teste de limite de consultas (princípio III), com tetos de 6 e de 8 consultas, respectivamente.
 - Frontend: Vitest + Testing Library, com a API simulada (MSW ou `fetch` falso). O adaptador do mapa é substituído por um falso; a lógica (cor, filtro, busca, enquadramento, marcadores visíveis) fica em funções puras.
 - Teste de arquitetura: `lint-imports` roda junto com `pytest` no comando de verificação.
 
@@ -134,7 +136,7 @@ Um comando por lado:
 ### D11. Docker e ambiente
 
 - Serviços: `postgres`, `migracao` (Alembic + seed idempotente, termina), `api`, `worker`, `frontend`. `api` e `worker` esperam `migracao` terminar com sucesso.
-- O Postgres **não publica porta**; o acesso de desenvolvimento é por `docker compose exec`. A única exceção é `postgres-teste`, em loopback.
+- Em desenvolvimento, os dois bancos publicam porta **só em `127.0.0.1`** (`5432` no banco de desenvolvimento e `5433` no de teste), para abrir o banco com um cliente local; nenhuma porta de banco escuta em outro endereço. Um teste lê o `docker-compose.yml` e falha se isso mudar. A constituição v1.0.2 (VIII) permite isso em desenvolvimento; em produção os bancos ficam só na rede interna do Docker, sem porta publicada (o compose de produção está fora desta feature).
 - `WATCHFILES_FORCE_POLLING=true` (uvicorn `--reload`) e `server.watch.usePolling` (Vite), por causa do Windows.
 - Ollama no host: `http://host.docker.internal:11434`; no Linux/Oracle isso exige `extra_hosts: host.docker.internal:host-gateway` (já previsto no compose).
 - Imagens multi-arquitetura (`python:3.13-slim`, `postgres:18`, `node` LTS); nenhuma dependência de runtime sem wheel arm64. `shapely`/`pycountry` ficam em um grupo de desenvolvimento do `uv`, fora da imagem.

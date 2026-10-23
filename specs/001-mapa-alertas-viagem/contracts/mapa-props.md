@@ -64,6 +64,7 @@ export type PedidoDeCamera =
 | `garantir-visivel` move o centro apenas se o ponto está fora da área visível, sem alterar o zoom | FR-018c, FR-018h |
 | `reduzirMovimento` ⇒ `duration: 0` em qualquer movimento de câmera | FR-039 |
 | Toque em área neutra ou oceano não dispara `onSelecionarTerritorio` | FR-016 |
+| Kosovo (`XK`) e Malvinas (`FK`): o contorno de seleção e o enquadramento usam o grupo `zoom` do soberano (`RS`, `AR`), que vem das propriedades da geometria; `onSelecionarTerritorio` ainda recebe `XK` ou `FK` | FR-030, FR-034 |
 | Ícones: embaixada `building-bank`, consulado `building`, escritório `briefcase`, país sem posto `map-pin-share` com linha tracejada até o responsável | plano |
 
 ## O que fica fora do componente (funções puras, testadas à parte)

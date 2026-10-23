@@ -43,13 +43,13 @@ Detalhes: [research.md](research.md) (conferências, lacunas e decisões), [data
 | II. TDD | Passa | Cada regra de negócio, rota e extrator tem teste antes do código (tarefas ordenadas assim). Gov.br vem de fixtures; LLM é falso; testes de interface verificam comportamento. |
 | III. Arquitetura (v1.0.1) | Passa | Camadas e import-linter (`research.md` D1); DTOs Pydantic só na API; tipos gerados do OpenAPI; backend só JSON, com `/docs` e `/redoc` **só em desenvolvimento** por `API_DOCS_HABILITADA` (D2); sem N+1 e testes de limite de consultas; mapa em uma chamada e `GET /paises/{codigo}` só quando o usuário seleciona um país (D8); frontend por funcionalidade; mapa atrás de `MapaProps`. |
 | IV. Coleta responsável | Passa | `protego` por host, User-Agent com contato, pausa de 2 s, parada e registro do motivo em verificação humana ou bloqueio (D5). |
-| V. Informação confiável | Passa | Sem dado confirmado ⇒ "não verificado" (regra do nível em `data-model.md`); fonte e data em alertas **e** em endereço/telefone (`contato_coletado_em`, `contato_fonte_url`); aviso de site não oficial; classificador não segue instruções do texto. |
+| V. Informação confiável | Passa | Sem dado confirmado ⇒ "não verificado" (regra do nível em `data-model.md`); fonte e data em alertas, em endereço/telefone (`contato_coletado_em`, `contato_fonte_url`) **e nos postos do seed** (linha de fonte e data no painel, lida de `fonte_dados`, que também cumpre a atribuição CC BY-SA da Wikipédia, FR-011a); nível só com alertas confirmados por coleta completa; aviso de site não oficial; classificador não segue instruções do texto. |
 | VI. Acessível e celular | Passa | Legenda em texto, borda regional com item de legenda, destaque de posto por tamanho e contorno, `prefers-reduced-motion`, 360 px. |
 | VII. Simples e gratuito | Passa | Tudo sobe com `docker compose`. Gemini no plano gratuito (cota a confirmar), Ollama local, Oracle Cloud ARM e Vercel gratuitos. Modelo configurável; falha do classificador deixa o alerta pendente sem derrubar o site. (O requisito de o **chat** continuar respondendo com outro provedor pertence à especificação do chat.) |
-| VIII. Segurança | Passa | Todas as rotas são GET de leitura; segredos só por variável de ambiente; CORS por variável; Postgres sem porta publicada; entradas validadas por Pydantic (o `codigo` do caminho tem padrão); textos externos nunca viram HTML sem sanitizar; `pip-audit` e `npm audit` nos comandos de verificação. Limite de perguntas por IP e tempo máximo de resposta são do chat. |
+| VIII. Segurança | Passa | Todas as rotas são GET de leitura; segredos só por variável de ambiente; CORS por variável; bancos com porta publicada só em `127.0.0.1` no desenvolvimento (constituição v1.0.2; teste automatizado do compose; em produção, sem porta publicada); entradas validadas por Pydantic (o `codigo` do caminho tem padrão); textos externos nunca viram HTML sem sanitizar; `pip-audit` e `npm audit` nos comandos de verificação. Limite de perguntas por IP e tempo máximo de resposta são do chat. |
 | Idioma | Passa | Interface, documentação, nomes e comentários em português. |
 
-**Re-checagem após o desenho (Fase 1)**: sem violações. A constituição foi emendada para v1.0.1 (dois esclarecimentos no princípio III) a pedido do usuário; esta checagem usa essa versão.
+**Re-checagem após o desenho (Fase 1)**: sem violações. A constituição foi emendada para v1.0.1 (dois esclarecimentos no princípio III) e v1.0.2 (portas do banco em desenvolvimento, princípio VIII) a pedido do usuário; esta checagem usa a v1.0.2.
 
 ## Project Structure
 
@@ -114,7 +114,7 @@ frontend/
     ├── compartilhado/        # tokens do tema (cores), ícones, bandeiras, hooks de mídia
     └── testes/               # mapa falso e API simulada
 
-dados/                        # já existe: postos/*.csv; acrescentar territorios/observacoes.yaml
+dados/                        # já existe: postos/*.csv e README; acrescentar postos/fonte.yaml, territorios/observacoes.yaml e territorios/territorios.json (gerado)
 ferramentas/testar_coleta.py  # já existe; base do módulo coleta
 prototipos/mapa/              # já existe; referência de visual e comportamento
 docker-compose.yml            # postgres, migracao, api, worker, frontend (+ postgres-teste no perfil "teste")

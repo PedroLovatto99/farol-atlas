@@ -24,12 +24,12 @@ Um lugar selecionável ou desenhável no mapa. Os 198 países do Itamaraty são 
 | `identidade_do_soberano` | `bool` | `true` só para Kosovo e Malvinas: o painel, o nome e a bandeira são os do soberano, e a observação abre o painel no topo (FR-030, FR-034). `false` para todos os outros. |
 | `rotulo_busca` | `text`, nulo | Texto da sugestão na busca; se nulo, vale `nome_pt`. Ex.: "Kosovo (Sérvia)", "Malvinas (Argentina)". |
 | `termos_busca` | `text[]` | Outros nomes que também encontram o território. Kosovo: `{Kosovo}`; Malvinas: `{Malvinas, Ilhas Malvinas}`. Vazio nos demais. |
-| `observacao` | `text`, nulo | Texto curto do FR-030, FR-034, FR-035 (Kosovo, Malvinas, Taiwan, Saara Ocidental, Antártida, dependências). |
+| `observacao` | `text`, nulo | Texto curto do FR-030, FR-034, FR-035 (Kosovo, Malvinas, Taiwan e dependências). Áreas neutras (Saara Ocidental, Antártida) não têm painel nem observação aqui: a explicação delas fica só em "Sobre as fronteiras deste mapa". |
 | `posto_responsavel_id` | `int` FK → `posto.id`, nulo | Só para país sem posto próprio e com posto indicado. |
 | `sem_posto_indicado` | `bool` | `true` quando não há posto próprio nem responsável (hoje, Líbia; FR-014). |
 | `icone_latitude`, `icone_longitude` | `numeric(8,5)`, nulos | Ponto dentro do território onde fica o ícone "país sem posto" (FR-018). Preenchido na carga a partir do ponto representativo da maior parte do território, calculado pelo script de geometria. Nulo para países com posto. |
 
-Regras: territórios `neutro` não têm nível e não abrem painel (FR-016, FR-032). `tipo = pais` implica `soberano_codigo` nulo. Seed: `dados/postos/*.csv` (países e responsáveis), mais `dados/territorios/observacoes.yaml` (observações e regras especiais) e o `territorios.geojson` (dependências e neutros).
+Regras: territórios `neutro` não têm nível e não abrem painel (FR-016, FR-032). `tipo = pais` implica `soberano_codigo` nulo. Seed: `dados/postos/*.csv` (países e responsáveis), mais `dados/territorios/observacoes.yaml` (observações e regras especiais) e `dados/territorios/territorios.json` (dependências, soberano e ponto do ícone dos países sem posto, gerado por `backend/scripts/gerar_geometria.py`), além de `dados/postos/fonte.yaml` (fonte e data dos dados de postos).
 
 ### Kosovo e Malvinas: caso especial das dependências
 
@@ -88,8 +88,12 @@ Um item da lista de alertas do Portal Consular (histórico).
 | `primeira_coleta_em`, `ultima_coleta_em` | `timestamptz` | |
 | `removido_em` | `timestamptz`, nulo | Só preenchido numa execução completa (FR-040). Limpo se o alerta voltar à lista. |
 | `pagina_lida` | `bool` | `false` quando só se conhece título, link e data da lista (FR-008). |
+| `confirmado_execucao_id` | `int` FK → `execucao_coleta.id`, nulo | Última execução **completa** que confirmou este alerta. Nulo = lido só em coleta incompleta: **não vale para o nível** (FR-040, SC-008). Atualizado a cada execução completa em que o alerta continua na lista. |
+| `confirmado_hash` | `char(64)`, nulo | Hash da versão confirmada. Nulo quando a página não foi lida na execução que confirmou (alerta novo ou alterado, FR-008). |
+| `confirmado_titulo` | `text`, nulo | Título da versão confirmada; é o que identifica o país de um alerta pendente (FR-008). |
+| `confirmado_data_ref` | `timestamptz`, nulo | `coalesce(modificado_em, publicado_em)` da versão confirmada (FR-007b); para página não lida, a data da lista. |
 
-Data de referência para "mais recente": `coalesce(modificado_em, publicado_em)` (FR-007b).
+As colunas sem prefixo `confirmado_` guardam o que a coleta **leu por último**; as `confirmado_*` guardam o que uma execução **completa** confirmou. Só estas últimas entram no cálculo do nível. Ao fim de uma execução completa, o serviço de coleta copia a leitura atual para as colunas `confirmado_*` de todo alerta presente na lista.
 
 ## classificacao
 
@@ -99,14 +103,14 @@ Uma por `(alerta, hash)`: o resultado de classificar aquele conteúdo.
 |---|---|---|
 | `id` | `int` PK | |
 | `alerta_id` | `int` FK | |
-| `alerta_hash` | `char(64)` | Hash no momento da classificação. A classificação é **vigente** quando é igual a `alerta.hash`. |
+| `alerta_hash` | `char(64)` | Hash no momento da classificação. A classificação **vale para o nível** quando `alerta_hash` é igual a `alerta.confirmado_hash`. O serviço classifica o hash lido mais recente, mesmo antes da confirmação, para a classificação já estar pronta quando uma execução completa o confirmar. |
 | `status` | `enum` | `ok`, `falhou`. |
 | `e_alerta_de_viagem` | `bool`, nulo | Nulo se `falhou`. `false` não afeta o mapa (FR-007a). |
 | `modelo` | `text` | Ex.: `google_genai:gemini-3.6-flash`. |
 | `erro` | `text`, nulo | Motivo da falha (resposta inválida, ISO fora do conjunto, tempo esgotado). |
 | `classificado_em` | `timestamptz` | |
 
-UNIQUE `(alerta_id, alerta_hash)`. Um alerta sem classificação vigente com `status = ok` está **pendente**.
+UNIQUE `(alerta_id, alerta_hash)`. Um alerta confirmado sem classificação `ok` para o `confirmado_hash` (inclusive quando `confirmado_hash` é nulo) está **pendente**.
 
 ## nivel_territorio
 
@@ -136,10 +140,25 @@ PK `(classificacao_id, territorio_codigo)`. Um alerta pode ter vários itens (Or
 
 "Última coleta completa" = a execução `tipo = alertas`, `completa = true`, com maior `finalizada_em`.
 
+## fonte_dados
+
+Fonte e data dos dados do seed, para o painel mostrar a atribuição dos postos (FR-011a) e a linha se atualizar quando os CSVs mudarem.
+
+| Coluna | Tipo | Regras |
+|---|---|---|
+| `chave` | `text` PK | `postos` (hoje a única). |
+| `fontes` | `jsonb` | Lista de `{nome, url, licenca}`. Hoje: Itamaraty (lista de repartições consulares) e Wikipédia ("List of diplomatic missions of Brazil", licença CC BY-SA). |
+| `conferido_em` | `date` | Data em que os dados foram conferidos (hoje 2026-10-21). |
+| `carregado_em` | `timestamptz` | Quando o seed gravou o registro. |
+
+Origem: `dados/postos/fonte.yaml`, carregado pelo seed (idempotente, atualiza o registro quando o arquivo muda). Quem atualizar os CSVs de postos atualiza também o `fonte.yaml`. O arquivo guarda ainda o SHA-256 de cada CSV (campo `arquivos`); um teste falha se um CSV mudar sem o `fonte.yaml` ser atualizado (data e hash).
+
 ## Estados e transições
 
 ```text
-alerta:  novo ──(hash muda)──▶ alterado ──▶ classificacao nova ──▶ vigente
+alerta:  lido (coleta qualquer) ──(execução completa)──▶ confirmado ──(hash muda em coleta completa)──▶ reconfirmado
+         lido em coleta incompleta: não confirma e não muda o nível; o que estava confirmado continua valendo
+         novo ──(hash muda)──▶ alterado ──▶ classificacao nova (vale quando o hash é o confirmado)
          visto na lista ──(some, coleta completa)──▶ removido ──(volta)──▶ ativo
 classificacao: [sem classificacao vigente] pendente ──▶ ok | falhou ──(próxima rodada)──▶ ok | falhou
 execucao_coleta: iniciada ──▶ finalizada(completa) | finalizada(incompleta, com motivo)
@@ -147,17 +166,17 @@ execucao_coleta: iniciada ──▶ finalizada(completa) | finalizada(incompleta
 
 ## Regra do nível (serviço `mapa`)
 
-Entrada: territórios, classificações vigentes, alertas ativos (`removido_em` nulo), última execução completa.
+Entrada: territórios, alertas **confirmados** (`confirmado_execucao_id` não nulo) e ativos (`removido_em` nulo), a classificação de cada um para o seu `confirmado_hash`, e a última execução completa. Alertas lidos só em coleta incompleta **não entram**.
 
 ```text
 nivel(territorio t):
   se nunca houve execução completa:                  → nao_verificado       (FR-002)
-  candidatos(t) = itens de classificações vigentes ok, e_alerta_de_viagem, alertas ativos,
-                  que citam t
+  candidatos(t) = itens de classificações ok (para o confirmado_hash), e_alerta_de_viagem,
+                  de alertas confirmados e ativos, que citam t
                   + se t é dependência: os que citam t.soberano             (FR-031)
-                  + alertas pendentes cujo título cita t pelo nome          (FR-008)
+                  + alertas confirmados pendentes cujo confirmado_titulo cita t pelo nome (FR-008)
   se candidatos vazio:                                → sem_alerta
-  mais_recente = máx por coalesce(modificado_em, publicado_em);
+  mais_recente = máx por confirmado_data_ref;
                  empate → o de nível mais grave (nao_viajar > evitar > normalizada) (FR-007b)
   se mais_recente é pendente:                         → nao_verificado
   se mais_recente.nivel_pais = normalizada:           → sem_alerta, sem regiões   (FR-007)
@@ -166,7 +185,7 @@ nivel(territorio t):
 ```
 
 - Uma região só gera destaque quando seu nível é mais grave que a cor do país **ou** quando o país não tem nível geral (FR-004). O filtro (FR-027) usa o nível da região.
-- Alerta cuja página não foi lida mas é "o mesmo" (mesma `url` e mesma `publicado_em` da lista, e hash conhecido): mantém a classificação vigente (FR-008a). Se for novo ou mudou: pendente.
+- Alerta cuja página não foi lida mas é "o mesmo" (mesma `url` e mesma `publicado_em` da lista, e hash conhecido): mantém as colunas `confirmado_*` e a classificação do `confirmado_hash` (FR-008a). Se for novo ou mudou, a execução completa o confirma com `confirmado_hash` nulo: pendente.
 - Os alertas listados no painel (`GET /paises/{codigo}`) são **todos** os que citam o território (e o soberano, para dependência), do mais recente ao mais antigo, com o que define o nível marcado (FR-010).
 
 ## Validações

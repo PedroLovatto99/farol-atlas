@@ -31,7 +31,7 @@ Sobem `postgres`, `migracao` (Alembic + seed; termina sozinho), `api`, `worker` 
 | `http://localhost:8000/docs` | Documentação interativa, **só em desenvolvimento** (`API_DOCS_HABILITADA=true`). Com a variável `false`, responde **404**. |
 | `http://localhost:8000/api/v1/openapi.json` | JSON do contrato |
 | `http://localhost:5173` | O mapa em globo, tudo "não verificado" (ainda não houve coleta) |
-| Porta 5432 | **Não** publicada |
+| Porta 5432 | Publicada **só em `127.0.0.1`** (cliente local); nenhuma porta de banco em outro endereço. O banco de teste usa `127.0.0.1:5433`. |
 
 ## 3. Rodar uma coleta de desenvolvimento
 
@@ -50,7 +50,7 @@ A coleta respeita o `robots.txt`, pausa entre requisições e para ao cair em ve
 | 2 | Antes de qualquer coleta completa | Todos os países "não verificado", nenhum "sem alerta" | FR-002, SC-003 |
 | 3 | País que o alerta mais recente marca como normalizado (Bolívia nas fixtures) | "Sem alerta", mesmo com alertas antigos mais graves | FR-007 |
 | 4 | Líbano com só "não viaje" marcado na legenda | Líbano aparece por causa do Sul do Líbano | FR-027 |
-| 5 | Tocar num país com postos | O mapa se aproxima; painel com bandeira, nível, regiões, alertas com datas e links, postos expansíveis com "Abrir no Google Maps" | P2 |
+| 5 | Tocar num país com postos | O mapa se aproxima; painel com bandeira, nível, regiões, alertas com datas e links, postos expansíveis com "Abrir no Google Maps" e, abaixo da lista, a linha "Postos: Itamaraty e Wikipédia (CC BY-SA), conferidos em 21/10/2026" com links | P2 |
 | 6 | Tocar na Líbia | Painel orienta procurar o Itamaraty | FR-014 |
 | 7 | Tocar no Brasil, Kosovo e nas Malvinas | Painel próprio sem postos; painel da Sérvia e da Argentina com a observação no topo | FR-015, FR-030, FR-034 |
 | 8 | Aproximar além do zoom 3.5 | Ícones de embaixada, consulado e escritório; país sem posto com linha tracejada até o responsável | P3 |
