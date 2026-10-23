@@ -118,13 +118,23 @@ components:
           items: { $ref: "#/components/schemas/PaisSemPosto" }
     TerritorioNoMapa:
       type: object
-      required: [codigo, nome, tipo, soberano, tem_bandeira, nivel, regioes, observacao]
+      required: [codigo, nome, rotulo_busca, termos_busca, tipo, soberano, bandeira, identidade_do_soberano, nivel, regioes, observacao]
       properties:
         codigo: { type: string }
-        nome: { type: string, description: 'Para dependência, "Nome (País)".' }
+        nome: { type: string, description: 'Para dependência, "Nome (País)". Para Kosovo e Malvinas, o nome do soberano.' }
+        rotulo_busca: { type: string, description: 'Texto da sugestão na busca. Ex.: "Kosovo (Sérvia)".' }
+        termos_busca:
+          type: array
+          description: Outros nomes que também encontram o território (ex.: "Kosovo", "Malvinas").
+          items: { type: string }
         tipo: { $ref: "#/components/schemas/TipoTerritorio" }
         soberano: { type: [string, "null"], description: "Código do país soberano; nulo para país." }
-        tem_bandeira: { type: boolean }
+        bandeira:
+          type: [string, "null"]
+          description: Código da bandeira a exibir; nulo para Taiwan. Kosovo e Malvinas usam o do soberano (RS, AR), nunca uma própria.
+        identidade_do_soberano:
+          type: boolean
+          description: Verdadeiro para Kosovo e Malvinas; o painel é o do soberano, com a observação no topo.
         nivel: { $ref: "#/components/schemas/Nivel" }
         regioes:
           type: array
@@ -155,14 +165,17 @@ components:
     Pais:
       type: object
       required:
-        [codigo, nome, tipo, soberano, tem_bandeira, nivel, regioes, observacao, observacao_no_topo,
-         eh_brasil, alertas, postos, posto_responsavel, sem_posto_indicado]
+        [codigo, nome, tipo, soberano, bandeira, identidade_do_soberano, nivel, regioes, observacao,
+         observacao_no_topo, eh_brasil, alertas, postos, posto_responsavel, sem_posto_indicado]
       properties:
         codigo: { type: string }
         nome: { type: string }
         tipo: { $ref: "#/components/schemas/TipoTerritorio" }
         soberano: { type: [string, "null"] }
-        tem_bandeira: { type: boolean }
+        bandeira:
+          type: [string, "null"]
+          description: Código da bandeira do painel; nulo para Taiwan. Kosovo e Malvinas mostram a do soberano.
+        identidade_do_soberano: { type: boolean }
         nivel: { $ref: "#/components/schemas/Nivel" }
         regioes:
           type: array

@@ -21,12 +21,12 @@ Natural Earth 10m, países, versão "ponto de vista do Brasil" (`ne_10m_admin_0_
 | Regra | Requisito |
 |---|---|
 | 198 países do Itamaraty selecionáveis, incluindo o Brasil | FR-029 |
-| Kosovo desenhado como parte da Sérvia, com observação | FR-030 |
+| Kosovo (`XK`) como dependência da Sérvia com identidade do soberano: mesmo `zoom` do soberano, observação no topo | FR-030 |
 | Dependências apontam para o soberano e usam a própria bandeira | FR-031 |
 | Guiana Francesa separada da França (recorte geográfico) | FR-031 |
 | Antártida, Saara Ocidental e áreas sem soberania reconhecida: `neutro` | FR-032 |
 | Taiwan como dependência da China, sem bandeira | FR-033 |
-| Malvinas como parte da Argentina, com observação (hoje o script as trata como neutras: **mudar**) | FR-034 |
+| Malvinas (`FK`) como dependência da Argentina com identidade do soberano: mesmo `zoom` do soberano, observação no topo (hoje o script as trata como neutras: **mudar**) | FR-034 |
 | Ilhas que dividem o código com o país (Clipperton/FR, ilhas australianas/AU) viram dependência à parte | protótipo |
 
 ## Testes do arquivo

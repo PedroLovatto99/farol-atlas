@@ -16,18 +16,35 @@ Um lugar selecionável ou desenhável no mapa. Os 198 países do Itamaraty são 
 | Coluna | Tipo | Regras |
 |---|---|---|
 | `codigo` | `text` PK | ISO-2 (ex.: `BR`) ou o código do Natural Earth para dependências (ex.: `GL`, `TW`, `GF`). Igual a `properties.codigo` da geometria. |
-| `nome_pt` | `text` | Nome em português; para dependência, no formato "Nome (País)". |
+| `nome_pt` | `text` | Nome exibido no painel, em português; para dependência, no formato "Nome (País)". Para Kosovo e Malvinas, o nome do **soberano** ("Sérvia", "Argentina"). |
 | `tipo` | `enum` | `pais`, `dependencia`, `neutro`. |
-| `soberano_codigo` | `text` FK → `territorio.codigo`, nulo | Obrigatório se `tipo = dependencia`. Também usado por Kosovo (→ `RS`) e Malvinas (→ `AR`). |
+| `soberano_codigo` | `text` FK → `territorio.codigo`, nulo | Obrigatório se `tipo = dependencia`. Kosovo (`XK` → `RS`) e Malvinas (`FK` → `AR`) são dependências com `identidade_do_soberano` (ver "Kosovo e Malvinas", abaixo). |
 | `na_lista_itamaraty` | `bool` | `true` para os 198. Um teste exige exatamente 198. |
-| `tem_bandeira` | `bool` | `false` para Taiwan (FR-033). |
+| `codigo_bandeira` | `text`, nulo | Código da bandeira exibida (flag-icons). País: o próprio código. Dependência: o próprio código (FR-031). **Kosovo e Malvinas: o do soberano (`RS`, `AR`), nunca uma bandeira própria.** Nulo para Taiwan (FR-033). |
+| `identidade_do_soberano` | `bool` | `true` só para Kosovo e Malvinas: o painel, o nome e a bandeira são os do soberano, e a observação abre o painel no topo (FR-030, FR-034). `false` para todos os outros. |
+| `rotulo_busca` | `text`, nulo | Texto da sugestão na busca; se nulo, vale `nome_pt`. Ex.: "Kosovo (Sérvia)", "Malvinas (Argentina)". |
+| `termos_busca` | `text[]` | Outros nomes que também encontram o território. Kosovo: `{Kosovo}`; Malvinas: `{Malvinas, Ilhas Malvinas}`. Vazio nos demais. |
 | `observacao` | `text`, nulo | Texto curto do FR-030, FR-034, FR-035 (Kosovo, Malvinas, Taiwan, Saara Ocidental, Antártida, dependências). |
-| `observacao_no_topo` | `bool` | `true` quando o painel do soberano abre com a observação no topo (Kosovo, Malvinas). |
 | `posto_responsavel_id` | `int` FK → `posto.id`, nulo | Só para país sem posto próprio e com posto indicado. |
 | `sem_posto_indicado` | `bool` | `true` quando não há posto próprio nem responsável (hoje, Líbia; FR-014). |
 | `icone_latitude`, `icone_longitude` | `numeric(8,5)`, nulos | Ponto dentro do território onde fica o ícone "país sem posto" (FR-018). Preenchido na carga a partir do ponto representativo da maior parte do território, calculado pelo script de geometria. Nulo para países com posto. |
 
-Regras: territórios `neutro` não têm nível e não abrem painel (FR-016, FR-032). `tipo = pais` e `soberano_codigo` nulo, exceto Kosovo e Malvinas, que existem como desenho apontando para o soberano. Seed: `dados/postos/*.csv` (países e responsáveis), mais `dados/territorios/observacoes.yaml` (observações e regras especiais) e o `territorios.geojson` (dependências e neutros).
+Regras: territórios `neutro` não têm nível e não abrem painel (FR-016, FR-032). `tipo = pais` implica `soberano_codigo` nulo. Seed: `dados/postos/*.csv` (países e responsáveis), mais `dados/territorios/observacoes.yaml` (observações e regras especiais) e o `territorios.geojson` (dependências e neutros).
+
+### Kosovo e Malvinas: caso especial das dependências
+
+Kosovo (`XK`) e Malvinas (`FK`) usam o **mesmo mecanismo das dependências**: `tipo = dependencia`, `soberano_codigo` preenchido, nível calculado como "o mais recente entre o alerta próprio e o do soberano" (FR-031). A diferença é `identidade_do_soberano = true`, que muda só a identidade exibida:
+
+| Aspecto | Dependência comum (ex.: Groenlândia) | Kosovo e Malvinas |
+|---|---|---|
+| Nome no painel | "Groenlândia (Dinamarca)" | "Sérvia" / "Argentina" |
+| Bandeira | A própria (`GL`) | A do soberano (`RS` / `AR`), **nunca** uma própria |
+| Painel | Dados do soberano, título e bandeira da dependência | **Painel do soberano**, com a observação (FR-030, FR-034) **no topo** |
+| Enquadramento do zoom | Grupo da dependência | Grupo do soberano |
+| Busca | Encontra "Groenlândia" | Encontra "Kosovo" e "Malvinas" (e "Ilhas Malvinas"); abre o painel do soberano |
+| Postos e alertas do painel | Os do soberano (e os da dependência) | Os do soberano (e os do próprio território, se houver) |
+
+Seed (`seed.py`): `XK` com `nome_pt = Sérvia`, `soberano_codigo = RS`, `codigo_bandeira = RS`, `rotulo_busca = Kosovo (Sérvia)`, `termos_busca = {Kosovo}`; `FK` com `nome_pt = Argentina`, `soberano_codigo = AR`, `codigo_bandeira = AR`, `rotulo_busca = Malvinas (Argentina)`, `termos_busca = {Malvinas, Ilhas Malvinas}`. A observação de cada um vem de `dados/territorios/observacoes.yaml`.
 
 ## posto
 
