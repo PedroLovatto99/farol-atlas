@@ -21,6 +21,13 @@
 - Q: Como a dependência (e o Taiwan) segue o alerta do país soberano? → A: Segue o mais recente entre o seu alerta próprio e o alerta do soberano. Ex.: se a dependência teve alerta de normalização em março e o soberano recebeu "não viaje" em maio, ela fica "não viaje"; se a ordem for a inversa, fica "sem alerta".
 - Q: Um alerta pode citar vários países ou regiões? → A: Sim, cada um com seu nível. Nos dados reais, o alerta de 04/07/2026 sobre o Oriente Médio cita Irã, Israel, Sul do Líbano e Palestina (Faixa de Gaza), e o de 01/06/2026 cita a República Democrática do Congo e Uganda.
 
+### Session 2026-10-23
+
+- Q: O que acontece com o ícone do posto no mapa quando o posto é expandido no painel, e no sentido inverso? → A: Ao expandir um posto no painel, o ícone dele no mapa fica em destaque (maior e com contorno, sem depender só da cor) e à frente dos outros ícones. Só um posto fica em destaque por vez; recolher o posto ou fechar o painel tira o destaque. Se o ícone estiver fora da área visível, o mapa se move até ele. Quando dois postos ficam na mesma cidade e dividem o ícone, esse ícone é destacado. O mesmo vale para o posto responsável de um país sem posto. Com movimento reduzido, o destaque aparece sem animação. No sentido inverso, tocar num ícone de posto abre o painel do país com aquele posto já expandido.
+- Q: Ao tocar num ícone compartilhado por dois postos, qual abre expandido? → A: Os dois postos abrem expandidos, e o ícone compartilhado fica em destaque.
+- Q: O ícone destacado aparece com o mapa afastado (abaixo do zoom dos ícones)? → A: Sim, em qualquer nível de zoom; o mapa não se aproxima só por causa do destaque. Ele só se move se o ícone estiver fora da área visível.
+- Q: Tocar num ícone de posto com o painel de outro país aberto? → A: O painel troca para o país do posto tocado, com o posto já expandido. O enquadramento do mapa não muda, porque o ícone tocado já está à vista.
+
 ## User Scenarios & Testing *(mandatory)*
 
 Quem vai viajar precisa saber se o Itamaraty publicou algum alerta para o destino e onde fica a representação brasileira mais próxima. Hoje a informação está espalhada em páginas de texto do gov.br e numa tabela de repartições consulares, sem visão geral do mundo. **Ausência de alerta não significa que o governo recomenda a viagem**, e o site deve deixar isso claro.
@@ -73,15 +80,28 @@ Ao tocar em um país, o mapa se aproxima dele e abre um painel com: bandeira e n
 
 A partir de certo nível de zoom, o mapa mostra ícones nas cidades com posto brasileiro, com ícones diferentes para embaixada, consulado e escritório. Países sem posto têm um ícone próprio, ligado visualmente ao posto responsável.
 
+Mapa e painel se destacam mutuamente. Ao expandir um posto no painel, o ícone dele no mapa fica em destaque (maior e com contorno, sem depender só da cor) e à frente dos outros ícones. Só um posto fica em destaque por vez; recolher o posto ou fechar o painel tira o destaque. Se o ícone estiver fora da área visível, o mapa se move até ele. Quando dois postos ficam na mesma cidade e dividem o ícone, esse ícone é destacado e tocar nele abre os dois postos expandidos. O ícone destacado aparece em qualquer nível de zoom; o mapa só se move se o ícone estiver fora da área visível. O mesmo vale para o posto responsável de um país sem posto. Com movimento reduzido, o destaque aparece sem animação. No sentido inverso, tocar num ícone de posto abre o painel do país com aquele posto já expandido, trocando o painel se outro país estava aberto, sem mudar o enquadramento do mapa.
+
 **Why this priority**: ajuda a localizar a representação geograficamente, mas o essencial já está na lista do painel (P2).
 
-**Independent Test**: aproximar o mapa de uma região com postos e verificar os ícones por tipo; verificar o ícone e a ligação visual de um país sem posto.
+**Independent Test**: aproximar o mapa de uma região com postos e verificar os ícones por tipo; verificar o ícone e a ligação visual de um país sem posto. O destaque e o toque no ícone dependem do painel (P2): testá-los abrindo o painel de um país com postos, expandindo e recolhendo postos, e tocando nos ícones.
 
 **Acceptance Scenarios**:
 
 1. **Given** o mapa em zoom afastado, **When** o usuário o observa, **Then** os ícones de postos não aparecem.
 2. **Given** o usuário aproxima o mapa além do nível definido, **When** o mapa é exibido, **Then** aparecem ícones nas cidades com posto, distintos para embaixada, consulado e escritório.
 3. **Given** um país sem posto próprio e com posto responsável, **When** os ícones são exibidos, **Then** o país mostra um ícone próprio ligado visualmente ao posto responsável.
+4. **Given** o painel de um país com postos aberto, **When** o usuário expande um posto, **Then** o ícone dele no mapa fica maior, com contorno e à frente dos outros ícones, de modo que o destaque não dependa só da cor.
+5. **Given** um posto expandido e em destaque, **When** o usuário expande outro posto, **Then** só o ícone do novo posto fica em destaque.
+6. **Given** um posto em destaque, **When** o usuário recolhe o posto ou fecha o painel, **Then** o ícone volta ao aspecto normal.
+7. **Given** um posto cujo ícone está fora da área visível do mapa, **When** o usuário o expande no painel, **Then** o mapa se move até o ícone, sem mudar o nível de zoom.
+8. **Given** o mapa afastado, abaixo do nível de zoom em que os ícones aparecem, e o ícone do posto dentro da área visível, **When** o usuário expande o posto no painel, **Then** o ícone em destaque aparece e o mapa não se move nem se aproxima.
+9. **Given** dois postos na mesma cidade que dividem o ícone (ex.: embaixada e consulado), **When** o usuário expande um deles no painel, **Then** o ícone compartilhado fica em destaque.
+10. **Given** o painel de um país sem posto, **When** o usuário expande o posto responsável, **Then** o ícone desse posto, em outro país, fica em destaque.
+11. **Given** a preferência do sistema por movimento reduzido, **When** um posto é destacado, **Then** o destaque aparece sem animação.
+12. **Given** o mapa com ícones de postos visíveis, **When** o usuário toca num ícone de posto, **Then** abre o painel do país com aquele posto já expandido e em destaque, sem mudar o enquadramento do mapa.
+13. **Given** um ícone compartilhado por dois postos, **When** o usuário toca nele, **Then** o painel abre com os dois postos expandidos e o ícone em destaque.
+14. **Given** o painel de um país aberto, **When** o usuário toca no ícone de um posto de outro país, **Then** o painel troca para esse país com o posto já expandido, e o enquadramento do mapa não muda.
 
 ---
 
@@ -139,6 +159,10 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 - **Toque no oceano ou numa área neutra**: não abre painel de país.
 - **Alerta novo ou alterado cujo nível não pode ser determinado com segurança** (inclusive página não lida): o país aparece como "não verificado", com link para o alerta original, até a próxima atualização.
 - **Alerta já conhecido (mesmo link e mesma data) cuja página não foi lida numa coleta completa**: o país mantém o nível anterior.
+- **Posto expandido cujo ícone está fora da área visível**: o mapa se move até o ícone.
+- **Posto expandido com o mapa afastado (ícones normalmente ocultos)**: o ícone em destaque aparece; o mapa não se aproxima.
+- **Dois postos na mesma cidade com um ícone só**: o ícone compartilhado é destacado quando qualquer um dos dois é expandido; tocar nele abre os dois expandidos.
+- **Toque num ícone de posto com o painel de outro país aberto**: o painel troca para o país do posto tocado, e o enquadramento do mapa não muda.
 - **Países com territórios distantes** (Rússia, França): o enquadramento do zoom abrange a maior parte do território, sem mostrar o mundo inteiro.
 - **Usuário com preferência por movimento reduzido**: as animações do mapa respeitam essa preferência.
 
@@ -175,6 +199,14 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 
 - **FR-017**: A partir de um nível de zoom definido, o sistema MUST exibir ícones nas cidades com posto brasileiro, distintos para embaixada, consulado e escritório.
 - **FR-018**: Países sem posto MUST ter um ícone próprio, ligado visualmente ao posto responsável.
+- **FR-018a**: Ao expandir um posto no painel, o ícone dele no mapa MUST ficar em destaque: maior, com contorno (sem depender só da cor) e à frente dos outros ícones.
+- **FR-018b**: Só um ícone MUST ficar em destaque por vez (o ícone do posto expandido ou o ícone compartilhado por dois postos). Recolher o posto ou fechar o painel MUST tirar o destaque.
+- **FR-018c**: Se o ícone do posto expandido estiver fora da área visível, o mapa MUST se mover até ele.
+- **FR-018d**: Quando dois postos na mesma cidade dividem o ícone, esse ícone MUST ser destacado ao expandir qualquer um dos dois.
+- **FR-018e**: O mesmo destaque MUST valer para o posto responsável, ao expandi-lo no painel de um país sem posto.
+- **FR-018f**: Com a preferência por movimento reduzido, o destaque MUST aparecer sem animação (FR-039).
+- **FR-018g**: Tocar num ícone de posto MUST abrir o painel do país com aquele posto já expandido e em destaque, sem mudar o enquadramento do mapa. Se o ícone é compartilhado por dois postos, os dois MUST abrir expandidos. Se o painel de outro país estava aberto, MUST trocar para o país do posto tocado.
+- **FR-018h**: O ícone em destaque MUST aparecer em qualquer nível de zoom, inclusive abaixo do nível do FR-017. O mapa MUST NOT se aproximar só por causa do destaque: só se move quando o ícone está fora da área visível (FR-018c).
 
 **Busca (P4)**
 
