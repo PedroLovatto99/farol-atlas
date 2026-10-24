@@ -44,4 +44,6 @@ Seis postos da Wikipédia não aparecem na lista oficial de atendimento consular
 
 ## Como atualizar
 
+Ao mudar qualquer CSV desta pasta, atualize também o `fonte.yaml`: a data de conferência (`conferido_em`) e os hashes de `arquivos`. Ele alimenta a linha de fonte e data dos postos exibida no painel, e um teste falha se os CSVs mudarem sem o `fonte.yaml`. Para ver os hashes atuais, a partir de `backend/`: `uv run python -m farol.dominio.seed --hashes`.
+
 Postos mudam pouco. Uma conferência por ano contra a lista oficial do Itamaraty costuma bastar.

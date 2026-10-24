@@ -1,0 +1,18 @@
+# Fonte e data dos dados de postos (seed). A linha do painel
+# "Postos: Itamaraty e Wikipédia (CC BY-SA), conferidos em ..." vem daqui (FR-011a).
+#
+# Ao atualizar os CSVs desta pasta, atualize também `conferido_em` e os hashes de `arquivos`
+# (um teste falha se não bater). Para ver os hashes atuais, a partir de backend/:
+#   uv run python -m farol.dominio.seed --hashes
+chave: postos
+conferido_em: 2026-10-21
+fontes:
+  - nome: Itamaraty
+    url: https://www.gov.br/mre/pt-br/assuntos/portal-consular/reparticoes-consulares-do-brasil
+    licenca: null
+  - nome: Wikipédia
+    url: https://en.wikipedia.org/wiki/List_of_diplomatic_missions_of_Brazil
+    licenca: CC BY-SA
+arquivos:
+  postos_brasileiros.csv: 2c239889c955869c0fed35484666dee6a21557ca27d96bc5302ecae1ffe0e3fc
+  jurisdicao_cumulativa.csv: d4fcf6330049682a6c23c9a247865540cd51d89f8ab45303e7bedb6d835380ba

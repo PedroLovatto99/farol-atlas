@@ -11,7 +11,7 @@ execucao_coleta (independente; liga-se aos alertas por data)
 
 ## territorio
 
-Um lugar selecionável ou desenhável no mapa. Os 198 países do Itamaraty são os de `tipo = pais` com `na_lista_itamaraty = true`.
+Um lugar selecionável ou desenhável no mapa. Os 198 da lista do Itamaraty são os territórios com `na_lista_itamaraty = true`: 195 países e três entradas que o mapa desenha como dependência: Taiwan (da China), a Guiana Francesa (da França) e Porto Rico (dos Estados Unidos, com bandeira própria). Ao todo o seed tem 238 territórios: 195 países e 43 dependências, três delas na lista.
 
 | Coluna | Tipo | Regras |
 |---|---|---|
@@ -24,7 +24,7 @@ Um lugar selecionável ou desenhável no mapa. Os 198 países do Itamaraty são 
 | `identidade_do_soberano` | `bool` | `true` só para Kosovo e Malvinas: o painel, o nome e a bandeira são os do soberano, e a observação abre o painel no topo (FR-030, FR-034). `false` para todos os outros. |
 | `rotulo_busca` | `text`, nulo | Texto da sugestão na busca; se nulo, vale `nome_pt`. Ex.: "Kosovo (Sérvia)", "Malvinas (Argentina)". |
 | `termos_busca` | `text[]` | Outros nomes que também encontram o território. Kosovo: `{Kosovo}`; Malvinas: `{Malvinas, Ilhas Malvinas}`. Vazio nos demais. |
-| `observacao` | `text`, nulo | Texto curto do FR-030, FR-034, FR-035 (Kosovo, Malvinas, Taiwan e dependências). Áreas neutras (Saara Ocidental, Antártida) não têm painel nem observação aqui: a explicação delas fica só em "Sobre as fronteiras deste mapa". |
+| `observacao` | `text`, nulo | Texto curto do FR-030, FR-034, FR-035 (Kosovo, Malvinas, Taiwan e dependências). A observação padrão das dependências usa a forma do soberano com preposição, guardada em `observacoes.yaml` (`soberanos`: "Território dos Estados Unidos", "Território da França"); Hong Kong e Macau têm a sua ("Região administrativa especial da China"). Áreas neutras (Saara Ocidental, Antártida) não têm painel nem observação aqui: a explicação delas fica só em "Sobre as fronteiras deste mapa". |
 | `posto_responsavel_id` | `int` FK → `posto.id`, nulo | Só para país sem posto próprio e com posto indicado. |
 | `sem_posto_indicado` | `bool` | `true` quando não há posto próprio nem responsável (hoje, Líbia; FR-014). |
 | `icone_latitude`, `icone_longitude` | `numeric(8,5)`, nulos | Ponto dentro do território onde fica o ícone "país sem posto" (FR-018). Preenchido na carga a partir do ponto representativo da maior parte do território, calculado pelo script de geometria. Nulo para países com posto. |
@@ -79,12 +79,12 @@ Um item da lista de alertas do Portal Consular (histórico).
 | `id` | `int` PK | |
 | `url` | `text` UNIQUE | URL canônica da página do alerta. |
 | `titulo` | `text` | |
-| `texto` | `text` | Corpo normalizado (espaços colapsados). |
-| `html_corpo` | `text` | Guardado para reprocessar sem nova coleta. Nunca é inserido no frontend (princípio VIII). |
+| `texto` | `text`, nulo | Corpo normalizado (espaços colapsados). Nulo enquanto `pagina_lida = false`. |
+| `html_corpo` | `text`, nulo | Guardado para reprocessar sem nova coleta. Nunca é inserido no frontend (princípio VIII). Nulo enquanto `pagina_lida = false`. |
 | `categoria` | `text`, nulo | Ex.: "Brasileiro indo para o exterior". |
 | `publicado_em` | `timestamptz` | JSON-LD `datePublished`; reserva: "Publicado em". Se a página não foi lida: data da lista (meia-noite local). |
 | `modificado_em` | `timestamptz`, nulo | JSON-LD `dateModified`. |
-| `hash` | `char(64)` | SHA-256 de `titulo + texto` com espaços normalizados. |
+| `hash` | `char(64)`, nulo | SHA-256 de `titulo + texto` com espaços normalizados. Nulo enquanto `pagina_lida = false`. |
 | `primeira_coleta_em`, `ultima_coleta_em` | `timestamptz` | |
 | `removido_em` | `timestamptz`, nulo | Só preenchido numa execução completa (FR-040). Limpo se o alerta voltar à lista. |
 | `pagina_lida` | `bool` | `false` quando só se conhece título, link e data da lista (FR-008). |

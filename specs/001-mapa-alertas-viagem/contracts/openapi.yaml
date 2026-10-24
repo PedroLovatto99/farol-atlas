@@ -125,7 +125,7 @@ components:
         rotulo_busca: { type: string, description: 'Texto da sugestão na busca. Ex.: "Kosovo (Sérvia)".' }
         termos_busca:
           type: array
-          description: Outros nomes que também encontram o território (ex.: "Kosovo", "Malvinas").
+          description: 'Outros nomes que também encontram o território (ex.: "Kosovo", "Malvinas").'
           items: { type: string }
         tipo: { $ref: "#/components/schemas/TipoTerritorio" }
         soberano: { type: [string, "null"], description: "Código do país soberano; nulo para país." }

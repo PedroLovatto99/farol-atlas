@@ -1,0 +1,58 @@
+# Observações curtas e regras especiais de território, usadas pelo seed.
+# O texto longo ("Sobre as fronteiras deste mapa") fica no frontend.
+#
+# Saara Ocidental e Antártida são áreas neutras: não abrem painel e não têm observação aqui;
+# a explicação delas fica só em "Sobre as fronteiras deste mapa".
+
+# Observação de toda dependência que não tem uma própria (sem alerta específico, segue o soberano).
+# {do_soberano} é a forma do soberano com preposição, de "soberanos" (ex.: "dos Estados Unidos").
+dependencia_padrao: >-
+  Território {do_soberano}. O nível de alerta segue o do país soberano, salvo um alerta
+  específico mais recente.
+
+# Soberano de dependência, com a preposição ("de" + artigo). Todo soberano de dependência precisa
+# estar aqui: o seed falha se faltar.
+soberanos:
+  AR: da Argentina
+  AU: da Austrália
+  CN: da China
+  DK: da Dinamarca
+  FI: da Finlândia
+  FR: da França
+  GB: do Reino Unido
+  NL: dos Países Baixos
+  NZ: da Nova Zelândia
+  RS: da Sérvia
+  US: dos Estados Unidos
+
+territorios:
+  # Kosovo e Malvinas: usam o nome, a bandeira e o painel do soberano; a observação abre o
+  # painel no topo; a busca os encontra pelos nomes próprios.
+  XK:
+    observacao: >-
+      Kosovo: o Brasil não reconhece a independência. O mapa o mostra como parte da Sérvia.
+    identidade_do_soberano: true
+    rotulo_busca: Kosovo (Sérvia)
+    termos_busca: [Kosovo]
+  FK:
+    observacao: >-
+      As Malvinas são administradas pelo Reino Unido. O Brasil apoia os direitos da Argentina
+      sobre elas e defende a negociação entre os dois países.
+    identidade_do_soberano: true
+    rotulo_busca: Malvinas (Argentina)
+    termos_busca: [Malvinas, Ilhas Malvinas]
+  TW:
+    observacao: >-
+      Taiwan aparece como parte da China, seguindo a posição do Brasil. O nível de alerta
+      segue o mais recente entre o alerta próprio e o da China.
+  HK:
+    observacao: >-
+      Região administrativa especial da China. O nível de alerta segue o da China, salvo um
+      alerta específico mais recente.
+  MO:
+    observacao: >-
+      Região administrativa especial da China. O nível de alerta segue o da China, salvo um
+      alerta específico mais recente.
+  # Ilha Christmas e Ilhas Cocos (Keeling) formam um só desenho no mapa
+  IOA:
+    termos_busca: [Christmas, Ilha Christmas, Cocos, Ilhas Cocos]

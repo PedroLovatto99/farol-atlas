@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+/* Tokens do tema. As cores dos níveis também existem em niveis.ts (o MapLibre precisa do hex);
+   um teste confere que as duas listas são iguais. */
+@theme {
+  --color-nivel-sem-alerta: #c0dd97;
+  --color-nivel-evitar: #fac775;
+  --color-nivel-nao-viajar: #e24b4a;
+  --color-nivel-nao-verificado: #d3d1c7;
+
+  --color-area-neutra: #f1efe8;
+  --color-borda-regional-nao-viaje: #a32d2d;
+  --color-borda-regional-evite: #854f0b;
+  --color-linha-responsavel: #0c447c;
+  --color-oceano: #dce8f2;
+}

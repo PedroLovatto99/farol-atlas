@@ -1,0 +1,650 @@
+{
+  "dependencias": [
+    {
+      "codigo": "AI",
+      "nome_pt": "Anguila (Reino Unido)",
+      "soberano_codigo": "GB",
+      "codigo_bandeira": "AI",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "AS",
+      "nome_pt": "Samoa Americana (Estados Unidos)",
+      "soberano_codigo": "US",
+      "codigo_bandeira": "AS",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "ATC",
+      "nome_pt": "Ilhas Ashmore e Cartier (Austrália)",
+      "soberano_codigo": "AU",
+      "codigo_bandeira": "AU",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "AW",
+      "nome_pt": "Aruba (Países Baixos)",
+      "soberano_codigo": "NL",
+      "codigo_bandeira": "AW",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "AX",
+      "nome_pt": "Ilhas Åland (Finlândia)",
+      "soberano_codigo": "FI",
+      "codigo_bandeira": "AX",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "BL",
+      "nome_pt": "São Bartolomeu (França)",
+      "soberano_codigo": "FR",
+      "codigo_bandeira": "BL",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "BM",
+      "nome_pt": "Bermuda (Reino Unido)",
+      "soberano_codigo": "GB",
+      "codigo_bandeira": "BM",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "CK",
+      "nome_pt": "Ilhas Cook (Nova Zelândia)",
+      "soberano_codigo": "NZ",
+      "codigo_bandeira": "CK",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "CLP",
+      "nome_pt": "Ilha de Clipperton (França)",
+      "soberano_codigo": "FR",
+      "codigo_bandeira": "FR",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "CSI",
+      "nome_pt": "Ilhas do Mar de Coral (Austrália)",
+      "soberano_codigo": "AU",
+      "codigo_bandeira": "AU",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "CW",
+      "nome_pt": "Curaçao (Países Baixos)",
+      "soberano_codigo": "NL",
+      "codigo_bandeira": "CW",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "FK",
+      "nome_pt": "Argentina",
+      "soberano_codigo": "AR",
+      "codigo_bandeira": "AR",
+      "identidade_do_soberano": true,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "FO",
+      "nome_pt": "Ilhas Faroe (Dinamarca)",
+      "soberano_codigo": "DK",
+      "codigo_bandeira": "FO",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "GF",
+      "nome_pt": "Guiana Francesa (França)",
+      "soberano_codigo": "FR",
+      "codigo_bandeira": "GF",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": true
+    },
+    {
+      "codigo": "GG",
+      "nome_pt": "Guernsey (Reino Unido)",
+      "soberano_codigo": "GB",
+      "codigo_bandeira": "GG",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "GI",
+      "nome_pt": "Gibraltar (Reino Unido)",
+      "soberano_codigo": "GB",
+      "codigo_bandeira": "GI",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "GL",
+      "nome_pt": "Groenlândia (Dinamarca)",
+      "soberano_codigo": "DK",
+      "codigo_bandeira": "GL",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "GU",
+      "nome_pt": "Guam (Estados Unidos)",
+      "soberano_codigo": "US",
+      "codigo_bandeira": "GU",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "HK",
+      "nome_pt": "Hong Kong (China)",
+      "soberano_codigo": "CN",
+      "codigo_bandeira": "HK",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "IM",
+      "nome_pt": "Ilha de Man (Reino Unido)",
+      "soberano_codigo": "GB",
+      "codigo_bandeira": "IM",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "IOA",
+      "nome_pt": "Ilha Christmas e Ilhas Cocos (Austrália)",
+      "soberano_codigo": "AU",
+      "codigo_bandeira": "AU",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "JE",
+      "nome_pt": "Jersey (Reino Unido)",
+      "soberano_codigo": "GB",
+      "codigo_bandeira": "JE",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "KY",
+      "nome_pt": "Ilhas Cayman (Reino Unido)",
+      "soberano_codigo": "GB",
+      "codigo_bandeira": "KY",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "MF",
+      "nome_pt": "São Martim (França)",
+      "soberano_codigo": "FR",
+      "codigo_bandeira": "MF",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "MO",
+      "nome_pt": "Macau (China)",
+      "soberano_codigo": "CN",
+      "codigo_bandeira": "MO",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "MP",
+      "nome_pt": "Ilhas Marianas do Norte (Estados Unidos)",
+      "soberano_codigo": "US",
+      "codigo_bandeira": "MP",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "MS",
+      "nome_pt": "Montserrat (Reino Unido)",
+      "soberano_codigo": "GB",
+      "codigo_bandeira": "MS",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "NC",
+      "nome_pt": "Nova Caledônia (França)",
+      "soberano_codigo": "FR",
+      "codigo_bandeira": "NC",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "NF",
+      "nome_pt": "Ilha Norfolk (Austrália)",
+      "soberano_codigo": "AU",
+      "codigo_bandeira": "NF",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "NU",
+      "nome_pt": "Niue (Nova Zelândia)",
+      "soberano_codigo": "NZ",
+      "codigo_bandeira": "NU",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "PF",
+      "nome_pt": "Polinésia Francesa (França)",
+      "soberano_codigo": "FR",
+      "codigo_bandeira": "PF",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "PM",
+      "nome_pt": "São Pedro e Miquelon (França)",
+      "soberano_codigo": "FR",
+      "codigo_bandeira": "PM",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "PN",
+      "nome_pt": "Pitcairn (Reino Unido)",
+      "soberano_codigo": "GB",
+      "codigo_bandeira": "PN",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "PR",
+      "nome_pt": "Porto Rico (Estados Unidos)",
+      "soberano_codigo": "US",
+      "codigo_bandeira": "PR",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": true
+    },
+    {
+      "codigo": "SH",
+      "nome_pt": "Santa Helena (Reino Unido)",
+      "soberano_codigo": "GB",
+      "codigo_bandeira": "SH",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "SX",
+      "nome_pt": "São Martim (Países Baixos)",
+      "soberano_codigo": "NL",
+      "codigo_bandeira": "SX",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "TC",
+      "nome_pt": "Ilhas Turks e Caicos (Reino Unido)",
+      "soberano_codigo": "GB",
+      "codigo_bandeira": "TC",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "TW",
+      "nome_pt": "Taiwan (China)",
+      "soberano_codigo": "CN",
+      "codigo_bandeira": null,
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": true
+    },
+    {
+      "codigo": "UM",
+      "nome_pt": "Ilhas Menores Distantes (Estados Unidos)",
+      "soberano_codigo": "US",
+      "codigo_bandeira": "UM",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "VG",
+      "nome_pt": "Ilhas Virgens Britânicas (Reino Unido)",
+      "soberano_codigo": "GB",
+      "codigo_bandeira": "VG",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "VI",
+      "nome_pt": "Ilhas Virgens Americanas (Estados Unidos)",
+      "soberano_codigo": "US",
+      "codigo_bandeira": "VI",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "WF",
+      "nome_pt": "Wallis e Futuna (França)",
+      "soberano_codigo": "FR",
+      "codigo_bandeira": "WF",
+      "identidade_do_soberano": false,
+      "na_lista_itamaraty": false
+    },
+    {
+      "codigo": "XK",
+      "nome_pt": "Sérvia",
+      "soberano_codigo": "RS",
+      "codigo_bandeira": "RS",
+      "identidade_do_soberano": true,
+      "na_lista_itamaraty": false
+    }
+  ],
+  "icones_sem_posto": [
+    {
+      "codigo": "AD",
+      "latitude": 42.54925,
+      "longitude": 1.57415
+    },
+    {
+      "codigo": "AF",
+      "latitude": 33.89,
+      "longitude": 65.19655
+    },
+    {
+      "codigo": "AG",
+      "latitude": 17.109,
+      "longitude": -61.81011
+    },
+    {
+      "codigo": "BI",
+      "latitude": -3.38975,
+      "longitude": 29.91695
+    },
+    {
+      "codigo": "BN",
+      "latitude": 4.537,
+      "longitude": 114.46382
+    },
+    {
+      "codigo": "BT",
+      "latitude": 27.5095,
+      "longitude": 90.33415
+    },
+    {
+      "codigo": "CF",
+      "latitude": 6.5655,
+      "longitude": 20.59579
+    },
+    {
+      "codigo": "DJ",
+      "latitude": 11.89275,
+      "longitude": 42.56039
+    },
+    {
+      "codigo": "DM",
+      "latitude": 15.4105,
+      "longitude": -61.35998
+    },
+    {
+      "codigo": "ER",
+      "latitude": 15.17425,
+      "longitude": 38.26469
+    },
+    {
+      "codigo": "FJ",
+      "latitude": -17.80325,
+      "longitude": 177.9737
+    },
+    {
+      "codigo": "FM",
+      "latitude": 6.8505,
+      "longitude": 158.19586
+    },
+    {
+      "codigo": "GD",
+      "latitude": 12.15125,
+      "longitude": -61.66682
+    },
+    {
+      "codigo": "GM",
+      "latitude": 13.443,
+      "longitude": -15.96746
+    },
+    {
+      "codigo": "IS",
+      "latitude": 64.94925,
+      "longitude": -18.52958
+    },
+    {
+      "codigo": "KG",
+      "latitude": 41.232,
+      "longitude": 75.08231
+    },
+    {
+      "codigo": "KI",
+      "latitude": 1.851,
+      "longitude": -157.36346
+    },
+    {
+      "codigo": "KM",
+      "latitude": -11.51175,
+      "longitude": 43.33034
+    },
+    {
+      "codigo": "KN",
+      "latitude": 17.312,
+      "longitude": -62.71833
+    },
+    {
+      "codigo": "LA",
+      "latitude": 18.182,
+      "longitude": 104.70143
+    },
+    {
+      "codigo": "LI",
+      "latitude": 47.11675,
+      "longitude": 9.5483
+    },
+    {
+      "codigo": "LR",
+      "latitude": 6.39625,
+      "longitude": -9.62024
+    },
+    {
+      "codigo": "LS",
+      "latitude": -29.6195,
+      "longitude": 28.14909
+    },
+    {
+      "codigo": "LT",
+      "latitude": 55.1965,
+      "longitude": 24.06303
+    },
+    {
+      "codigo": "LU",
+      "latitude": 49.83825,
+      "longitude": 6.05751
+    },
+    {
+      "codigo": "LV",
+      "latitude": 56.863,
+      "longitude": 24.40165
+    },
+    {
+      "codigo": "LY",
+      "latitude": 26.233,
+      "longitude": 17.21138
+    },
+    {
+      "codigo": "MC",
+      "latitude": 43.733,
+      "longitude": 7.38912
+    },
+    {
+      "codigo": "MD",
+      "latitude": 46.981,
+      "longitude": 28.80753
+    },
+    {
+      "codigo": "ME",
+      "latitude": 42.696,
+      "longitude": 19.2967
+    },
+    {
+      "codigo": "MG",
+      "latitude": -18.7075,
+      "longitude": 46.72806
+    },
+    {
+      "codigo": "MH",
+      "latitude": 7.089,
+      "longitude": 171.3103
+    },
+    {
+      "codigo": "MK",
+      "latitude": 41.6505,
+      "longitude": 21.72695
+    },
+    {
+      "codigo": "MN",
+      "latitude": 46.9125,
+      "longitude": 105.36869
+    },
+    {
+      "codigo": "MT",
+      "latitude": 35.88525,
+      "longitude": 14.44711
+    },
+    {
+      "codigo": "MU",
+      "latitude": -20.24175,
+      "longitude": 57.58494
+    },
+    {
+      "codigo": "MV",
+      "latitude": 4.21475,
+      "longitude": 73.5356
+    },
+    {
+      "codigo": "MW",
+      "latitude": -13.25825,
+      "longitude": 33.75498
+    },
+    {
+      "codigo": "NE",
+      "latitude": 17.5745,
+      "longitude": 9.88191
+    },
+    {
+      "codigo": "NR",
+      "latitude": -0.5325,
+      "longitude": 166.92653
+    },
+    {
+      "codigo": "PG",
+      "latitude": -6.58375,
+      "longitude": 144.37561
+    },
+    {
+      "codigo": "PR",
+      "latitude": 18.24125,
+      "longitude": -66.41976
+    },
+    {
+      "codigo": "PW",
+      "latitude": 7.59475,
+      "longitude": 134.59659
+    },
+    {
+      "codigo": "SB",
+      "latitude": -9.60975,
+      "longitude": 160.14494
+    },
+    {
+      "codigo": "SC",
+      "latitude": -4.71525,
+      "longitude": 55.50334
+    },
+    {
+      "codigo": "SL",
+      "latitude": 8.45775,
+      "longitude": -11.90482
+    },
+    {
+      "codigo": "SM",
+      "latitude": 43.93175,
+      "longitude": 12.43637
+    },
+    {
+      "codigo": "SO",
+      "latitude": 5.217,
+      "longitude": 46.83176
+    },
+    {
+      "codigo": "SS",
+      "latitude": 7.8325,
+      "longitude": 29.13071
+    },
+    {
+      "codigo": "SZ",
+      "latitude": -26.49,
+      "longitude": 31.44626
+    },
+    {
+      "codigo": "TD",
+      "latitude": 15.394,
+      "longitude": 18.52698
+    },
+    {
+      "codigo": "TJ",
+      "latitude": 38.92225,
+      "longitude": 70.93757
+    },
+    {
+      "codigo": "TM",
+      "latitude": 39.01275,
+      "longitude": 58.91977
+    },
+    {
+      "codigo": "TO",
+      "latitude": -21.22075,
+      "longitude": -175.17955
+    },
+    {
+      "codigo": "TV",
+      "latitude": -8.53125,
+      "longitude": 179.20092
+    },
+    {
+      "codigo": "UG",
+      "latitude": 1.3135,
+      "longitude": 32.66236
+    },
+    {
+      "codigo": "UZ",
+      "latitude": 41.37575,
+      "longitude": 63.38101
+    },
+    {
+      "codigo": "VU",
+      "latitude": -15.07725,
+      "longitude": 166.69089
+    },
+    {
+      "codigo": "WS",
+      "latitude": -13.68125,
+      "longitude": -172.44811
+    },
+    {
+      "codigo": "YE",
+      "latitude": 15.782,
+      "longitude": 47.48709
+    }
+  ]
+}

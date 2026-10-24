@@ -31,7 +31,7 @@ Sobem `postgres`, `migracao` (Alembic + seed; termina sozinho), `api`, `worker` 
 | `http://localhost:8000/docs` | Documentação interativa, **só em desenvolvimento** (`API_DOCS_HABILITADA=true`). Com a variável `false`, responde **404**. |
 | `http://localhost:8000/api/v1/openapi.json` | JSON do contrato |
 | `http://localhost:5173` | O mapa em globo, tudo "não verificado" (ainda não houve coleta) |
-| Porta 5432 | Publicada **só em `127.0.0.1`** (cliente local); nenhuma porta de banco em outro endereço. O banco de teste usa `127.0.0.1:5433`. |
+| Porta 5432 | Publicada **só em `127.0.0.1`** (cliente local); nenhuma porta de banco em outro endereço. O banco de teste usa `127.0.0.1:5433`. Se já houver um PostgreSQL local nessas portas, defina `PORTA_POSTGRES` e `PORTA_POSTGRES_TESTE` no `.env` (e a mesma porta em `DATABASE_URL_TESTE`). |
 
 ## 3. Rodar uma coleta de desenvolvimento
 
@@ -85,7 +85,7 @@ git config core.hooksPath .githooks
 ## 6. Regerar a geometria (só quando as regras de território mudarem)
 
 ```powershell
-cd backend; uv run --group geo python scripts/gerar_geometria.py <natural-earth-preprocessado.geojson> ../dados/postos ../frontend/public/geo/territorios.geojson
+cd backend; uv run python scripts/gerar_geometria.py <natural-earth-preprocessado.geojson> ../dados/postos ../frontend/public/geo/territorios.geojson ../dados/territorios/territorios.json
 ```
 
 ## 7. Modelo local no desenvolvimento (opcional)
