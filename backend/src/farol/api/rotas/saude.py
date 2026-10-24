@@ -12,7 +12,9 @@ from farol.mapa import consultar_saude
 roteador = APIRouter()
 
 
-@roteador.get("/saude", response_model=Saude, responses={503: {"model": Saude}})
+@roteador.get(
+    "/saude", response_model=Saude, responses={503: {"model": Saude}}, operation_id="obterSaude"
+)
 def obter_saude(
     resposta: Response, sessao: Annotated[Session, Depends(sessao_da_requisicao)]
 ) -> Saude:

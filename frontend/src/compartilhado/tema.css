@@ -13,4 +13,33 @@
   --color-borda-regional-evite: #854f0b;
   --color-linha-responsavel: #0c447c;
   --color-oceano: #dce8f2;
+
+  --color-espaco: #f4f3ee;
+  --color-marinho: #0c447c;
+  --color-texto: #1f1f1d;
+  --color-texto-2: #5f5e5a;
+  --color-linha: #e6e4dc;
+  --color-aviso-fundo: #faeeda;
+  --color-aviso-texto: #633806;
+  --color-aviso-borda: #ef9f27;
+}
+
+html,
+body,
+#raiz {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--color-texto);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

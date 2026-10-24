@@ -1,15 +1,8 @@
-"""Processo do worker. Por ora só fica de pé; as coletas agendadas chegam na história P1 (US1)."""
+"""Entrada do worker: `python -m farol.worker [coletar --alertas]`."""
 
-import threading
+import sys
 
-from farol.infra import configurar_logs, obter_logger
-
-
-def main() -> None:
-    configurar_logs()
-    obter_logger("farol.worker").info("worker iniciado; ainda sem tarefas agendadas")
-    threading.Event().wait()  # mantém o processo vivo até receber o sinal de parada
-
+from farol.worker.comando import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main(sys.argv[1:]))

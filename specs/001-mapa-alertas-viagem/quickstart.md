@@ -40,7 +40,9 @@ docker compose exec worker python -m farol.worker coletar --alertas
 docker compose exec worker python -m farol.worker coletar --postos   # opcional, demora (pausa entre requisições)
 ```
 
-A coleta respeita o `robots.txt`, pausa entre requisições e para ao cair em verificação humana. O resumo mostra páginas esperadas e lidas, se foi completa e o motivo de qualquer interrupção.
+A coleta respeita o `robots.txt`, pausa entre requisições e para ao cair em verificação humana. O resumo mostra páginas esperadas e lidas, se foi completa e o motivo de qualquer interrupção. O código de saída é 0 (completa), 1 (incompleta) ou 2 (configuração, como `CONTATO_COLETA` ainda com o valor de exemplo).
+
+Sem esse comando, o serviço `worker` coleta sozinho todo dia às 06:17 (Brasília) e também logo ao subir, se a última tentativa tiver mais de 20 horas (ou se nunca houve uma). Por isso, **troque `CONTATO_COLETA` no `.env` antes de subir o `worker`**: com o valor de exemplo ele se recusa a coletar.
 
 ## 4. Roteiro de validação (mapeia para a spec)
 
