@@ -14,6 +14,8 @@
   --color-linha-responsavel: #0c447c;
   --color-oceano: #dce8f2;
 
+  /* Fundo atrás do globo (o céu). O "espaco" logo abaixo é uma superfície clara dos cartões. */
+  --color-ceu: #04060c;
   --color-espaco: #f4f3ee;
   --color-marinho: #0c447c;
   --color-texto: #1f1f1d;
@@ -33,6 +35,8 @@ body,
 body {
   margin: 0;
   color: var(--color-texto);
+  /* o céu já na primeira pintura, antes de o React montar (sem piscar de branco) */
+  background: var(--color-ceu);
 }
 
 /* Ícones de postos no mapa. O destaque (FR-018a) é maior, tem contorno e fica à frente; as medidas

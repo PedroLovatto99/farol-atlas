@@ -6,6 +6,7 @@ import { ProvedorDeEstado, useEstado } from "./estado/contexto";
 import { Aviso } from "./funcionalidades/aviso/Aviso";
 import { Busca } from "./funcionalidades/busca/Busca";
 import { nenhumNivelMarcado, territorioEsmaecido } from "./funcionalidades/legenda/filtro";
+import { CeuEstrelado } from "./funcionalidades/mapa/CeuEstrelado";
 import { LegendaRecolhivel } from "./funcionalidades/legenda/LegendaRecolhivel";
 import { SemNiveisMarcados } from "./funcionalidades/legenda/SemNiveisMarcados";
 import { bordaRegionalDe } from "./funcionalidades/mapa/cor";
@@ -178,10 +179,11 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
 
   return (
     <div
-      className="relative h-dvh w-full overflow-hidden bg-espaco text-texto"
+      className="relative h-dvh w-full overflow-hidden bg-ceu text-texto"
       data-painel-aberto={painelAberto}
       data-modo-do-painel={modoDoPainel}
     >
+      <CeuEstrelado />
       <ComponenteDeMapa
         territorios={territorios}
         postos={postos}
@@ -198,7 +200,9 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="pointer-events-auto flex max-w-xl flex-col gap-1">
-          <h1 className="text-base font-semibold drop-shadow-sm">Farol Atlas</h1>
+          <h1 className="w-fit rounded-lg bg-ceu/90 px-2 py-0.5 text-base font-semibold text-white">
+            Farol Atlas
+          </h1>
           <Aviso
             dadosObtidos={mapa?.dados_obtidos ?? false}
             atualizadoEm={mapa?.atualizado_em ?? null}

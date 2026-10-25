@@ -21,7 +21,7 @@ Revisão do código de cada componente da tela (`App`, `Busca`, `Legenda`, `Pain
 | **Teclado** | Atende, com ressalva | Busca é um combobox completo (setas, Enter, Esc). Legenda, painel, postos expansíveis, "Sobre" e diálogos funcionam só com teclado. Esc fecha o painel (e não fecha o painel quando um diálogo ou a lista da busca está aberto). Ressalva: ver achado 4. |
 | **Leitor de tela** | Atende, com ressalvas | Regiões nomeadas (`Avisos`, `Legenda`, `Detalhes do país`, `Alertas regionais`), `role="status"` e `role="alert"` para carregando, erro e "sem resultado", `aria-current` no ícone em destaque, `lang="pt-BR"`. O mapa em si não é legível por leitor de tela (é desenho): quem não o enxerga usa a busca e o painel, que dão o mesmo dado em texto. Ressalvas: achados 1 e 2. |
 | **360 px de largura** | Atende pelo código | Cabeçalho em coluna abaixo de `sm`, legenda recolhida no celular, atrás do botão "Legenda das cores" (`aria-expanded`, `aria-controls`, teclado; conferido no Edge a 360 px em 25/10/2026), painel como gaveta de 55% da altura, `max-w-[calc(100%-1rem)]` e `w-[min(90vw,24rem)]` nas caixas flutuantes, sem larguras fixas maiores que 340 px (o painel lateral só existe acima do ponto de corte). Falta ver na tela: ver "Para conferir à mão". |
-| **Contraste de texto** | Atende | Pares usados: texto `#1f1f1d` e `#5f5e5a` sobre branco e sobre `#f4f3ee` (acima de 5,5:1); azul `#0c447c` sobre branco, e branco sobre o azul (9,8:1); `#633806` sobre `#faeeda` (8,7:1). Medidos com a fórmula de luminância do WCAG. O selo "+1" dos ícones tem 10 px, mas é decorativo (`aria-hidden`) e o nome acessível do botão já diz quantos postos há. |
+| **Contraste de texto** | Atende (ver "Fundo de espaço", abaixo) | Pares usados: texto `#1f1f1d` e `#5f5e5a` sobre branco e sobre `#f4f3ee` (acima de 5,5:1); azul `#0c447c` sobre branco, e branco sobre o azul (9,8:1); `#633806` sobre `#faeeda` (8,7:1). Medidos com a fórmula de luminância do WCAG. O selo "+1" dos ícones tem 10 px, mas é decorativo (`aria-hidden`) e o nome acessível do botão já diz quantos postos há. |
 | **Idioma e zoom** | Atende | `<html lang="pt-BR">` e `viewport` sem `user-scalable=no`: a pessoa pode ampliar. |
 
 ## Achados e correções
@@ -37,3 +37,16 @@ Revisão do código de cada componente da tela (`App`, `Busca`, `Legenda`, `Pain
 - Percorrer a página só com o teclado (Tab, Shift+Tab, setas na busca, Esc) e conferir que o foco nunca some.
 - Ligar um leitor de tela e conferir: o painel é anunciado ao abrir; os ícones de postos aparecem na lista de botões; o aviso "Dados desatualizados" é lido.
 - Ligar "reduzir movimento" no sistema e conferir que o mapa anda sem animar e o ícone em destaque não pulsa.
+
+## Fundo de espaço (25/10/2026)
+
+O fundo do mapa passou de bege para um céu quase preto (`#04060c`) com 180 estrelas (pequenas e discretas, poucas brilhantes), atrás do globo. O que ficou sobre o céu foi medido no Edge, a 1280 px e a 360 px, com o painel aberto e fechado: para cada texto, a cor contra o fundo de verdade (somando as camadas translúcidas) e, quando não há cartão opaco por baixo, contra os dois piores casos, o céu escuro e o mapa claro (`#dce8f2`). **Nenhum dos 17 a 42 textos conferidos por tela ficou abaixo do AA (4,5:1).** O menor valor foi 7,9:1 (botão "Sobre" sobre o céu).
+
+| O que | Antes | Agora | Contraste |
+|---|---|---|---|
+| Título "Farol Atlas" | texto escuro com sombra, direto sobre o mapa: ilegível no céu preto | texto branco num cartão `#04060c` a 90% | 17:1 sobre o mapa claro, 20:1 sobre o céu (**ajustado**) |
+| Botão "Sobre" | azul `#0c447c` sobre branco a 90% | igual | 7,9:1 sobre o céu, 9,7:1 sobre o mapa |
+| Aviso de site não oficial, busca, legenda, painel, "Fronteiras", zoom | cartões com fundo próprio | igual | 6,5:1 a 16,5:1 |
+| Fundo da página (antes do React montar) | branco | `#04060c` (sem piscar de branco), `theme-color` igual | |
+
+Os pares de cores do tema ficam travados por teste (`contraste.test.ts`), que lê os tokens de `tema.css`. O token do céu é novo (`--color-ceu`); o `--color-espaco` continua sendo a superfície clara dos cartões. As cores dos níveis de alerta não mudaram. O céu é decorativo (`aria-hidden`, sem toque) e não tem animação, então "reduzir movimento" não tem o que desligar.

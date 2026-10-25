@@ -59,7 +59,7 @@ Sem esse comando, o serviço `worker` coleta sozinho os alertas todo dia às 06:
 
 | # | Passo | Resultado esperado | Spec |
 |---|---|---|---|
-| 1 | Abrir o site | Cada país colorido pelo nível; legenda em texto; data da última atualização; aviso de site não oficial com link para o Itamaraty | P1, FR-001 a FR-006 |
+| 1 | Abrir o site | Globo sobre um céu escuro com estrelas, que não mudam ao girar o globo; cada país colorido pelo nível; legenda em texto; data da última atualização; aviso de site não oficial com link para o Itamaraty | P1, FR-001 a FR-006 |
 | 2 | Antes de qualquer coleta completa | Todos os países "não verificado", nenhum "sem alerta" | FR-002, SC-003 |
 | 3 | País que o alerta mais recente marca como normalizado (Bolívia nas fixtures) | "Sem alerta", mesmo com alertas antigos mais graves | FR-007 |
 | 4 | Líbano com só "não viaje" marcado na legenda | Líbano aparece por causa do Sul do Líbano | FR-027 |
