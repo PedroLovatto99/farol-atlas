@@ -1,8 +1,9 @@
 """Leitura e gravação de postos brasileiros."""
 
 from collections.abc import Sequence
+from datetime import datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from farol.dominio.modelos import Posto
@@ -36,3 +37,24 @@ class PostoRepositorio:
 
     def adicionar(self, posto: Posto) -> None:
         self._sessao.add(posto)
+
+    def registrar_contato(
+        self,
+        posto: Posto,
+        *,
+        endereco: str | None,
+        telefone_plantao: str | None,
+        coletado_em: datetime,
+        fonte_url: str,
+    ) -> None:
+        """Grava endereço, telefone, data e fonte juntos (princípio V: nada sem fonte e data)."""
+        posto.endereco = endereco
+        posto.telefone_plantao = telefone_plantao
+        posto.contato_coletado_em = coletado_em
+        posto.contato_fonte_url = fonte_url
+
+    def contar_com_contato(self) -> tuple[int, int]:
+        """Cobertura da coleta: quantos postos têm endereço e quantos têm telefone de plantão."""
+        consulta = select(func.count(Posto.endereco), func.count(Posto.telefone_plantao))
+        com_endereco, com_telefone = self._sessao.execute(consulta).one()
+        return com_endereco, com_telefone

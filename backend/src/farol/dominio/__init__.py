@@ -17,6 +17,7 @@ from farol.dominio.modelos import (
     Posto,
     Territorio,
 )
+from farol.dominio.regioes import e_nivel_do_pais, separar_nivel_do_pais
 from farol.dominio.repositorios import (
     AlertaRepositorio,
     BancoRepositorio,
@@ -48,4 +49,6 @@ __all__ = [
     "TipoExecucao",
     "TipoPosto",
     "TipoTerritorio",
+    "e_nivel_do_pais",
+    "separar_nivel_do_pais",
 ]

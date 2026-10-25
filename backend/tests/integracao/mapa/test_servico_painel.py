@@ -215,7 +215,7 @@ def test_regioes_do_alerta_que_rege(semeado: Session, execucao: ExecucaoColeta) 
         1,
         "Oriente Médio",
         datetime(2026, 8, 17, tzinfo=UTC),
-        [("LB", E, [("Sul do Líbano", N)]), ("PS", None, [("Faixa de Gaza", N)])],
+        [("LB", E, [("Sul do Líbano", N)]), ("SY", None, [("Norte da Síria", N)])],
     )
 
     libano = painel(semeado, "LB")
@@ -223,10 +223,49 @@ def test_regioes_do_alerta_que_rege(semeado: Session, execucao: ExecucaoColeta) 
     assert [(r.nome, r.nivel.value) for r in libano.regioes] == [("Sul do Líbano", "nao_viajar")]
     assert libano.regiao_unica_do_alerta is False
 
+    siria = painel(semeado, "SY")
+    assert siria.nivel is NivelExibido.SEM_ALERTA
+    assert [r.nome for r in siria.regioes] == ["Norte da Síria"]
+    assert siria.regiao_unica_do_alerta is True  # o alerta vale só para a região (FR-007)
+
+
+def test_palestina_declara_que_as_regioes_cobrem_o_territorio(
+    semeado: Session, execucao: ExecucaoColeta
+) -> None:
+    criar_alerta(
+        semeado,
+        execucao,
+        1,
+        "Oriente Médio",
+        datetime(2026, 8, 17, tzinfo=UTC),
+        [("PS", None, [("Faixa de Gaza", N), ("Cisjordânia", E)])],
+    )
+
     palestina = painel(semeado, "PS")
-    assert palestina.nivel is NivelExibido.SEM_ALERTA
-    assert [r.nome for r in palestina.regioes] == ["Faixa de Gaza"]
-    assert palestina.regiao_unica_do_alerta is True  # o alerta vale só para a região (FR-007)
+
+    assert palestina.nivel is NivelExibido.EVITAR  # o menos grave entre as regiões
+    assert [r.nome for r in palestina.regioes] == ["Faixa de Gaza", "Cisjordânia"]
+    assert palestina.regiao_unica_do_alerta is False
+
+
+def test_classificacao_antiga_com_demais_regioes_do_pais_tambem_vale_como_nivel_do_pais(
+    semeado: Session, execucao: ExecucaoColeta
+) -> None:
+    """Linhas gravadas antes da normalização (a região "demais regiões do país") não enganam."""
+    criar_alerta(
+        semeado,
+        execucao,
+        1,
+        "Oriente Médio",
+        datetime(2026, 8, 17, tzinfo=UTC),
+        [("LB", None, [("Sul do Líbano", N), ("demais regiões do país", E)])],
+    )
+
+    libano = painel(semeado, "LB")
+
+    assert libano.nivel is NivelExibido.EVITAR
+    assert [r.nome for r in libano.regioes] == ["Sul do Líbano"]
+    assert libano.regiao_unica_do_alerta is False
 
 
 def test_alerta_pendente_aparece_marcado_e_deixa_o_pais_nao_verificado(

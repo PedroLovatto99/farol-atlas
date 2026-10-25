@@ -3,21 +3,25 @@
 - identifica-se com um User-Agent que traz um contato;
 - consulta o robots.txt de cada host, uma vez, e só baixa o que ele permite;
 - espera entre uma requisição e outra;
+- segue os redirecionamentos um a um (até `MAXIMO_DE_DESVIOS`), consultando o robots.txt do host
+  de cada destino e esperando entre os passos;
 - ao cair na verificação humana ou ser bloqueado (HTTP 403/429), para e nunca insiste: toda
   requisição seguinte devolve o mesmo motivo sem tocar na rede.
 """
 
 import time
-from collections.abc import Callable, MutableMapping
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, MutableMapping
+from dataclasses import dataclass, replace
 from typing import Any, Protocol, cast
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import requests
 from protego import Protego
 
 NOME_DO_PROJETO = "FarolAtlas/0.1"
 TEMPO_LIMITE_SEGUNDOS = 30.0
+MAXIMO_DE_DESVIOS = 5
+CODIGOS_DE_DESVIO = (301, 302, 303, 307, 308)
 
 # Frases da página de verificação humana do gov.br
 SINAIS_DE_VERIFICACAO = ("testing whether you are a human", "prevent automated spam", "captcha")
@@ -28,6 +32,9 @@ class RespostaHttp(Protocol):
     text: str
     encoding: str | None
 
+    @property
+    def headers(self) -> Mapping[str, str]: ...
+
 
 class SessaoHttp(Protocol):
     """O que o cliente usa de `requests.Session` (e o que as sessões falsas dos testes têm)."""
@@ -35,7 +42,14 @@ class SessaoHttp(Protocol):
     @property
     def headers(self) -> MutableMapping[Any, Any]: ...
 
-    def get(self, url: str, *, timeout: float) -> RespostaHttp: ...
+    def get(self, url: str, *, timeout: float, allow_redirects: bool) -> RespostaHttp: ...
+
+
+@dataclass(frozen=True)
+class _Desvio:
+    """Resposta de redirecionamento: para onde ir em seguida."""
+
+    destino: str
 
 
 @dataclass(frozen=True)
@@ -46,10 +60,16 @@ class Pagina:
     status: int | None
     html: str
     motivo: str | None  # None = conteúdo real
+    url_final: str | None = None  # depois dos redirecionamentos; None = a própria `url`
 
     @property
     def ok(self) -> bool:
         return self.motivo is None
+
+    @property
+    def destino(self) -> str:
+        """A URL de onde o conteúdo veio (a final, se houve redirecionamento)."""
+        return self.url_final or self.url
 
 
 def parece_verificacao(html: str) -> bool:
@@ -82,21 +102,7 @@ class ClienteEducado:
 
     def baixar(self, url: str) -> Pagina:
         """Baixa uma página. Nunca levanta erro de rede: o motivo vem em `Pagina.motivo`."""
-        if self.interrompido_por is not None:
-            return Pagina(url, None, "", self.interrompido_por)
-
-        host = self._raiz_do_host(url)
-        if host not in self._robots:
-            self._robots[host] = self._ler_robots(host)
-            if self.interrompido_por is not None:
-                return Pagina(url, None, "", self.interrompido_por)
-        regras = self._robots[host]
-        if regras is None:
-            return Pagina(url, None, "", "robots.txt inacessível")
-        if not regras.can_fetch(url, self.user_agent):
-            return Pagina(url, None, "", "proibida pelo robots.txt")
-
-        return self._requisitar(url)
+        return self._seguir(url, com_robots=True)
 
     # ------------------------------------------------------------------ internos
     @staticmethod
@@ -104,9 +110,40 @@ class ClienteEducado:
         partes = urlsplit(url)
         return f"{partes.scheme}://{partes.netloc}"
 
-    def _requisitar(self, url: str) -> Pagina:
+    def _seguir(self, url: str, *, com_robots: bool) -> Pagina:
+        """Pede `url` e segue os redirecionamentos; cada passo confere o robots.txt do seu host."""
+        atual = url
+        for _ in range(MAXIMO_DE_DESVIOS + 1):
+            if self.interrompido_por is not None:
+                return Pagina(url, None, "", self.interrompido_por)
+            if com_robots:
+                veto = self._vetar(atual)
+                if veto is not None:
+                    return Pagina(url, None, "", veto)
+            resultado = self._requisitar(atual)
+            if isinstance(resultado, _Desvio):
+                atual = resultado.destino
+                continue
+            return replace(resultado, url=url, url_final=atual)
+        return Pagina(url, None, "", "redirecionamentos demais")
+
+    def _vetar(self, url: str) -> str | None:
+        """Motivo de não poder baixar `url` (robots.txt), ou None se pode."""
+        host = self._raiz_do_host(url)
+        if host not in self._robots:
+            self._robots[host] = self._ler_robots(host)
+            if self.interrompido_por is not None:
+                return self.interrompido_por
+        regras = self._robots[host]
+        if regras is None:
+            return "robots.txt inacessível"
+        if not regras.can_fetch(url, self.user_agent):
+            return "proibida pelo robots.txt"
+        return None
+
+    def _requisitar(self, url: str) -> Pagina | _Desvio:
         try:
-            resposta = self._sessao.get(url, timeout=TEMPO_LIMITE_SEGUNDOS)
+            resposta = self._sessao.get(url, timeout=TEMPO_LIMITE_SEGUNDOS, allow_redirects=False)
         except requests.RequestException as erro:
             return Pagina(url, None, "", f"erro de conexão: {type(erro).__name__}")
         finally:
@@ -118,6 +155,10 @@ class ClienteEducado:
             return self._parar(url, status, "caiu na verificação humana")
         if status in (403, 429):
             return self._parar(url, status, f"bloqueado (HTTP {status})")
+        if status in CODIGOS_DE_DESVIO:
+            destino = resposta.headers.get("Location")
+            if destino:
+                return _Desvio(urljoin(url, destino))
         if status != 200:
             return Pagina(url, status, html, f"HTTP {status}")
         return Pagina(url, status, html, None)
@@ -128,7 +169,7 @@ class ClienteEducado:
 
     def _ler_robots(self, host: str) -> Protego | None:
         """Regras do host; `None` se o robots.txt não pôde ser lido (então nada é baixado)."""
-        pagina = self._requisitar(f"{host}/robots.txt")
+        pagina = self._seguir(f"{host}/robots.txt", com_robots=False)
         if self.interrompido_por is not None:
             return None
         if pagina.status == 404:

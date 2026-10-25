@@ -15,7 +15,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
-from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
@@ -34,12 +33,11 @@ from farol.dominio import (
     ExecucaoRepositorio,
     TipoExecucao,
 )
-from farol.infra import Relogio, obter_logger
+from farol.infra import FUSO_DE_BRASILIA, Relogio, obter_logger
 
 URL_LISTA_DE_ALERTAS = (
     "https://www.gov.br/mre/pt-br/assuntos/portal-consular/alertas%20e%20noticias/alertas"
 )
-FUSO_DO_PORTAL = ZoneInfo("America/Sao_Paulo")
 LIMITE_DE_PAGINAS_DA_LISTA = 50  # trava contra um link de próxima página que nunca acaba
 MINIMO_LIDO = (7, 10)  # 70% das páginas esperadas (FR-040), em conta de inteiros
 
@@ -76,7 +74,7 @@ def hash_do_alerta(titulo: str, texto: str) -> str:
 
 
 def _dia_local(instante: datetime) -> object:
-    return instante.astimezone(FUSO_DO_PORTAL).date()
+    return instante.astimezone(FUSO_DE_BRASILIA).date()
 
 
 @dataclass

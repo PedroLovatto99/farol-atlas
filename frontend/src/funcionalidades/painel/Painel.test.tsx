@@ -116,6 +116,40 @@ describe("Painel: cabeçalho e nível", () => {
   });
 });
 
+describe("Painel: foco", () => {
+  function Tela({ aberto }: { aberto: boolean }) {
+    return (
+      <>
+        <button type="button">Quem abriu</button>
+        {aberto && (
+          <Painel
+            estado={{ situacao: "pronto", pais: PAIS_EXEMPLO }}
+            onFechar={vi.fn()}
+            onTentarDeNovo={vi.fn()}
+          />
+        )}
+      </>
+    );
+  }
+
+  it("leva o foco para o painel ao abrir e devolve a quem estava com ele ao fechar", () => {
+    const { rerender } = render(<Tela aberto={false} />);
+    const quemAbriu = screen.getByRole("button", { name: "Quem abriu" });
+    quemAbriu.focus();
+
+    rerender(<Tela aberto />);
+    expect(painel()).toHaveFocus();
+
+    rerender(<Tela aberto={false} />);
+    expect(quemAbriu).toHaveFocus();
+  });
+
+  it("o painel recebe o foco por código, mas não entra na ordem do Tab", () => {
+    abrir(PAIS_EXEMPLO);
+    expect(painel()).toHaveAttribute("tabindex", "-1");
+  });
+});
+
 describe("Painel: regiões", () => {
   it("lista as regiões com alerta e o nível de cada uma", () => {
     abrir(LIBANO);
@@ -140,6 +174,33 @@ describe("Painel: regiões", () => {
       }),
     );
     expect(within(painel()).getByText(/vale só para a região/i)).toBeVisible();
+  });
+
+  it("com alerta só regional, o título é 'Alerta só para parte do país', não 'Sem alerta'", () => {
+    abrir(
+      criarPais({
+        codigo: "SY",
+        nome: "Síria",
+        nivel: "sem_alerta",
+        regioes: [{ nome: "Norte da Síria", nivel: "nao_viajar" }],
+        regiao_unica_do_alerta: true,
+      }),
+    );
+    expect(within(painel()).getByText("Alerta só para parte do país")).toBeVisible();
+    expect(within(painel()).queryByText("Sem alerta do Itamaraty")).not.toBeInTheDocument();
+    expect(within(painel()).queryByText(/não publicou alerta/i)).not.toBeInTheDocument();
+  });
+
+  it("sem alerta de verdade continua com o título 'Sem alerta do Itamaraty'", () => {
+    abrir(criarPais({ codigo: "BO", nome: "Bolívia", nivel: "sem_alerta" }));
+    expect(within(painel()).getByText("Sem alerta do Itamaraty")).toBeVisible();
+    expect(within(painel()).queryByText("Alerta só para parte do país")).not.toBeInTheDocument();
+  });
+
+  it("país com nível do país e regiões (Líbano) mostra o nível do país no topo", () => {
+    abrir(LIBANO);
+    expect(within(painel()).getByText("Evite viagens não essenciais")).toBeVisible();
+    expect(within(painel()).queryByText("Alerta só para parte do país")).not.toBeInTheDocument();
   });
 
   it("não mostra esse aviso quando o alerta vale para o país inteiro", () => {

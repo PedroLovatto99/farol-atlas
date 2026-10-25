@@ -2,13 +2,13 @@
 
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from urllib.parse import urljoin
-from zoneinfo import ZoneInfo
 
 from bs4 import BeautifulSoup, Tag
 
-FUSO_DO_PORTAL = ZoneInfo("America/Sao_Paulo")
+from farol.infra import FUSO_DE_BRASILIA
+
 _DATA_DA_LISTA = re.compile(r"(\d{2})/(\d{2})/(\d{4})")
 _ROTULO_DE_PROXIMA = re.compile(r"^\s*(próxim[oa]|seguinte|avançar|›|»)", re.IGNORECASE)
 _ROTULO_DE_ANTERIOR = re.compile(r"^\s*(anterior|voltar|‹|«)", re.IGNORECASE)
@@ -34,10 +34,10 @@ def data_da_lista(texto: str) -> datetime | None:
         return None
     dia, mes, ano = (int(parte) for parte in achado.groups())
     try:
-        local = datetime(ano, mes, dia, tzinfo=FUSO_DO_PORTAL)
+        local = datetime(ano, mes, dia, tzinfo=FUSO_DE_BRASILIA)
     except ValueError:
         return None
-    return local.astimezone(ZoneInfo("UTC"))
+    return local.astimezone(UTC)
 
 
 def _item(bloco: Tag, url_da_pagina: str) -> ItemDaLista | None:

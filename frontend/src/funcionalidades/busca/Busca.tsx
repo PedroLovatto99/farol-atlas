@@ -71,7 +71,7 @@ export function Busca({ territorios, onEscolher }: Props) {
         role="combobox"
         aria-label="Buscar país"
         aria-expanded={aberta}
-        aria-controls={`${idBase}-lista`}
+        aria-controls={aberta ? `${idBase}-lista` : undefined}
         aria-autocomplete="list"
         aria-activedescendant={aberta && ativa >= 0 ? idDaOpcao(ativa) : undefined}
         autoComplete="off"

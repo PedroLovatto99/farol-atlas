@@ -40,6 +40,17 @@ export const NIVEIS: Readonly<Record<NivelId, InfoDoNivel>> = {
   },
 };
 
+/**
+ * Título do painel quando o alerta que rege o país só vale para regiões dele (FR-007). A cor do mapa
+ * continua a de "sem alerta" (neutra), mas o painel não pode dizer que não há alerta.
+ */
+export const ALERTA_SO_REGIONAL = {
+  rotulo: "Alerta só para parte do país",
+  aviso: "Este alerta vale só para a região indicada, não para o país inteiro.",
+  texto:
+    "Para o restante do país, a ausência de alerta não significa que o governo recomenda a viagem.",
+} as const;
+
 /** Sem dado confirmado, o padrão nunca é o estado mais favorável (princípio V). */
 export const NIVEL_PADRAO: NivelId = "nao_verificado";
 

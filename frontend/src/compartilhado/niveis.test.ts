@@ -1,7 +1,14 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { NIVEIS, NIVEL_PADRAO, ORDEM_DA_LEGENDA, nivelMaisGrave, type NivelId } from "./niveis";
+import {
+  ALERTA_SO_REGIONAL,
+  NIVEIS,
+  NIVEL_PADRAO,
+  ORDEM_DA_LEGENDA,
+  nivelMaisGrave,
+  type NivelId,
+} from "./niveis";
 
 const tema = readFileSync(resolve(process.cwd(), "src/compartilhado/tema.css"), "utf-8");
 
@@ -20,6 +27,13 @@ describe("níveis de alerta", () => {
     expect(NIVEIS.evitar.rotulo).toBe("Evite viagens não essenciais");
     expect(NIVEIS.nao_viajar.rotulo).toBe("Não viaje");
     expect(NIVEIS.nao_verificado.rotulo).toBe("Não verificado");
+  });
+
+  it("o alerta só para parte do país tem rótulo e texto próprios, que não prometem ausência de alerta", () => {
+    expect(ALERTA_SO_REGIONAL.rotulo).toBe("Alerta só para parte do país");
+    expect(ALERTA_SO_REGIONAL.aviso).toMatch(/vale só para a região indicada/i);
+    expect(ALERTA_SO_REGIONAL.texto).toMatch(/não significa que o governo recomenda a viagem/i);
+    expect(ALERTA_SO_REGIONAL.texto).not.toMatch(/não publicou alerta/i);
   });
 
   it("o padrão, quando não há dado confirmado, é não verificado", () => {

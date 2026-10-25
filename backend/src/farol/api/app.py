@@ -8,6 +8,7 @@ desenvolvimento, por variável de ambiente.
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -35,6 +36,9 @@ def criar_app(configuracoes: Configuracoes | None = None) -> FastAPI:
         openapi_url=f"{PREFIXO}/openapi.json",
     )
 
+    # O /mapa tem cerca de 90 KB de JSON: comprimido, chega bem mais rápido em rede de celular.
+    # Adicionado antes do CORS, que fica por fora e continua pondo os seus cabeçalhos.
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=config.cors_origens,

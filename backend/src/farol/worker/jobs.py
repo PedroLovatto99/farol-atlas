@@ -12,10 +12,17 @@ from dataclasses import dataclass
 from farol.classificacao import (
     ClassificadorDeAlertas,
     ResultadoDaClassificacao,
+    ResultadoDaReclassificacao,
     ServicoDeClassificacao,
     criar_modelo,
 )
-from farol.coleta import ClienteEducado, ResultadoDaColeta, ServicoDeColetaDeAlertas
+from farol.coleta import (
+    ClienteEducado,
+    ResultadoDaColeta,
+    ResultadoDaColetaDePostos,
+    ServicoDeColetaDeAlertas,
+    ServicoDeColetaDePostos,
+)
 from farol.infra import Configuracoes, RelogioDoSistema, abrir_sessao, obter_logger
 
 _log = obter_logger("farol.worker")
@@ -26,6 +33,10 @@ CONTATO_DE_EXEMPLO = "https://github.com/seu-usuario"
 
 class ContatoInvalido(RuntimeError):
     """CONTATO_COLETA ausente ou ainda com o valor de exemplo: a coleta não começa."""
+
+
+class ClassificadorIndisponivel(RuntimeError):
+    """Sem chave ou sem modelo configurado: não há como reclassificar."""
 
 
 @dataclass(frozen=True)
@@ -43,18 +54,44 @@ def rodada_de_alertas(
     return ResultadoDaRodada(coleta, classificacao)
 
 
+def _cliente_educado(configuracoes: Configuracoes) -> ClienteEducado:
+    contato = (configuracoes.contato_coleta or "").strip()
+    if not contato or contato == CONTATO_DE_EXEMPLO:
+        raise ContatoInvalido(
+            "defina CONTATO_COLETA no .env com o seu contato (URL ou e-mail): "
+            "ele vai no User-Agent da coleta"
+        )
+    return ClienteEducado(contato, pausa_segundos=configuracoes.pausa_segundos)
+
+
+def rodada_real_de_postos(configuracoes: Configuracoes) -> ResultadoDaColetaDePostos:
+    """Coleta de postos de verdade: gov.br e banco (sem LLM)."""
+    cliente = _cliente_educado(configuracoes)
+    with abrir_sessao() as sessao:
+        return ServicoDeColetaDePostos(sessao, cliente, RelogioDoSistema()).coletar()
+
+
+def reclassificar_real(configuracoes: Configuracoes, referencia: str) -> ResultadoDaReclassificacao:
+    """Reclassifica um alerta (id ou URL) com o modelo de LLM_CLASSIFICADOR. Não coleta nada."""
+    try:
+        modelo, nome = criar_modelo(configuracoes)
+    except Exception as erro:
+        raise ClassificadorIndisponivel(
+            f"não foi possível criar o modelo {configuracoes.llm_classificador!r}: {erro}"
+        ) from erro
+    with abrir_sessao() as sessao:
+        servico = ServicoDeClassificacao(
+            sessao, ClassificadorDeAlertas(modelo, nome), RelogioDoSistema()
+        )
+        return servico.reclassificar(referencia)
+
+
 def rodada_real(configuracoes: Configuracoes) -> ResultadoDaRodada:
     """Uma rodada de verdade: gov.br, banco e o modelo configurado em LLM_CLASSIFICADOR."""
     relogio = RelogioDoSistema()
 
     def coletar() -> ResultadoDaColeta:
-        contato = (configuracoes.contato_coleta or "").strip()
-        if not contato or contato == CONTATO_DE_EXEMPLO:
-            raise ContatoInvalido(
-                "defina CONTATO_COLETA no .env com o seu contato (URL ou e-mail): "
-                "ele vai no User-Agent da coleta"
-            )
-        cliente = ClienteEducado(contato, pausa_segundos=configuracoes.pausa_segundos)
+        cliente = _cliente_educado(configuracoes)
         with abrir_sessao() as sessao:
             return ServicoDeColetaDeAlertas(sessao, cliente, relogio).coletar()
 

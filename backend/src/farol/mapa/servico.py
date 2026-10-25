@@ -46,7 +46,9 @@ def montar_mapa(sessao: Session, relogio: Relogio) -> VisaoDoMapa:
     )
     niveis = calcular_niveis(
         [
-            TerritorioParaNivel(t.codigo, t.soberano_codigo, nomes_para_titulo(t))
+            TerritorioParaNivel(
+                t.codigo, t.soberano_codigo, nomes_para_titulo(t), t.regioes_cobrem_o_pais
+            )
             for t in territorios
         ],
         alertas,

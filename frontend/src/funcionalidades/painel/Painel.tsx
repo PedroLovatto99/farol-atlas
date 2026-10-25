@@ -1,8 +1,8 @@
 import { IconWorld } from "@tabler/icons-react";
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Bandeira } from "../../compartilhado/Bandeira";
 import { formatarData } from "../../compartilhado/datas";
-import { NIVEIS } from "../../compartilhado/niveis";
+import { ALERTA_SO_REGIONAL, NIVEIS } from "../../compartilhado/niveis";
 import { ehUrlWeb } from "../../compartilhado/urlSegura";
 import type { FontePostos, Pais, PostoNoPainel } from "../../servicos/api/cliente";
 import { URL_DO_PORTAL_CONSULAR } from "../aviso/Aviso";
@@ -147,6 +147,8 @@ function Postos({ pais, controle }: { pais: Pais; controle: ControleDosPostos })
 
 function NivelDoPais({ pais }: { pais: Pais }) {
   const nivel = NIVEIS[pais.nivel];
+  // só regional: a cor do swatch segue a do mapa (neutra), mas o título não diz "sem alerta"
+  const soRegional = pais.regiao_unica_do_alerta === true;
   return (
     <div className="space-y-1">
       <p className="flex items-center gap-2 font-semibold">
@@ -155,13 +157,15 @@ function NivelDoPais({ pais }: { pais: Pais }) {
           className="h-3 w-[18px] shrink-0 rounded-sm"
           style={{ backgroundColor: nivel.cor }}
         />
-        {nivel.rotulo}
+        {soRegional ? ALERTA_SO_REGIONAL.rotulo : nivel.rotulo}
       </p>
-      <p className="text-sm text-texto-2">{nivel.texto}</p>
-      {pais.regiao_unica_do_alerta === true && (
-        <p className="text-sm font-semibold">
-          Este alerta vale só para a região indicada, não para o país inteiro.
-        </p>
+      {soRegional ? (
+        <>
+          <p className="text-sm font-semibold">{ALERTA_SO_REGIONAL.aviso}</p>
+          <p className="text-sm text-texto-2">{ALERTA_SO_REGIONAL.texto}</p>
+        </>
+      ) : (
+        <p className="text-sm text-texto-2">{nivel.texto}</p>
       )}
     </div>
   );
@@ -230,11 +234,26 @@ export function Painel({
   onAlternarPosto,
 }: Props) {
   const pais = estado.situacao === "pronto" ? estado.pais : null;
+  const raiz = useRef<HTMLElement>(null);
+
+  // O painel abre por uma ação da pessoa (toque, busca): leva o foco para ele, para o leitor de
+  // tela anunciá-lo, e devolve o foco a quem o tinha quando o painel fecha.
+  useEffect(() => {
+    const quemTinhaOFoco =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    raiz.current?.focus({ preventScroll: true });
+    return () => {
+      if (quemTinhaOFoco?.isConnected) quemTinhaOFoco.focus({ preventScroll: true });
+    };
+  }, []);
+
   return (
     <aside
+      ref={raiz}
+      tabIndex={-1}
       aria-label="Detalhes do país"
       data-modo={modo}
-      className={`${CLASSES_DO_MODO[modo]} flex flex-col overflow-hidden border border-linha bg-white shadow-lg`}
+      className={`${CLASSES_DO_MODO[modo]} flex flex-col overflow-hidden border border-linha bg-white shadow-lg outline-none`}
     >
       <header className="flex items-start gap-2 border-b border-linha p-3">
         {pais !== null ? (

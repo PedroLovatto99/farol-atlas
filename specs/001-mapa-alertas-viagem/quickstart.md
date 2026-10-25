@@ -37,12 +37,23 @@ Sobem `postgres`, `migracao` (Alembic + seed; termina sozinho), `api`, `worker` 
 
 ```powershell
 docker compose exec worker python -m farol.worker coletar --alertas
-docker compose exec worker python -m farol.worker coletar --postos   # opcional, demora (pausa entre requisições)
+docker compose exec worker python -m farol.worker coletar --postos   # opcional: endereço e telefone dos postos; demora (pausa de 2 s entre requisições)
 ```
 
 A coleta respeita o `robots.txt`, pausa entre requisições e para ao cair em verificação humana. O resumo mostra páginas esperadas e lidas, se foi completa e o motivo de qualquer interrupção. O código de saída é 0 (completa), 1 (incompleta) ou 2 (configuração, como `CONTATO_COLETA` ainda com o valor de exemplo).
 
-Sem esse comando, o serviço `worker` coleta sozinho todo dia às 06:17 (Brasília) e também logo ao subir, se a última tentativa tiver mais de 20 horas (ou se nunca houve uma). Por isso, **troque `CONTATO_COLETA` no `.env` antes de subir o `worker`**: com o valor de exemplo ele se recusa a coletar.
+A coleta de postos é de melhor esforço: lê a tabela de repartições, segue o link de cada posto (que redireciona para `www.gov.br`) e procura endereço e telefone de plantão na página dele e em até 3 subpáginas (emergências, fale conosco...). O que não achar fica vazio e o painel mostra "ainda não cadastrado". O resumo traz quantos postos ficaram com endereço e com telefone (a cobertura); na rodada real de 25/10/2026, 76 dos 209 postos ficaram com endereço e 56 com telefone de plantão; os demais ficam sem esses dados.
+
+### Reclassificar um alerta
+
+Depois de mudar uma regra de classificação, ou para repetir uma classificação que falhou, o comando abaixo chama o modelo de novo para um alerta (pelo id do banco ou pela URL) e **não coleta nada do gov.br**. Se a nova tentativa falhar, a classificação que valia continua valendo. Códigos de saída: 0 (reclassificado), 1 (o modelo falhou), 2 (alerta não encontrado ou sem modelo configurado).
+
+```powershell
+docker compose exec worker python -m farol.worker reclassificar 2
+docker compose exec worker python -m farol.worker reclassificar "https://www.gov.br/mre/pt-br/.../alerta-consular-oriente-medio"
+```
+
+Sem esse comando, o serviço `worker` coleta sozinho os alertas todo dia às 06:17 (Brasília) e também logo ao subir, se a última tentativa tiver mais de 20 horas (ou se nunca houve uma). Os postos são coletados todo dia 1 às 05:43 e, ao subir, só se a última tentativa tiver mais de 35 dias (ou se nunca houve uma); os dois tipos de coleta rodam um de cada vez. Por isso, **troque `CONTATO_COLETA` no `.env` antes de subir o `worker`**: com o valor de exemplo ele se recusa a coletar.
 
 ## 4. Roteiro de validação (mapeia para a spec)
 
@@ -82,7 +93,9 @@ Hook `pre-push` **opcional** (chama os dois comandos acima antes de cada push), 
 
 ```powershell
 git config core.hooksPath .githooks
-``` Os testes não acessam a internet: o gov.br vem de `backend/tests/fixtures/govbr/` e o LLM é um modelo falso.
+```
+
+Os testes não acessam a internet: o gov.br vem de `backend/tests/fixtures/govbr/` e o LLM é um modelo falso.
 
 ## 6. Regerar a geometria (só quando as regras de território mudarem)
 

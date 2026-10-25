@@ -8,7 +8,9 @@ Em resumo, para cada território:
   - nunca houve coleta completa: "não verificado" (FR-002);
   - vale o alerta de viagem mais recente que o cita (a dependência também considera o do
     soberano); empate de datas: o nível mais grave (FR-007b);
-  - o mais recente "normalizada": "sem alerta", sem regiões; só regional: "sem alerta" com região;
+  - o mais recente "normalizada": "sem alerta", sem regiões; só regional: "sem alerta" com região,
+    salvo nos territórios que declaram que as regiões cobrem o território inteiro (Palestina):
+    ali a cor é a da região menos grave e a borda, a da mais grave;
   - alerta pendente (sem classificação válida) cujo título cita o território: se for o mais
     recente, "não verificado" (FR-008). Na mesma data de um classificado, o pendente vence: na
     dúvida, o país nunca aparece como "sem alerta" (SC-003);
@@ -76,6 +78,9 @@ class TerritorioParaNivel:
     codigo: str
     soberano: str | None
     nomes: tuple[str, ...]  # como o título de um alerta pode citar o território
+    # as regiões nomeadas cobrem o território inteiro (observacoes.yaml); vale a do alerta sem
+    # nível do país
+    regioes_cobrem_o_pais: bool = False
 
 
 # ----------------------------------------------------------------------------- saída
@@ -138,7 +143,23 @@ def _regioes(item: ItemDoAlerta) -> tuple[Regiao, ...]:
     return tuple(Regiao(r.nome, _REGIONAL[r.nivel]) for r in item.regioes if r.nivel in _REGIONAL)
 
 
-def _resultado(vencedor: _Candidato) -> NivelDoTerritorio:
+def _regioes_cobrem_o_pais(item: ItemDoAlerta, vencedor: _Candidato) -> NivelDoTerritorio | None:
+    """Território declarado: a cor é o nível menos grave entre as regiões e a borda, a mais grave.
+
+    Se alguma região voltou ao normal, o território não está todo sob alerta: vale a regra
+    comum (só regional). Sem regiões nenhuma, também.
+    """
+    if not item.regioes or any(r.nivel not in _REGIONAL for r in item.regioes):
+        return None
+    regioes = _regioes(item)
+    cor = min((r.nivel for r in item.regioes), key=_GRAVIDADE.__getitem__)
+    destaque = tuple(r for r in regioes if _GRAVIDADE[NivelAlerta(r.nivel.value)] > _GRAVIDADE[cor])
+    return NivelDoTerritorio(
+        _EXIBIDO[cor], regioes=regioes, regioes_em_destaque=destaque, alerta_id=vencedor.alerta.id
+    )
+
+
+def _resultado(vencedor: _Candidato, cobertos: frozenset[str]) -> NivelDoTerritorio:
     item = vencedor.item
     if item is None:
         return NivelDoTerritorio(NivelExibido.NAO_VERIFICADO, alerta_id=vencedor.alerta.id)
@@ -147,6 +168,8 @@ def _resultado(vencedor: _Candidato) -> NivelDoTerritorio:
 
     regioes = _regioes(item)
     if item.nivel_pais is None:
+        if item.territorio in cobertos and (coberto := _regioes_cobrem_o_pais(item, vencedor)):
+            return coberto
         return NivelDoTerritorio(
             NivelExibido.SEM_ALERTA,
             regioes=regioes,
@@ -185,6 +208,7 @@ def calcular_niveis(
             itens_por_territorio.setdefault(item.territorio, []).append(_Candidato(alerta, item))
 
     nomes_por_codigo = {t.codigo: t.nomes for t in territorios}
+    cobertos = frozenset(t.codigo for t in territorios if t.regioes_cobrem_o_pais)
     resultado: dict[str, NivelDoTerritorio] = {}
     for territorio in territorios:
         # a dependência também considera o soberano (FR-031)
@@ -198,5 +222,7 @@ def calcular_niveis(
         if not candidatos:
             resultado[territorio.codigo] = NivelDoTerritorio(NivelExibido.SEM_ALERTA)
         else:
-            resultado[territorio.codigo] = _resultado(max(candidatos, key=lambda c: c.chave))
+            resultado[territorio.codigo] = _resultado(
+                max(candidatos, key=lambda c: c.chave), cobertos
+            )
     return resultado

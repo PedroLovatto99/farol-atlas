@@ -9,6 +9,8 @@ Responde duas perguntas antes de construir o worker:
 Como rodar:
     pip install requests beautifulsoup4 protego
     python testar_coleta.py
+    python testar_coleta.py --urls URL [URL ...]    baixa também essas páginas (ex.: subpáginas de postos)
+    python testar_coleta.py --urls URL --somente-urls    só essas páginas, sem refazer o teste todo
 
 Rode primeiro na sua máquina. Depois rode de novo no servidor onde o worker vai
 ficar hospedado: o resultado pode ser diferente (servidores na nuvem costumam
@@ -19,11 +21,14 @@ respeita o robots.txt e se identifica honestamente. Se cair na verificação,
 ele para: não tente contornar.
 """
 
+import argparse
 import json
+import re
 import sys
 import time
+from collections.abc import Sequence
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import requests
 from bs4 import BeautifulSoup
@@ -164,12 +169,46 @@ def mostrar(resultado: dict) -> None:
           f"{resultado['segundos']:>5}s  {resultado['url']}")
 
 
+def nome_da_amostra(url: str) -> str:
+    """Nome de arquivo para uma URL extra: `extra_<host>_<caminho>`, só com letras, números e '-'."""
+    partes = urlsplit(url)
+    bruto = f"{partes.netloc}{partes.path}".lower()
+    return "extra_" + re.sub(r"[^a-z0-9]+", "-", bruto).strip("-")
+
+
 def salvar_amostra(nome: str, html: str) -> None:
     PASTA_AMOSTRAS.mkdir(exist_ok=True)
     (PASTA_AMOSTRAS / f"{nome}.html").write_text(html, encoding="utf-8")
 
 
-def main() -> int:
+def ler_argumentos(argumentos: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Testa o acesso e a extração do Portal Consular.")
+    parser.add_argument("--urls", nargs="+", default=[], metavar="URL",
+                        help="URLs extras para baixar e salvar em amostras_coleta/")
+    parser.add_argument("--somente-urls", action="store_true",
+                        help="baixa só as --urls, sem refazer as páginas e a extração do teste")
+    escolhidos = parser.parse_args(argumentos)
+    if escolhidos.somente_urls and not escolhidos.urls:
+        parser.error("--somente-urls precisa de pelo menos uma URL em --urls")
+    return escolhidos
+
+
+def baixar_extras(sessao: requests.Session, urls: Sequence[str], robots: Protego) -> bool:
+    """Baixa as URLs extras com as mesmas regras. Devolve False se parou por bloqueio."""
+    print("\n2b. URLs extras")
+    for url in urls:
+        r = baixar(sessao, url, robots)
+        mostrar(r)
+        if r["html"] and r["ok"]:
+            salvar_amostra(nome_da_amostra(url), r["html"])
+        if r["motivo"] == "caiu na verificação humana" or r["motivo"].startswith("bloqueado"):
+            print("\nO site bloqueou ou pediu verificação humana. Parando para não insistir.")
+            return False
+    return True
+
+
+def main(argumentos: Sequence[str] | None = None) -> int:
+    escolhidos = ler_argumentos(argumentos)
     if "exemplo.com" in CONTATO:
         print("Aviso: troque CONTATO no topo do arquivo por um contato seu antes de rodar no servidor.\n")
 
@@ -184,6 +223,9 @@ def main() -> int:
         print("\nNão deu para ler o robots.txt de verdade. Parando aqui.")
         return 1
     robots = Protego.parse(r["html"])
+
+    if escolhidos.somente_urls:
+        return 0 if baixar_extras(sessao, escolhidos.urls, robots) else 1
 
     # 2) Acesso às páginas principais
     print("\n2. Acesso às páginas")

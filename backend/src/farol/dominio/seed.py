@@ -122,6 +122,13 @@ def observacao_da_dependencia(codigo: str, soberano: str, dados: DadosSeed) -> s
 def _semear_territorios(sessao: Session, dados: DadosSeed) -> None:
     dependencias = {d["codigo"]: d for d in dados.dependencias}
     paises = {c: n for c, n in dados.nomes_dos_paises.items() if c not in dependencias}
+    especiais: dict[str, Any] = dados.observacoes.get("territorios", {})
+    for codigo, declarado in especiais.items():
+        if declarado.get("regioes_cobrem_o_pais") and codigo not in paises | dependencias:
+            raise ErroDeSeed(
+                f"observacoes.yaml: regioes_cobrem_o_pais para {codigo!r}, "
+                "que não é um território conhecido"
+            )
 
     for codigo, nome in paises.items():
         _upsert(
@@ -135,10 +142,10 @@ def _semear_territorios(sessao: Session, dados: DadosSeed) -> None:
             na_lista_itamaraty=True,
             codigo_bandeira=codigo,
             identidade_do_soberano=False,
+            regioes_cobrem_o_pais=bool(especiais.get(codigo, {}).get("regioes_cobrem_o_pais")),
         )
     sessao.flush()
 
-    especiais: dict[str, Any] = dados.observacoes.get("territorios", {})
     for codigo, dep in dependencias.items():
         soberano = dep["soberano_codigo"]
         if soberano not in paises:
@@ -155,6 +162,7 @@ def _semear_territorios(sessao: Session, dados: DadosSeed) -> None:
             na_lista_itamaraty=dep["na_lista_itamaraty"],
             codigo_bandeira=dep["codigo_bandeira"],
             identidade_do_soberano=dep["identidade_do_soberano"],
+            regioes_cobrem_o_pais=bool(especial.get("regioes_cobrem_o_pais")),
             rotulo_busca=especial.get("rotulo_busca"),
             termos_busca=list(especial.get("termos_busca", [])),
             observacao=observacao_da_dependencia(codigo, soberano, dados),

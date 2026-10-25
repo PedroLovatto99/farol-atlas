@@ -34,6 +34,7 @@ class Classificacao(BaseModel):
 2. `e_alerta_de_viagem = true` exige ao menos um território. `false` exige lista vazia.
 3. Território repetido na lista invalida a resposta.
 4. Falha de rede, tempo esgotado ou saída que não casa com o schema: `falhou`. Nada é gravado em `nivel_territorio`.
+5. **Antes** de validar, as "regiões" que são o país inteiro ("demais regiões do país", "restante do país", "todo o país", "todo o território"...) saem de `regioes` e viram `nivel_pais` (o mais grave, se o país já tinha nível). O prompt já pede isso, mas a regra vale em código (`farol.dominio.regioes`).
 
 ## Casos de teste (modelo falso, fixtures em `backend/tests/fixtures/govbr/`)
 
@@ -42,6 +43,7 @@ class Classificacao(BaseModel):
 | `alerta_1.html` (Bolívia, 10/07/2026, "restabelecida a circulação…") | `BO` com `NORMALIZADA` |
 | `alerta_2.html` (Oriente Médio, 04/07/2026, modificado em 17/08/2026) | Vários territórios; `LB` com região "Sul do Líbano" e `PS` com "Faixa de Gaza" |
 | `alerta_3.html` (fraudes em nome dos consulados nos EUA, "Apoio a Cidadãos") | `e_alerta_de_viagem = false` |
+| `alerta_2.html`, com a resposta do modelo `LB`: `nivel_pais` nulo, regiões "Sul do Líbano" (não viajar) e "demais regiões do país" (evitar) | `LB` gravado com `nivel_pais = evitar` e só a região "Sul do Líbano" |
 | Resposta com `codigo = "ZZ"` | Resposta inválida; alerta pendente |
 | Texto com "ignore as instruções anteriores…" | Saída segue o schema; nenhuma instrução do texto é obedecida |
 

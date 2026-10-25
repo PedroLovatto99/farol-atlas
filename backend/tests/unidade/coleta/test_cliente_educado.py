@@ -12,6 +12,7 @@ from farol.coleta import ClienteEducado
 
 ROBOTS_LIBERADO = "User-agent: *\nDisallow:\n"
 ROBOTS_BLOQUEIA_ALERTAS = "User-agent: *\nDisallow: /privado/\n"
+ROBOTS_BLOQUEIA_TUDO = "User-agent: *\nDisallow: /\n"
 PAGINA = "<html><body><p>conteúdo real</p></body></html>"
 VERIFICACAO = "<html>Please wait while we are testing whether you are a human</html>"
 
@@ -21,6 +22,7 @@ class RespostaFalsa:
     status_code: int = 200
     text: str = PAGINA
     encoding: str | None = "utf-8"
+    headers: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -29,7 +31,8 @@ class SessaoFalsa:
     headers: dict[str, str] = field(default_factory=dict)
     chamadas: list[str] = field(default_factory=list)
 
-    def get(self, url: str, *, timeout: float) -> RespostaFalsa:
+    def get(self, url: str, *, timeout: float, allow_redirects: bool = True) -> RespostaFalsa:
+        assert allow_redirects is False  # o cliente segue os desvios, um a um, conferindo o robots
         self.chamadas.append(url)
         resposta = self.respostas.get(url, RespostaFalsa(status_code=404, text=""))
         if isinstance(resposta, Exception):
@@ -217,3 +220,129 @@ def test_erro_de_conexao_so_falha_aquela_pagina() -> None:
     assert ruim.motivo == "erro de conexão: Timeout"
     assert cliente.interrompido_por is None
     assert cliente.baixar("https://www.gov.br/b").ok
+
+
+# --------------------------------------------------------------------------- redirecionamentos
+def desvio(destino: str, status: int = 301) -> RespostaFalsa:
+    return RespostaFalsa(status_code=status, text="", headers={"Location": destino})
+
+
+def test_segue_o_redirecionamento_e_informa_a_url_final() -> None:
+    cliente, sessao, _ = criar(
+        {
+            "https://velho.itamaraty.gov.br/robots.txt": RespostaFalsa(text=ROBOTS_LIBERADO),
+            "https://velho.itamaraty.gov.br/pt-br/": desvio("https://www.gov.br/mre/pt-br/posto"),
+            "https://www.gov.br/robots.txt": RespostaFalsa(text=ROBOTS_LIBERADO),
+            "https://www.gov.br/mre/pt-br/posto": RespostaFalsa(),
+        }
+    )
+    pagina = cliente.baixar("https://velho.itamaraty.gov.br/pt-br/")
+    assert pagina.ok
+    assert pagina.html == PAGINA
+    assert pagina.url == "https://velho.itamaraty.gov.br/pt-br/"
+    assert pagina.url_final == "https://www.gov.br/mre/pt-br/posto"
+    assert sessao.chamadas == [
+        "https://velho.itamaraty.gov.br/robots.txt",
+        "https://velho.itamaraty.gov.br/pt-br/",
+        "https://www.gov.br/robots.txt",
+        "https://www.gov.br/mre/pt-br/posto",
+    ]
+
+
+def test_sem_redirecionamento_a_url_final_e_a_propria_url() -> None:
+    cliente, _, _ = criar(
+        {
+            "https://www.gov.br/robots.txt": RespostaFalsa(text=ROBOTS_LIBERADO),
+            "https://www.gov.br/a": RespostaFalsa(),
+        }
+    )
+    assert cliente.baixar("https://www.gov.br/a").url_final == "https://www.gov.br/a"
+
+
+def test_destino_relativo_e_resolvido_a_partir_da_url_atual() -> None:
+    cliente, _, _ = criar(
+        {
+            "https://www.gov.br/robots.txt": RespostaFalsa(text=ROBOTS_LIBERADO),
+            "https://www.gov.br/mre/a": desvio("/mre/b", status=302),
+            "https://www.gov.br/mre/b": RespostaFalsa(),
+        }
+    )
+    assert cliente.baixar("https://www.gov.br/mre/a").url_final == "https://www.gov.br/mre/b"
+
+
+def test_o_destino_do_redirecionamento_tambem_obedece_ao_robots() -> None:
+    cliente, sessao, _ = criar(
+        {
+            "https://www.gov.br/robots.txt": RespostaFalsa(text=ROBOTS_LIBERADO),
+            "https://www.gov.br/a": desvio("https://fechado.gov.br/x"),
+            "https://fechado.gov.br/robots.txt": RespostaFalsa(text=ROBOTS_BLOQUEIA_TUDO),
+        }
+    )
+    pagina = cliente.baixar("https://www.gov.br/a")
+    assert not pagina.ok
+    assert pagina.motivo == "proibida pelo robots.txt"
+    assert "https://fechado.gov.br/x" not in sessao.chamadas
+    assert cliente.interrompido_por is None
+
+
+def test_redirecionamentos_demais_param_em_vez_de_girar_para_sempre() -> None:
+    respostas: dict[str, RespostaFalsa | Exception] = {
+        "https://www.gov.br/robots.txt": RespostaFalsa(text=ROBOTS_LIBERADO),
+        "https://www.gov.br/a": desvio("https://www.gov.br/b"),
+        "https://www.gov.br/b": desvio("https://www.gov.br/a"),
+    }
+    cliente, sessao, _ = criar(respostas)
+    pagina = cliente.baixar("https://www.gov.br/a")
+    assert not pagina.ok
+    assert pagina.motivo == "redirecionamentos demais"
+    assert len(sessao.chamadas) <= 8
+    assert cliente.interrompido_por is None
+
+
+def test_redirecionamento_sem_destino_falha_so_aquela_pagina() -> None:
+    cliente, _, _ = criar(
+        {
+            "https://www.gov.br/robots.txt": RespostaFalsa(text=ROBOTS_LIBERADO),
+            "https://www.gov.br/a": RespostaFalsa(status_code=301, text=""),
+        }
+    )
+    pagina = cliente.baixar("https://www.gov.br/a")
+    assert not pagina.ok
+    assert pagina.motivo == "HTTP 301"
+
+
+def test_pausa_depois_de_cada_passo_do_redirecionamento() -> None:
+    cliente, sessao, pausas = criar(
+        {
+            "https://www.gov.br/robots.txt": RespostaFalsa(text=ROBOTS_LIBERADO),
+            "https://www.gov.br/a": desvio("https://www.gov.br/b"),
+            "https://www.gov.br/b": RespostaFalsa(),
+        },
+        pausa=2.0,
+    )
+    cliente.baixar("https://www.gov.br/a")
+    assert len(pausas) == len(sessao.chamadas) == 3
+
+
+def test_bloqueio_no_meio_do_caminho_interrompe_tudo() -> None:
+    cliente, _, _ = criar(
+        {
+            "https://www.gov.br/robots.txt": RespostaFalsa(text=ROBOTS_LIBERADO),
+            "https://www.gov.br/a": desvio("https://www.gov.br/b"),
+            "https://www.gov.br/b": RespostaFalsa(status_code=429, text="muitas requisições"),
+        }
+    )
+    pagina = cliente.baixar("https://www.gov.br/a")
+    assert pagina.motivo == "bloqueado (HTTP 429)"
+    assert cliente.interrompido_por == "bloqueado (HTTP 429)"
+
+
+def test_o_robots_txt_tambem_pode_redirecionar() -> None:
+    cliente, _, _ = criar(
+        {
+            "http://velho.gov.br/robots.txt": desvio("https://velho.gov.br/robots.txt"),
+            "https://velho.gov.br/robots.txt": RespostaFalsa(text=ROBOTS_LIBERADO),
+            "http://velho.gov.br/a": RespostaFalsa(),
+        }
+    )
+    assert cliente.baixar("http://velho.gov.br/a").ok

@@ -9,7 +9,7 @@ from collections.abc import Collection
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from farol.dominio import NivelAlerta
+from farol.dominio import NivelAlerta, separar_nivel_do_pais
 
 
 class RespostaInvalida(Exception):
@@ -41,6 +41,26 @@ class Classificacao(_Estrito):
     territorios: list[TerritorioClassificado] = Field(
         default_factory=list, description="Vazio se e_alerta_de_viagem for falso"
     )
+
+
+def normalizar_regioes(resposta: Classificacao) -> Classificacao:
+    """Passa para o nível do país as "regiões" que são o país inteiro ("demais regiões do país").
+
+    O prompt já pede isso, mas o modelo erra; a regra de verdade fica aqui, em código.
+    """
+    territorios = []
+    for territorio in resposta.territorios:
+        nivel_pais, nomeadas = separar_nivel_do_pais(
+            territorio.nivel_pais, [(r.nome, r.nivel) for r in territorio.regioes]
+        )
+        territorios.append(
+            TerritorioClassificado(
+                codigo=territorio.codigo,
+                nivel_pais=nivel_pais,
+                regioes=[RegiaoClassificada(nome=nome, nivel=nivel) for nome, nivel in nomeadas],
+            )
+        )
+    return resposta.model_copy(update={"territorios": territorios})
 
 
 def validar_resposta(resposta: Classificacao, permitidos: Collection[str]) -> Classificacao:

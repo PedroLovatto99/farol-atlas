@@ -195,6 +195,67 @@ def test_so_regional_com_todas_as_regioes_normalizadas_fica_limpo() -> None:
     assert resultado["PS"].so_regional is False
 
 
+# --------------------------------------------------------------- regiões que cobrem o país
+def coberto(codigo: str) -> TerritorioParaNivel:
+    """Território que declara (observacoes.yaml) que as regiões nomeadas cobrem todo ele."""
+    return TerritorioParaNivel(codigo, None, (codigo,), regioes_cobrem_o_pais=True)
+
+
+def test_regioes_que_cobrem_o_pais_pintam_com_o_nivel_menos_grave_e_a_borda_e_a_mais_grave() -> (
+    None
+):
+    a = alerta(1, dia(1), item("PS", None, ("Faixa de Gaza", NAO_VIAJAR), ("Cisjordânia", EVITAR)))
+    resultado = calcular_niveis([coberto("PS")], [a], houve_coleta_completa=True)["PS"]
+    assert resultado.nivel is NivelExibido.EVITAR
+    assert resultado.so_regional is False
+    assert [r.nome for r in resultado.regioes] == ["Faixa de Gaza", "Cisjordânia"]
+    assert resultado.regioes_em_destaque == (Regiao("Faixa de Gaza", NivelRegional.NAO_VIAJAR),)
+
+
+def test_regioes_que_cobrem_o_pais_todas_no_mesmo_nivel_pintam_sem_borda() -> None:
+    a = alerta(
+        1, dia(1), item("PS", None, ("Faixa de Gaza", NAO_VIAJAR), ("Cisjordânia", NAO_VIAJAR))
+    )
+    resultado = calcular_niveis([coberto("PS")], [a], houve_coleta_completa=True)["PS"]
+    assert resultado.nivel is NivelExibido.NAO_VIAJAR
+    assert resultado.regioes_em_destaque == ()
+    assert resultado.so_regional is False
+
+
+def test_regioes_que_cobrem_o_pais_so_valem_sem_nivel_do_pais() -> None:
+    a = alerta(1, dia(1), item("PS", NAO_VIAJAR, ("Cisjordânia", EVITAR)))
+    resultado = calcular_niveis([coberto("PS")], [a], houve_coleta_completa=True)["PS"]
+    assert resultado.nivel is NivelExibido.NAO_VIAJAR
+
+
+def test_regiao_normalizada_entre_as_que_cobrem_o_pais_volta_a_regra_so_regional() -> None:
+    """Se parte do território voltou ao normal, o território não está todo sob alerta."""
+    a = alerta(
+        1, dia(1), item("PS", None, ("Faixa de Gaza", NAO_VIAJAR), ("Cisjordânia", NORMALIZADA))
+    )
+    resultado = calcular_niveis([coberto("PS")], [a], houve_coleta_completa=True)["PS"]
+    assert resultado.nivel is NivelExibido.SEM_ALERTA
+    assert resultado.so_regional is True
+    assert [r.nome for r in resultado.regioes_em_destaque] == ["Faixa de Gaza"]
+
+
+def test_sem_a_declaracao_alerta_so_regional_continua_sem_pintar_o_pais() -> None:
+    a = alerta(1, dia(1), item("LB", None, ("Sul do Líbano", NAO_VIAJAR), ("Norte", EVITAR)))
+    resultado = calcular_niveis([pais("LB")], [a], houve_coleta_completa=True)["LB"]
+    assert resultado.nivel is NivelExibido.SEM_ALERTA
+    assert resultado.so_regional is True
+
+
+def test_a_declaracao_e_do_territorio_que_o_alerta_cita_inclusive_o_do_soberano() -> None:
+    a = alerta(1, dia(1), item("PS", None, ("Faixa de Gaza", NAO_VIAJAR)))
+    resultado = calcular_niveis(
+        [coberto("PS"), dependencia("XX", "PS"), pais("LB")], [a], houve_coleta_completa=True
+    )
+    assert resultado["PS"].nivel is NivelExibido.NAO_VIAJAR
+    assert resultado["XX"].nivel is NivelExibido.NAO_VIAJAR  # segue o soberano (FR-031)
+    assert resultado["LB"].nivel is NivelExibido.SEM_ALERTA
+
+
 def test_alerta_mais_novo_substitui_as_regioes_do_antigo() -> None:
     antigo = alerta(1, dia(1), item("LB", EVITAR, ("Sul do Líbano", NAO_VIAJAR)))
     novo = alerta(2, dia(9), item("LB", EVITAR))

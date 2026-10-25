@@ -56,3 +56,8 @@ territorios:
   # Ilha Christmas e Ilhas Cocos (Keeling) formam um só desenho no mapa
   IOA:
     termos_busca: [Christmas, Ilha Christmas, Cocos, Ilhas Cocos]
+  # Palestina: Faixa de Gaza e Cisjordânia, as regiões que os alertas nomeiam, cobrem o território
+  # inteiro. Sem nível para o país, a cor é a da região menos grave e a borda, a da mais grave.
+  # Fora dos territórios declarados aqui, alerta só regional não pinta o país (FR-007).
+  PS:
+    regioes_cobrem_o_pais: true

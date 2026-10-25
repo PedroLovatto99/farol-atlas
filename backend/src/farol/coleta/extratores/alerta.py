@@ -5,11 +5,11 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from bs4 import BeautifulSoup
 
-FUSO_DO_PORTAL = ZoneInfo("America/Sao_Paulo")
+from farol.infra import FUSO_DE_BRASILIA
+
 _PUBLICADO_EM = re.compile(r"(\d{2})/(\d{2})/(\d{4})(?:\s+(\d{1,2})h(\d{2}))?")
 
 
@@ -35,7 +35,7 @@ def _instante(valor: object) -> datetime | None:
     except ValueError:
         return None
     if instante.tzinfo is None:
-        instante = instante.replace(tzinfo=FUSO_DO_PORTAL)
+        instante = instante.replace(tzinfo=FUSO_DE_BRASILIA)
     return instante.astimezone(UTC)
 
 
@@ -59,7 +59,7 @@ def _publicado_em_da_pagina(soup: BeautifulSoup) -> datetime | None:
     dia, mes, ano, hora, minuto = achado.groups()
     try:
         local = datetime(
-            int(ano), int(mes), int(dia), int(hora or 0), int(minuto or 0), tzinfo=FUSO_DO_PORTAL
+            int(ano), int(mes), int(dia), int(hora or 0), int(minuto or 0), tzinfo=FUSO_DE_BRASILIA
         )
     except ValueError:
         return None

@@ -9,9 +9,10 @@ from farol.infra.banco import (
 )
 from farol.infra.config import Configuracoes, obter_configuracoes
 from farol.infra.logs import configurar_logs, obter_logger
-from farol.infra.relogio import Relogio, RelogioDoSistema
+from farol.infra.relogio import FUSO_DE_BRASILIA, Relogio, RelogioDoSistema
 
 __all__ = [
+    "FUSO_DE_BRASILIA",
     "Configuracoes",
     "Relogio",
     "RelogioDoSistema",

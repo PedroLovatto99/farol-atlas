@@ -14,7 +14,11 @@ from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from farol.classificacao import ClassificadorDeAlertas, ServicoDeClassificacao
+from farol.classificacao import (
+    AlertaNaoEncontrado,
+    ClassificadorDeAlertas,
+    ServicoDeClassificacao,
+)
 from farol.coleta import extrair_alerta, hash_do_alerta
 from farol.dominio import (
     Alerta,
@@ -159,6 +163,72 @@ def test_alerta_2_do_oriente_medio_cita_varios_territorios(
     assert por_codigo["LB"].regioes == [{"nome": "Sul do Líbano", "nivel": "nao_viajar"}]
     assert por_codigo["PS"].nivel_pais is None
     assert por_codigo["PS"].regioes == [{"nome": "Faixa de Gaza", "nivel": "nao_viajar"}]
+
+
+def test_demais_regioes_do_pais_viram_o_nivel_do_pais_e_nao_uma_regiao(
+    semeado: Session, relogio: "RelogioFalso"
+) -> None:
+    """O Itamaraty diz "Não viajar: Sul do Líbano" e "Evitar: Líbano (demais regiões do país)"."""
+    alerta = alerta_da_fixture(semeado, "alerta_2")
+    modelo = modelo_falso(
+        {
+            "e_alerta_de_viagem": True,
+            "territorios": [
+                {
+                    "codigo": "LB",
+                    "nivel_pais": None,
+                    "regioes": [
+                        {"nome": "Sul do Líbano", "nivel": "nao_viajar"},
+                        {"nome": "demais regiões do país", "nivel": "evitar"},
+                    ],
+                },
+                {
+                    "codigo": "PS",
+                    "nivel_pais": None,
+                    "regioes": [
+                        {"nome": "Faixa de Gaza", "nivel": "nao_viajar"},
+                        {"nome": "Cisjordânia", "nivel": "evitar"},
+                    ],
+                },
+            ],
+        }
+    )
+
+    resultado = servico(semeado, modelo, relogio).classificar_pendentes()
+
+    assert resultado.classificados == 1
+    [classificacao] = classificacoes(semeado, alerta)
+    por_codigo = niveis(semeado, classificacao)
+    assert por_codigo["LB"].nivel_pais is NivelAlerta.EVITAR
+    assert por_codigo["LB"].regioes == [{"nome": "Sul do Líbano", "nivel": "nao_viajar"}]
+    # a Palestina não muda: só regiões nomeadas, sem nível para o país (a regra fica para depois)
+    assert por_codigo["PS"].nivel_pais is None
+    assert por_codigo["PS"].regioes == [
+        {"nome": "Faixa de Gaza", "nivel": "nao_viajar"},
+        {"nome": "Cisjordânia", "nivel": "evitar"},
+    ]
+
+
+def test_so_a_expressao_do_pais_inteiro_nao_deixa_o_territorio_sem_nivel(
+    semeado: Session, relogio: "RelogioFalso"
+) -> None:
+    """Sem a normalização, "todo o território" seria a única região e o país, "sem alerta"."""
+    alerta = alerta_da_fixture(semeado, "alerta_2")
+    modelo = modelo_falso(
+        {
+            "e_alerta_de_viagem": True,
+            "territorios": [
+                {"codigo": "LB", "regioes": [{"nome": "todo o território", "nivel": "evitar"}]},
+            ],
+        }
+    )
+
+    servico(semeado, modelo, relogio).classificar_pendentes()
+
+    [classificacao] = classificacoes(semeado, alerta)
+    assert classificacao.status is StatusClassificacao.OK
+    assert niveis(semeado, classificacao)["LB"].nivel_pais is NivelAlerta.EVITAR
+    assert niveis(semeado, classificacao)["LB"].regioes == []
 
 
 def test_alerta_3_de_fraudes_nao_e_alerta_de_viagem(
@@ -343,4 +413,114 @@ def test_ignora_alerta_sem_pagina_lida_e_alerta_removido(
     resultado = servico(semeado, modelo, relogio).classificar_pendentes()
 
     assert (resultado.classificados, resultado.falhas) == (0, 0)
+    assert modelo.recebidas == []
+
+
+# ------------------------------------------------------------------ reclassificar um alerta
+BOLIVIA_EVITAR = {
+    "e_alerta_de_viagem": True,
+    "territorios": [{"codigo": "BO", "nivel_pais": "evitar"}],
+}
+BOLIVIA_NAO_VIAJAR = {
+    "e_alerta_de_viagem": True,
+    "territorios": [{"codigo": "BO", "nivel_pais": "nao_viajar"}],
+}
+
+
+def test_reclassificar_por_id_refaz_a_classificacao_do_mesmo_hash(
+    semeado: Session, relogio: "RelogioFalso"
+) -> None:
+    alerta = alerta_da_fixture(semeado, "alerta_1")
+    modelo = modelo_falso(BOLIVIA_EVITAR, BOLIVIA_NAO_VIAJAR)
+    classificador = servico(semeado, modelo, relogio)
+    classificador.classificar_pendentes()
+    relogio.avancar(days=1)
+
+    resultado = classificador.reclassificar(str(alerta.id))
+
+    assert resultado.ok is True
+    assert resultado.alerta_id == alerta.id
+    assert resultado.motivo is None
+    assert len(modelo.recebidas) == 2  # mesmo com o hash já classificado, chamou o modelo
+    [classificacao] = classificacoes(semeado, alerta)  # a mesma linha, não uma segunda
+    assert classificacao.status is StatusClassificacao.OK
+    assert classificacao.classificado_em == relogio.agora()
+    por_codigo = niveis(semeado, classificacao)
+    assert set(por_codigo) == {"BO"}
+    assert por_codigo["BO"].nivel_pais is NivelAlerta.NAO_VIAJAR
+
+
+def test_reclassificar_por_url(semeado: Session, relogio: "RelogioFalso") -> None:
+    alerta = alerta_da_fixture(semeado, "alerta_1", url="https://www.gov.br/mre/bolivia")
+    modelo = modelo_falso(BOLIVIA_EVITAR)
+
+    resultado = servico(semeado, modelo, relogio).reclassificar("https://www.gov.br/mre/bolivia")
+
+    assert resultado.ok is True
+    assert resultado.alerta_id == alerta.id
+    assert resultado.url == "https://www.gov.br/mre/bolivia"
+    [classificacao] = classificacoes(semeado, alerta)
+    assert set(niveis(semeado, classificacao)) == {"BO"}
+
+
+def test_reclassificar_alerta_que_tinha_falhado_grava_a_classificacao(
+    semeado: Session, relogio: "RelogioFalso"
+) -> None:
+    alerta = alerta_da_fixture(semeado, "alerta_1")
+    classificador = servico(semeado, modelo_falso("lixo", BOLIVIA_EVITAR), relogio)
+    assert classificador.classificar_pendentes().falhas == 1
+
+    assert classificador.reclassificar(str(alerta.id)).ok is True
+
+    [classificacao] = classificacoes(semeado, alerta)
+    assert classificacao.status is StatusClassificacao.OK
+    assert classificacao.erro is None
+
+
+def test_falha_ao_reclassificar_preserva_a_classificacao_que_valia(
+    semeado: Session, relogio: "RelogioFalso"
+) -> None:
+    alerta = alerta_da_fixture(semeado, "alerta_1")
+    modelo = modelo_falso(
+        BOLIVIA_EVITAR,
+        {"e_alerta_de_viagem": True, "territorios": [{"codigo": "ZZ", "nivel_pais": "evitar"}]},
+    )
+    classificador = servico(semeado, modelo, relogio)
+    classificador.classificar_pendentes()
+
+    resultado = classificador.reclassificar(str(alerta.id))
+
+    assert resultado.ok is False
+    assert resultado.motivo is not None and "ZZ" in resultado.motivo
+    [classificacao] = classificacoes(semeado, alerta)
+    assert classificacao.status is StatusClassificacao.OK  # o país não vira "não verificado"
+    assert niveis(semeado, classificacao)["BO"].nivel_pais is NivelAlerta.EVITAR
+
+
+def test_reclassificar_referencia_desconhecida_levanta_alerta_nao_encontrado(
+    semeado: Session, relogio: "RelogioFalso"
+) -> None:
+    classificador = servico(semeado, modelo_falso(), relogio)
+
+    with pytest.raises(AlertaNaoEncontrado):
+        classificador.reclassificar("999")
+    with pytest.raises(AlertaNaoEncontrado):
+        classificador.reclassificar("https://www.gov.br/mre/nao-existe")
+
+
+def test_reclassificar_alerta_removido_ou_sem_pagina_lida_nao_chama_o_modelo(
+    semeado: Session, relogio: "RelogioFalso"
+) -> None:
+    removido = alerta_da_fixture(semeado, "alerta_1", url="https://www.gov.br/mre/removido")
+    removido.removido_em = relogio.agora()
+    sem_pagina = alerta_da_fixture(semeado, "alerta_2", url="https://www.gov.br/mre/sem-pagina")
+    sem_pagina.pagina_lida = False
+    modelo = modelo_falso()
+    classificador = servico(semeado, modelo, relogio)
+
+    for alerta in (removido, sem_pagina):
+        resultado = classificador.reclassificar(str(alerta.id))
+        assert resultado.ok is False
+        assert resultado.motivo
+
     assert modelo.recebidas == []

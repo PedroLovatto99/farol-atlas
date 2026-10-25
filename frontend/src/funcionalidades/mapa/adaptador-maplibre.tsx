@@ -351,8 +351,10 @@ export function MapaMapLibre({
         e vence as classes do Tailwind. Por isso o posicionamento fica neste invólucro e o
         contêiner do mapa só ocupa 100% dele.
       */}
+      {/* `group` e não `img`: os ícones de postos são botões dentro do mapa, e o papel `img` os
+          esconderia dos leitores de tela (filhos de `img` são apresentacionais). */}
       <div
-        role="img"
+        role="group"
         aria-label="Mapa-múndi em globo, com a cor do nível de alerta de cada país"
         className="absolute inset-0"
       >

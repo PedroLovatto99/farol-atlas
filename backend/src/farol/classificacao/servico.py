@@ -3,6 +3,9 @@
 Uma classificação por (alerta, hash). Falha de rede, tempo esgotado ou resposta inválida gravam
 `falhou` com o motivo e nada em `nivel_territorio`; o alerta fica pendente (o país aparece como
 "não verificado") e a próxima rodada tenta de novo. O serviço nunca derruba o site nem a rodada.
+
+`reclassificar` refaz a classificação de um alerta já classificado (por id ou URL), por exemplo
+depois de mudar uma regra. Se a nova tentativa falhar, a classificação que valia continua valendo.
 """
 
 from collections.abc import Mapping
@@ -12,7 +15,7 @@ from typing import Protocol
 from sqlalchemy.orm import Session
 
 from farol.classificacao.cadeia import EntradaDoAlerta
-from farol.classificacao.esquema import Classificacao, validar_resposta
+from farol.classificacao.esquema import Classificacao, normalizar_regioes, validar_resposta
 from farol.dominio import (
     Alerta,
     AlertaRepositorio,
@@ -44,6 +47,19 @@ class ResultadoDaClassificacao:
     falhas: int
 
 
+class AlertaNaoEncontrado(Exception):
+    """Nenhum alerta com esse id ou essa URL."""
+
+
+@dataclass(frozen=True)
+class ResultadoDaReclassificacao:
+    alerta_id: int
+    url: str
+    titulo: str
+    ok: bool
+    motivo: str | None  # por que não reclassificou; nulo quando deu certo
+
+
 class ServicoDeClassificacao:
     def __init__(self, sessao: Session, classificador: Classificador, relogio: Relogio) -> None:
         self._sessao = sessao
@@ -58,11 +74,7 @@ class ServicoDeClassificacao:
         if not alertas:
             return ResultadoDaClassificacao(0, 0)
 
-        rotulos = {
-            t.codigo: t.rotulo_busca or t.nome_pt
-            for t in self._territorios.listar_todos()
-            if t.tipo is not TipoTerritorio.NEUTRO
-        }
+        rotulos = self._rotulos()
         classificados = falhas = 0
         for alerta in alertas:
             if self._classificar(alerta, rotulos):
@@ -73,8 +85,64 @@ class ServicoDeClassificacao:
         _log.info("classificação: %d ok, %d com falha", classificados, falhas)
         return ResultadoDaClassificacao(classificados, falhas)
 
-    def _classificar(self, alerta: Alerta, rotulos: Mapping[str, str]) -> bool:
-        assert alerta.hash is not None and alerta.texto is not None  # garantido pela consulta
+    def reclassificar(self, referencia: str) -> ResultadoDaReclassificacao:
+        """Chama o modelo de novo para um alerta (id ou URL), mesmo já classificado."""
+        alerta = self._buscar(referencia)
+        recusa = self._motivo_de_nao_poder_classificar(alerta)
+        if recusa is not None:
+            return self._resultado(alerta, recusa)
+        assert alerta.hash is not None
+        resposta, motivo = self._consultar_o_modelo(alerta, self._rotulos())
+        if resposta is None:
+            antiga = self._classificacoes.obter(alerta.id, alerta.hash)
+            if antiga is None or antiga.status is not StatusClassificacao.OK:
+                self._gravar(alerta, None, motivo)
+        else:
+            self._gravar(alerta, resposta, None)
+        self._sessao.flush()
+        return self._resultado(alerta, motivo)
+
+    def _buscar(self, referencia: str) -> Alerta:
+        referencia = referencia.strip()
+        alerta = (
+            self._alertas.obter_por_id(int(referencia))
+            if referencia.isdecimal()
+            else self._alertas.obter_por_url(referencia)
+        )
+        if alerta is None:
+            raise AlertaNaoEncontrado(referencia)
+        return alerta
+
+    @staticmethod
+    def _motivo_de_nao_poder_classificar(alerta: Alerta) -> str | None:
+        if alerta.removido_em is not None:
+            return "o alerta saiu da lista do Itamaraty"
+        if not alerta.pagina_lida or alerta.hash is None or alerta.texto is None:
+            return "a página do alerta ainda não foi lida"
+        return None
+
+    @staticmethod
+    def _resultado(alerta: Alerta, motivo: str | None) -> ResultadoDaReclassificacao:
+        return ResultadoDaReclassificacao(
+            alerta_id=alerta.id,
+            url=alerta.url,
+            titulo=alerta.titulo,
+            ok=motivo is None,
+            motivo=motivo,
+        )
+
+    def _rotulos(self) -> dict[str, str]:
+        return {
+            t.codigo: t.rotulo_busca or t.nome_pt
+            for t in self._territorios.listar_todos()
+            if t.tipo is not TipoTerritorio.NEUTRO
+        }
+
+    def _consultar_o_modelo(
+        self, alerta: Alerta, rotulos: Mapping[str, str]
+    ) -> tuple[Classificacao | None, str | None]:
+        """A resposta já normalizada e validada, ou o motivo de não ter servido."""
+        assert alerta.texto is not None
         entrada = EntradaDoAlerta(
             titulo=alerta.titulo,
             categoria=alerta.categoria,
@@ -84,15 +152,20 @@ class ServicoDeClassificacao:
         )
         try:
             resposta = validar_resposta(
-                self._classificador.classificar(entrada, rotulos), rotulos.keys()
+                normalizar_regioes(self._classificador.classificar(entrada, rotulos)),
+                rotulos.keys(),
             )
         except Exception as erro:  # modelo externo: qualquer falha deixa o alerta pendente
             motivo = f"{type(erro).__name__}: {erro}"[:TAMANHO_MAXIMO_DO_ERRO]
             _log.warning("alerta %s sem classificação válida: %s", alerta.url, motivo)
-            self._gravar(alerta, None, motivo)
-            return False
-        self._gravar(alerta, resposta, None)
-        return True
+            return None, motivo
+        return resposta, None
+
+    def _classificar(self, alerta: Alerta, rotulos: Mapping[str, str]) -> bool:
+        assert alerta.hash is not None  # garantido pela consulta
+        resposta, motivo = self._consultar_o_modelo(alerta, rotulos)
+        self._gravar(alerta, resposta, motivo)
+        return resposta is not None
 
     def _gravar(self, alerta: Alerta, resposta: Classificacao | None, erro: str | None) -> None:
         assert alerta.hash is not None

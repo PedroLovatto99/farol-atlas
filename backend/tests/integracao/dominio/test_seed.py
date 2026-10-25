@@ -120,6 +120,29 @@ def test_kosovo_e_malvinas_usam_a_identidade_do_soberano(semeado: Session) -> No
     assert "Reino Unido" in malvinas.observacao
 
 
+def test_so_a_palestina_declara_que_as_regioes_cobrem_o_territorio_inteiro(
+    semeado: Session,
+) -> None:
+    declarados = semeado.scalars(
+        select(Territorio.codigo).where(Territorio.regioes_cobrem_o_pais.is_(True))
+    ).all()
+    assert list(declarados) == ["PS"]
+
+
+def test_declaracao_de_regioes_para_codigo_desconhecido_falha_de_forma_ruidosa(
+    sessao: Session, tmp_path: Path
+) -> None:
+    copia = tmp_path / "dados"
+    shutil.copytree(DADOS, copia)
+    arquivo = copia / "territorios" / "observacoes.yaml"
+    arquivo.write_text(
+        arquivo.read_text(encoding="utf-8") + "  ZZ:\n    regioes_cobrem_o_pais: true\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ErroDeSeed, match="ZZ"):
+        executar(sessao, copia, AGORA)
+
+
 def test_demais_dependencias_tem_bandeira_propria_e_taiwan_nao_tem(semeado: Session) -> None:
     groenlandia = territorio(semeado, "GL")
     assert groenlandia.tipo is TipoTerritorio.DEPENDENCIA

@@ -150,7 +150,9 @@ def montar_painel(sessao: Session, codigo: str) -> VisaoDoPainel:
     alertas = [alerta_para_nivel(a) for a in modelos.values()]
     nivel = calcular_niveis(
         [
-            TerritorioParaNivel(t.codigo, t.soberano_codigo, nomes_para_titulo(t))
+            TerritorioParaNivel(
+                t.codigo, t.soberano_codigo, nomes_para_titulo(t), t.regioes_cobrem_o_pais
+            )
             for t in envolvidos
         ],
         alertas,

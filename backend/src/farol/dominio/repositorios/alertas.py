@@ -55,6 +55,9 @@ class AlertaRepositorio:
     def listar_todos(self) -> list[Alerta]:
         return list(self._sessao.scalars(select(Alerta).order_by(Alerta.id)))
 
+    def obter_por_id(self, alerta_id: int) -> Alerta | None:
+        return self._sessao.get(Alerta, alerta_id)
+
     def obter_por_url(self, url: str) -> Alerta | None:
         return self._sessao.scalars(select(Alerta).where(Alerta.url == url)).one_or_none()
 

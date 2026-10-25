@@ -21,6 +21,7 @@ Um lugar selecionável ou desenhável no mapa. Os 198 da lista do Itamaraty são
 | `soberano_codigo` | `text` FK → `territorio.codigo`, nulo | Obrigatório se `tipo = dependencia`. Kosovo (`XK` → `RS`) e Malvinas (`FK` → `AR`) são dependências com `identidade_do_soberano` (ver "Kosovo e Malvinas", abaixo). |
 | `na_lista_itamaraty` | `bool` | `true` para os 198. Um teste exige exatamente 198. |
 | `codigo_bandeira` | `text`, nulo | Código da bandeira exibida (flag-icons). País: o próprio código. Dependência: o próprio código (FR-031). **Kosovo e Malvinas: o do soberano (`RS`, `AR`), nunca uma bandeira própria.** Nulo para Taiwan (FR-033). |
+| `regioes_cobrem_o_pais` | `bool` | `true` só para territórios declarados em `observacoes.yaml` (hoje, a Palestina): as regiões nomeadas dos alertas cobrem o território inteiro (ver "Regra do nível"). `false` para todos os outros. |
 | `identidade_do_soberano` | `bool` | `true` só para Kosovo e Malvinas: o painel, o nome e a bandeira são os do soberano, e a observação abre o painel no topo (FR-030, FR-034). `false` para todos os outros. |
 | `rotulo_busca` | `text`, nulo | Texto da sugestão na busca; se nulo, vale `nome_pt`. Ex.: "Kosovo (Sérvia)", "Malvinas (Argentina)". |
 | `termos_busca` | `text[]` | Outros nomes que também encontram o território. Kosovo: `{Kosovo}`; Malvinas: `{Malvinas, Ilhas Malvinas}`. Vazio nos demais. |
@@ -132,7 +133,7 @@ PK `(classificacao_id, territorio_codigo)`. Um alerta pode ter vários itens (Or
 | `id` | `int` PK | |
 | `tipo` | `enum` | `alertas`, `postos`. |
 | `iniciada_em`, `finalizada_em` | `timestamptz` | `finalizada_em` nulo enquanto roda. |
-| `paginas_esperadas`, `paginas_lidas` | `int` | Esperadas = itens da lista (alertas) ou linhas da tabela (postos). |
+| `paginas_esperadas`, `paginas_lidas` | `int` | Esperadas = itens da lista (alertas) ou postos do banco ligados a um link da tabela de repartições (postos); lidas = os que tiveram a página inicial lida. |
 | `lista_lida_inteira` | `bool` | Verdadeiro se não há link de próxima página, ou se todos os links de próxima página foram seguidos com sucesso. Falso se existe um link de próxima página que falhou (R2). |
 | `completa` | `bool` | `lista_lida_inteira` **e** `paginas_lidas ≥ 0,7 × paginas_esperadas` **e** pelo menos um alerta (FR-040). |
 | `motivo_interrupcao` | `text`, nulo | Ex.: "caiu na verificação humana", "bloqueado (HTTP 429)", "proibida pelo robots.txt". |
@@ -181,9 +182,12 @@ nivel(territorio t):
   se mais_recente é pendente:                         → nao_verificado
   se mais_recente.nivel_pais = normalizada:           → sem_alerta, sem regiões   (FR-007)
   se mais_recente.nivel_pais não é nulo:              → esse nível; regiões = as do item, exceto normalizada
+  senão, se t declara regioes_cobrem_o_pais e todas as regiões são evitar/nao_viajar:
+                                                      → o MENOS grave entre as regiões; destaque (borda) = as mais graves que ele
   senão (só regional):                                → sem_alerta; regiões = as do item, exceto normalizada
 ```
 
+- "Demais regiões do país", "restante do país", "todo o país" e expressões parecidas **não são região**: são o nível do país inteiro. A normalização é feita em código (`farol.dominio.regioes`), ao gravar a classificação e de novo ao ler, para valer também para linhas antigas. Se o país já tinha nível e a expressão traz outro, vale o mais grave. A cor do país é sempre o nível do país inteiro; uma região mais grave só ganha a borda (vermelha para "não viaje"), sem mudar o preenchimento. O aviso "vale só para a região" do painel só aparece quando **não** existe nível do país.
 - Uma região só gera destaque quando seu nível é mais grave que a cor do país **ou** quando o país não tem nível geral (FR-004). O filtro (FR-027) usa o nível da região.
 - Alerta cuja página não foi lida mas é "o mesmo" (mesma `url` e mesma `publicado_em` da lista, e hash conhecido): mantém as colunas `confirmado_*` e a classificação do `confirmado_hash` (FR-008a). Se for novo ou mudou, a execução completa o confirma com `confirmado_hash` nulo: pendente.
 - Os alertas listados no painel (`GET /paises/{codigo}`) são **todos** os que citam o território (e o soberano, para dependência), do mais recente ao mais antigo, com o que define o nível marcado (FR-010).

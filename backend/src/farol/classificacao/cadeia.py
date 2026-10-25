@@ -37,7 +37,9 @@ que não trate de viajar para um lugar. Se for falso, territorios fica vazio.
   - nivel_pais: "nao_viajar" quando o alerta recomenda não viajar ao país inteiro; "evitar" quando \
 recomenda evitar viagens não essenciais ao país inteiro; "normalizada" quando informa que a \
 situação voltou ao normal (fim do problema); nulo quando o alerta vale só para regiões do país.
-  - regioes: regiões do país com nível próprio (nome como aparece no alerta, nivel igual aos acima).
+  - regioes: regiões do país com nível próprio (nome como aparece no alerta, nivel igual aos \
+acima). "Demais regiões do país", "restante do país" e "todo o país" não são região: são o \
+nivel_pais.
 - Não invente países. Se o alerta cita uma região do mundo sem listar países (ex.: "Oriente \
 Médio"), inclua só os países que o texto cita pelo nome.
 

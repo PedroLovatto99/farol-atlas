@@ -159,7 +159,7 @@ def test_niveis_do_roteiro_de_validacao(semeado: Session, relogio: "RelogioFalso
         [
             ("IR", N, []),
             ("LB", E, [("Sul do Líbano", N)]),
-            ("PS", None, [("Faixa de Gaza", N)]),
+            ("SY", None, [("Norte da Síria", N)]),
         ],
     )  # fmt: skip
     # fraude: não é alerta de viagem
@@ -177,8 +177,8 @@ def test_niveis_do_roteiro_de_validacao(semeado: Session, relogio: "RelogioFalso
     assert [(r.nome, r.nivel.value) for r in territorios["LB"].regioes] == [
         ("Sul do Líbano", "nao_viajar")
     ]
-    assert territorios["PS"].nivel is NivelExibido.SEM_ALERTA
-    assert [r.nome for r in territorios["PS"].regioes] == ["Faixa de Gaza"]
+    assert territorios["SY"].nivel is NivelExibido.SEM_ALERTA
+    assert [r.nome for r in territorios["SY"].regioes] == ["Norte da Síria"]
     assert territorios["US"].nivel is NivelExibido.SEM_ALERTA  # a fraude não conta
     assert territorios["FR"].nivel is NivelExibido.SEM_ALERTA
 

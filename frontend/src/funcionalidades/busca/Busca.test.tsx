@@ -48,6 +48,15 @@ describe("Busca (componente)", () => {
     ).toEqual(["Dinamarca", "Groenlândia (Dinamarca)"]);
   });
 
+  it("só aponta para a lista (aria-controls) enquanto ela existe", async () => {
+    desenhar();
+    const campo = screen.getByRole("combobox", { name: /buscar país/i });
+    expect(campo).not.toHaveAttribute("aria-controls");
+
+    await userEvent.setup().type(campo, "din");
+    expect(campo).toHaveAttribute("aria-controls", screen.getByRole("listbox").id);
+  });
+
   it("sugere enquanto digita, sem diferença de acento e de maiúsculas", async () => {
     desenhar();
     await userEvent.setup().type(screen.getByRole("combobox"), "GROENLANDIA");

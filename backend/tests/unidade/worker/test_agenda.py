@@ -1,4 +1,4 @@
-"""Agendador do worker: cron diário, coleta na partida, comando de coleta única e encadeamento."""
+"""Agendador do worker: cron diário e mensal, coleta na partida, comandos de coleta única."""
 
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -6,12 +6,18 @@ from zoneinfo import ZoneInfo
 import pytest
 from apscheduler.triggers.cron import CronTrigger
 
-from farol.classificacao import ResultadoDaClassificacao
-from farol.coleta import ResultadoDaColeta
+from farol.classificacao import (
+    AlertaNaoEncontrado,
+    ResultadoDaClassificacao,
+    ResultadoDaReclassificacao,
+)
+from farol.coleta import ResultadoDaColeta, ResultadoDaColetaDePostos
 from farol.worker import (
+    ClassificadorIndisponivel,
     ContatoInvalido,
     ResultadoDaRodada,
     deve_coletar_na_partida,
+    deve_coletar_postos_na_partida,
     executar_comando,
     preparar_agendador,
     rodada_de_alertas,
@@ -35,6 +41,22 @@ def coleta(completa: bool = True) -> ResultadoDaColeta:
 
 def rodada_falsa(completa: bool = True, eventos: list[str] | None = None) -> ResultadoDaRodada:
     return ResultadoDaRodada(coleta(completa), ResultadoDaClassificacao(2, 0))
+
+
+def coleta_de_postos(completa: bool = True) -> ResultadoDaColetaDePostos:
+    return ResultadoDaColetaDePostos(
+        execucao_id=2,
+        completa=completa,
+        motivo_interrupcao=None if completa else "bloqueado (HTTP 429)",
+        paginas_esperadas=150,
+        paginas_lidas=150 if completa else 12,
+        postos_com_endereco=40,
+        postos_com_telefone=25,
+    )
+
+
+def sem_postos() -> ResultadoDaColetaDePostos:
+    raise AssertionError("a coleta de postos não devia rodar")
 
 
 # --------------------------------------------------------------------------- cron diário
@@ -165,7 +187,7 @@ def test_coletar_alertas_roda_a_rodada_uma_vez(capsys: pytest.CaptureFixture[str
         chamadas.append(1)
         return rodada_falsa()
 
-    codigo = executar_comando(["coletar", "--alertas"], rodada=rodada)
+    codigo = executar_comando(["coletar", "--alertas"], rodada=rodada, rodada_de_postos=sem_postos)
 
     assert chamadas == [1]
     assert codigo == 0
@@ -177,7 +199,11 @@ def test_coletar_alertas_roda_a_rodada_uma_vez(capsys: pytest.CaptureFixture[str
 def test_coleta_incompleta_sai_com_codigo_1_e_mostra_o_motivo(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    codigo = executar_comando(["coletar", "--alertas"], rodada=lambda: rodada_falsa(completa=False))
+    codigo = executar_comando(
+        ["coletar", "--alertas"],
+        rodada=lambda: rodada_falsa(completa=False),
+        rodada_de_postos=sem_postos,
+    )
     assert codigo == 1
     saida = capsys.readouterr().out
     assert "4 de 18" in saida
@@ -190,26 +216,265 @@ def test_contato_invalido_vira_mensagem_clara_e_codigo_2(
     def rodada() -> ResultadoDaRodada:
         raise ContatoInvalido("defina CONTATO_COLETA no .env")
 
-    codigo = executar_comando(["coletar", "--alertas"], rodada=rodada)
+    codigo = executar_comando(["coletar", "--alertas"], rodada=rodada, rodada_de_postos=sem_postos)
 
     assert codigo == 2
     assert "defina CONTATO_COLETA" in capsys.readouterr().out
 
 
-def test_coletar_postos_ainda_nao_existe(capsys: pytest.CaptureFixture[str]) -> None:
-    chamadas: list[int] = []
+def test_coletar_postos_roda_so_a_coleta_de_postos(capsys: pytest.CaptureFixture[str]) -> None:
+    chamadas: list[str] = []
 
-    def rodada() -> ResultadoDaRodada:
-        chamadas.append(1)
+    def alertas() -> ResultadoDaRodada:
+        chamadas.append("alertas")
         return rodada_falsa()
 
-    codigo = executar_comando(["coletar", "--postos"], rodada=rodada)
+    def postos() -> ResultadoDaColetaDePostos:
+        chamadas.append("postos")
+        return coleta_de_postos()
+
+    codigo = executar_comando(["coletar", "--postos"], rodada=alertas, rodada_de_postos=postos)
+
+    assert codigo == 0
+    assert chamadas == ["postos"]
+    saida = capsys.readouterr().out
+    assert "completa" in saida
+    assert "150 de 150" in saida
+    assert "com endereço: 40" in saida
+    assert "com telefone: 25" in saida
+
+
+def test_coleta_de_postos_incompleta_sai_com_codigo_1_e_mostra_o_motivo(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    codigo = executar_comando(
+        ["coletar", "--postos"],
+        rodada=rodada_falsa,
+        rodada_de_postos=lambda: coleta_de_postos(completa=False),
+    )
+    assert codigo == 1
+    saida = capsys.readouterr().out
+    assert "INCOMPLETA" in saida
+    assert "12 de 150" in saida
+    assert "bloqueado (HTTP 429)" in saida
+
+
+def test_coleta_de_postos_sem_contato_valido_vira_mensagem_clara_e_codigo_2(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def postos() -> ResultadoDaColetaDePostos:
+        raise ContatoInvalido("defina CONTATO_COLETA no .env")
+
+    codigo = executar_comando(["coletar", "--postos"], rodada=rodada_falsa, rodada_de_postos=postos)
+
     assert codigo == 2
-    assert chamadas == []
-    assert "postos" in capsys.readouterr().out
+    assert "defina CONTATO_COLETA" in capsys.readouterr().out
 
 
 def test_comando_desconhecido_e_recusado() -> None:
     with pytest.raises(SystemExit) as saida:
-        executar_comando(["apagar-tudo"], rodada=rodada_falsa)
+        executar_comando(["apagar-tudo"], rodada=rodada_falsa, rodada_de_postos=sem_postos)
     assert saida.value.code == 2
+
+
+# --------------------------------------------------------------------------- reclassificar
+def reclassificada(ok: bool = True) -> ResultadoDaReclassificacao:
+    return ResultadoDaReclassificacao(
+        alerta_id=2,
+        url="https://www.gov.br/mre/oriente-medio",
+        titulo="Alerta Consular. Oriente Médio.",
+        ok=ok,
+        motivo=None if ok else "RespostaInvalida: código 'ZZ' não existe no mapa",
+    )
+
+
+def test_reclassificar_passa_a_referencia_para_o_servico_e_sai_com_0(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    recebidas: list[str] = []
+
+    def reclassificar(referencia: str) -> ResultadoDaReclassificacao:
+        recebidas.append(referencia)
+        return reclassificada()
+
+    codigo = executar_comando(
+        ["reclassificar", "https://www.gov.br/mre/oriente-medio"],
+        rodada=rodada_falsa,
+        rodada_de_postos=sem_postos,
+        reclassificar=reclassificar,
+    )
+
+    assert codigo == 0
+    assert recebidas == ["https://www.gov.br/mre/oriente-medio"]
+    saida = capsys.readouterr().out
+    assert "Alerta 2" in saida
+    assert "reclassificado" in saida
+
+
+def test_reclassificar_que_falha_mostra_o_motivo_e_sai_com_1(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    codigo = executar_comando(
+        ["reclassificar", "2"],
+        rodada=rodada_falsa,
+        rodada_de_postos=sem_postos,
+        reclassificar=lambda referencia: reclassificada(ok=False),
+    )
+
+    assert codigo == 1
+    saida = capsys.readouterr().out
+    assert "NÃO reclassificado" in saida
+    assert "'ZZ'" in saida
+
+
+def test_reclassificar_alerta_inexistente_sai_com_2(capsys: pytest.CaptureFixture[str]) -> None:
+    def reclassificar(referencia: str) -> ResultadoDaReclassificacao:
+        raise AlertaNaoEncontrado(referencia)
+
+    codigo = executar_comando(
+        ["reclassificar", "999"],
+        rodada=rodada_falsa,
+        rodada_de_postos=sem_postos,
+        reclassificar=reclassificar,
+    )
+
+    assert codigo == 2
+    assert "999" in capsys.readouterr().out
+
+
+def test_reclassificar_sem_modelo_configurado_vira_mensagem_clara_e_codigo_2(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def reclassificar(referencia: str) -> ResultadoDaReclassificacao:
+        raise ClassificadorIndisponivel("falta GOOGLE_API_KEY")
+
+    codigo = executar_comando(
+        ["reclassificar", "2"],
+        rodada=rodada_falsa,
+        rodada_de_postos=sem_postos,
+        reclassificar=reclassificar,
+    )
+
+    assert codigo == 2
+    assert "falta GOOGLE_API_KEY" in capsys.readouterr().out
+
+
+def test_reclassificar_sem_alerta_e_recusado() -> None:
+    with pytest.raises(SystemExit) as saida:
+        executar_comando(["reclassificar"], rodada=rodada_falsa, rodada_de_postos=sem_postos)
+    assert saida.value.code == 2
+
+
+def test_reclassificar_nao_dispara_nenhuma_coleta() -> None:
+    codigo = executar_comando(
+        ["reclassificar", "2"],
+        rodada=lambda: (_ for _ in ()).throw(AssertionError("não devia coletar alertas")),
+        rodada_de_postos=sem_postos,
+        reclassificar=lambda referencia: reclassificada(),
+    )
+    assert codigo == 0
+
+
+# --------------------------------------------------------------------------- postos (mensal)
+def test_coleta_de_postos_todo_dia_1_no_fuso_de_sao_paulo() -> None:
+    agendador = preparar_agendador(
+        lambda: None,
+        ultima_tentativa=AGORA,
+        agora=AGORA,
+        limite_horas=20,
+        rodada_de_postos=lambda: None,
+        ultima_tentativa_de_postos=AGORA,
+    )
+    [mensal] = [j for j in agendador.get_jobs() if j.id == "postos-mensais"]
+    gatilho = mensal.trigger
+    assert isinstance(gatilho, CronTrigger)
+    assert str(gatilho.timezone) == "America/Sao_Paulo"
+    campos = {c.name: str(c) for c in gatilho.fields}
+    assert (campos["day"], campos["month"], campos["day_of_week"]) == ("1", "*", "*")
+    assert (campos["hour"], campos["minute"]) == ("5", "43")
+
+
+def test_proxima_execucao_do_cron_mensal() -> None:
+    agendador = preparar_agendador(
+        lambda: None,
+        ultima_tentativa=AGORA,
+        agora=AGORA,
+        limite_horas=20,
+        rodada_de_postos=lambda: None,
+        ultima_tentativa_de_postos=AGORA,
+    )
+    [mensal] = [j for j in agendador.get_jobs() if j.id == "postos-mensais"]
+    meio_do_mes = datetime(2026, 10, 23, 12, 0, tzinfo=SAO_PAULO)
+    assert mensal.trigger.get_next_fire_time(None, meio_do_mes) == datetime(
+        2026, 11, 1, 5, 43, tzinfo=SAO_PAULO
+    )
+
+
+@pytest.mark.parametrize(
+    ("ultima", "deve"),
+    [
+        (None, True),
+        (AGORA - timedelta(days=36), True),
+        (AGORA - timedelta(days=35, minutes=1), True),
+        (AGORA - timedelta(days=35), False),
+        (AGORA - timedelta(days=3), False),
+    ],
+    ids=["nunca", "36d", "35d1min", "35d-exatos", "3d"],
+)
+def test_na_partida_so_coleta_postos_se_a_ultima_tentativa_passou_de_35_dias(
+    ultima: datetime | None, deve: bool
+) -> None:
+    assert deve_coletar_postos_na_partida(ultima, AGORA, limite_dias=35) is deve
+
+
+def test_agendador_agenda_postos_na_partida_so_quando_necessario() -> None:
+    def ids(ultima: datetime | None) -> set[str]:
+        agendador = preparar_agendador(
+            lambda: None,
+            ultima_tentativa=AGORA,
+            agora=AGORA,
+            limite_horas=20,
+            rodada_de_postos=lambda: None,
+            ultima_tentativa_de_postos=ultima,
+        )
+        return {j.id for j in agendador.get_jobs()}
+
+    com_partida = {"alertas-diarios", "postos-mensais", "postos-na-partida"}
+    assert ids(None) == com_partida
+    assert ids(AGORA - timedelta(days=40)) == com_partida
+    assert ids(AGORA - timedelta(days=10)) == {"alertas-diarios", "postos-mensais"}
+
+
+def test_sem_rodada_de_postos_so_ha_os_jobs_de_alertas() -> None:
+    agendador = preparar_agendador(
+        lambda: None, ultima_tentativa=None, agora=AGORA, limite_horas=20
+    )
+    assert {j.id for j in agendador.get_jobs()} == {"alertas-diarios", "alertas-na-partida"}
+
+
+def test_cada_job_roda_a_sua_rodada() -> None:
+    chamadas: list[str] = []
+    agendador = preparar_agendador(
+        lambda: chamadas.append("alertas"),
+        ultima_tentativa=None,
+        agora=AGORA,
+        limite_horas=20,
+        rodada_de_postos=lambda: chamadas.append("postos"),
+        ultima_tentativa_de_postos=None,
+    )
+    for job in agendador.get_jobs():
+        job.func()
+    assert sorted(chamadas) == ["alertas", "alertas", "postos", "postos"]
+
+
+def test_na_partida_os_alertas_vem_antes_dos_postos() -> None:
+    agendador = preparar_agendador(
+        lambda: None,
+        ultima_tentativa=None,
+        agora=AGORA,
+        limite_horas=20,
+        rodada_de_postos=lambda: None,
+        ultima_tentativa_de_postos=None,
+    )
+    ordem = [j.id for j in agendador.get_jobs() if j.id.endswith("na-partida")]
+    assert ordem == ["alertas-na-partida", "postos-na-partida"]

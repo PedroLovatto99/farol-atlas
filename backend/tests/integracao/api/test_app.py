@@ -58,6 +58,22 @@ def test_cors_nao_libera_metodos_de_escrita() -> None:
     assert "POST" not in resposta.headers.get("access-control-allow-methods", "")
 
 
+# --------------------------------------------------------------------------- compressão
+def test_respostas_grandes_saem_comprimidas_para_quem_aceita_gzip() -> None:
+    resposta = cliente().get(
+        "/api/v1/openapi.json",
+        headers={"Accept-Encoding": "gzip", "Origin": ORIGEM_PERMITIDA},
+    )
+    assert resposta.headers["content-encoding"] == "gzip"
+    assert resposta.headers["access-control-allow-origin"] == ORIGEM_PERMITIDA  # CORS continua
+    assert resposta.json()["paths"]  # o TestClient descomprime: o conteúdo é o mesmo
+
+
+def test_sem_gzip_a_resposta_vem_sem_compressao() -> None:
+    resposta = cliente().get("/api/v1/openapi.json", headers={"Accept-Encoding": "identity"})
+    assert "content-encoding" not in resposta.headers
+
+
 # --------------------------------------------------------------------------- documentação
 @pytest.mark.parametrize("caminho", ["/docs", "/redoc"])
 def test_documentacao_responde_404_quando_desligada(caminho: str) -> None:

@@ -9,12 +9,15 @@ from farol.classificacao.esquema import (
     validar_resposta,
 )
 from farol.classificacao.servico import (
+    AlertaNaoEncontrado,
     Classificador,
     ResultadoDaClassificacao,
+    ResultadoDaReclassificacao,
     ServicoDeClassificacao,
 )
 
 __all__ = [
+    "AlertaNaoEncontrado",
     "Classificacao",
     "Classificador",
     "ClassificadorDeAlertas",
@@ -22,6 +25,7 @@ __all__ = [
     "RegiaoClassificada",
     "RespostaInvalida",
     "ResultadoDaClassificacao",
+    "ResultadoDaReclassificacao",
     "ServicoDeClassificacao",
     "TerritorioClassificado",
     "criar_modelo",

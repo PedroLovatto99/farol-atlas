@@ -79,6 +79,9 @@ class Territorio(Base):
     identidade_do_soberano: Mapped[bool] = mapped_column(
         default=False, server_default=text("false")
     )
+    # As regiões nomeadas de um alerta cobrem o território inteiro (ex.: Palestina = Gaza e
+    # Cisjordânia): sem nível do país, a cor é a da região menos grave (observacoes.yaml)
+    regioes_cobrem_o_pais: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     rotulo_busca: Mapped[str | None] = mapped_column(Text)
     termos_busca: Mapped[list[str]] = mapped_column(
         ARRAY(Text), default=list, server_default=text("'{}'")
@@ -199,7 +202,9 @@ class Classificacao(Base):
 
     alerta: Mapped[Alerta] = relationship(back_populates="classificacoes")
     niveis: Mapped[list["NivelTerritorio"]] = relationship(
-        back_populates="classificacao", order_by="NivelTerritorio.territorio_codigo"
+        back_populates="classificacao",
+        order_by="NivelTerritorio.territorio_codigo",
+        cascade="all, delete-orphan",
     )
 
 

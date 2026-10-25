@@ -270,15 +270,15 @@ description: "Lista de tarefas da feature Mapa de alertas de viagem para brasile
 
 **Teste independente**: rodar a coleta de postos sobre as fixtures e conferir os campos preenchidos, os nulos e o relatório de cobertura.
 
-- [ ] T117 [US2] Estender `ferramentas/testar_coleta.py` com o argumento opcional `--urls` (uma ou mais URLs extras), que as baixa e salva em `amostras_coleta/` com as mesmas regras do script: `robots.txt`, User-Agent com contato, pausa e parada em verificação humana ou bloqueio
-- [ ] T118 [US2] Salvar como fixtures, com `ferramentas/testar_coleta.py --urls` (educado, com pausa), as subpáginas de contato de 2 a 3 postos (uma embaixada e consulados, por exemplo `/emergencias` e `/fale-conosco-1` de Milão) em `backend/tests/fixtures/govbr/` e anotar no `LEIA-ME.md` da pasta como foram obtidas
-- [ ] T119 [P] [US2] Teste dos extratores em `backend/tests/unidade/coleta/test_extratores_postos.py`: tabela de repartições (`reparticoes.html`: 198 linhas de dados, país → posto de atendimento, link do posto); endereço e telefone de plantão das subpáginas salvas; página sem esses dados devolve nulo, sem erro
-- [ ] T120 [P] [US2] Teste do serviço em `backend/tests/integracao/coleta/test_servico_postos.py`: segue links do posto e redirecionamentos, registra `url_gov_br`; `robots.txt` consultado por host; grava `endereco`, `telefone_plantao`, `contato_coletado_em` e `contato_fonte_url` juntos; campos não encontrados ficam nulos; bloqueio ou verificação humana interrompe e grava o motivo; relatório `postos_com_endereco` e `postos_com_telefone`
-- [ ] T121 [P] [US2] Teste do agendamento mensal em `backend/tests/unidade/worker/test_agenda.py` (acrescentar) e do comando `coletar --postos`
-- [ ] T122 [P] [US2] Implementar `backend/src/farol/coleta/extratores/reparticoes.py` e `backend/src/farol/coleta/extratores/posto.py` (melhor esforço, seletores definidos a partir das fixtures)
-- [ ] T123 [US2] Implementar `backend/src/farol/coleta/servico_postos.py` (mesmas regras de coleta responsável) e a gravação do contato via repositório de postos
-- [ ] T124 [US2] Agendar a coleta mensal em `backend/src/farol/worker/agenda.py` e acrescentar `coletar --postos` em `backend/src/farol/worker/__main__.py`
-- [ ] T125 [US2] Rodar a coleta de postos de verdade uma vez, registrar a cobertura (quantos dos 209 postos têm endereço e telefone) em `specs/001-mapa-alertas-viagem/research.md` (item R1) e informar o usuário
+- [X] T117 [US2] Estender `ferramentas/testar_coleta.py` com o argumento opcional `--urls` (uma ou mais URLs extras), que as baixa e salva em `amostras_coleta/` com as mesmas regras do script: `robots.txt`, User-Agent com contato, pausa e parada em verificação humana ou bloqueio
+- [X] T118 [US2] Salvar como fixtures, com `ferramentas/testar_coleta.py --urls` (educado, com pausa), as subpáginas de contato de 2 a 3 postos (uma embaixada e consulados, por exemplo `/emergencias` e `/fale-conosco-1` de Milão) em `backend/tests/fixtures/govbr/` e anotar no `LEIA-ME.md` da pasta como foram obtidas
+- [X] T119 [P] [US2] Teste dos extratores em `backend/tests/unidade/coleta/test_extratores_postos.py`: tabela de repartições (`reparticoes.html`: 198 linhas de dados, país → posto de atendimento, link do posto); endereço e telefone de plantão das subpáginas salvas; página sem esses dados devolve nulo, sem erro
+- [X] T120 [P] [US2] Teste do serviço em `backend/tests/integracao/coleta/test_servico_postos.py`: segue links do posto e redirecionamentos, registra `url_gov_br`; `robots.txt` consultado por host; grava `endereco`, `telefone_plantao`, `contato_coletado_em` e `contato_fonte_url` juntos; campos não encontrados ficam nulos; bloqueio ou verificação humana interrompe e grava o motivo; relatório `postos_com_endereco` e `postos_com_telefone`
+- [X] T121 [P] [US2] Teste do agendamento mensal em `backend/tests/unidade/worker/test_agenda.py` (acrescentar) e do comando `coletar --postos`
+- [X] T122 [P] [US2] Implementar `backend/src/farol/coleta/extratores/reparticoes.py` e `backend/src/farol/coleta/extratores/posto.py` (melhor esforço, seletores definidos a partir das fixtures)
+- [X] T123 [US2] Implementar `backend/src/farol/coleta/servico_postos.py` (mesmas regras de coleta responsável) e a gravação do contato via repositório de postos
+- [X] T124 [US2] Agendar a coleta mensal em `backend/src/farol/worker/agenda.py` e acrescentar `coletar --postos` em `backend/src/farol/worker/__main__.py`
+- [X] T125 [US2] Rodar a coleta de postos de verdade uma vez, registrar a cobertura (quantos dos 209 postos têm endereço e telefone) em `specs/001-mapa-alertas-viagem/research.md` (item R1) e informar o usuário
 
 **Checkpoint**: contato dos postos coletado quando disponível; cobertura medida e relatada.
 
@@ -288,15 +288,15 @@ description: "Lista de tarefas da feature Mapa de alertas de viagem para brasile
 
 **Objetivo**: contrato completo, segurança, acessibilidade, desempenho e validação final.
 
-- [ ] T126 [P] Teste de contrato completo, mantido de propósito como regressão final de ponta a ponta (repete o que T054 e T083 verificam em partes), em `backend/tests/contrato/test_openapi_completo.py`: o OpenAPI gerado equivale por inteiro a `specs/001-mapa-alertas-viagem/contracts/openapi.yaml`
-- [ ] T127 [P] Testes de segurança em `backend/tests/integracao/api/test_seguranca.py`: só rotas GET; CORS rejeita origem não listada; nenhum segredo em respostas, logs ou OpenAPI; texto de alerta com HTML sai como texto no JSON
-- [ ] T128 [P] Teste em `frontend/src/funcionalidades/painel/seguranca.test.tsx`: títulos e textos de alertas com marcação HTML são exibidos como texto e nunca inseridos como HTML
-- [ ] T129 [P] Revisão de acessibilidade **manual** em 360 px (decisão: sem teste automatizado de viewport por enquanto) com teclado e leitor de tela: cor nunca é a única informação, foco visível, rótulos das caixas da legenda, `prefers-reduced-motion` em todo movimento; registrar achados e correções em `specs/001-mapa-alertas-viagem/checklists/`
-- [ ] T130 [P] Construir as imagens para arm64 (`docker buildx build --platform linux/arm64` em `backend/` e `frontend/`) e confirmar que sobem
-- [ ] T131 [P] Rodar `pip-audit` e `npm audit`, corrigir ou justificar cada achado
-- [ ] T132 Medir SC-001 (nível de qualquer país em até 10 s, por toque e por busca) e o tempo de carga do `/mapa`; ajustar o que passar do esperado
-- [ ] T133 Percorrer o roteiro completo de `specs/001-mapa-alertas-viagem/quickstart.md` (passos 1 a 14), corrigir divergências entre o roteiro e o sistema e conferir que as portas dos bancos só escutam em `127.0.0.1`
-- [ ] T134 Revisar código duplicado e restos do protótipo (seção "Notícias", alertas de exemplo) e rodar `uv run poe verificar` e `npm run verificar` até passarem sem erros
+- [X] T126 [P] Teste de contrato completo, mantido de propósito como regressão final de ponta a ponta (repete o que T054 e T083 verificam em partes), em `backend/tests/contrato/test_openapi_completo.py`: o OpenAPI gerado equivale por inteiro a `specs/001-mapa-alertas-viagem/contracts/openapi.yaml`
+- [X] T127 [P] Testes de segurança em `backend/tests/integracao/api/test_seguranca.py`: só rotas GET; CORS rejeita origem não listada; nenhum segredo em respostas, logs ou OpenAPI; texto de alerta com HTML sai como texto no JSON
+- [X] T128 [P] Teste em `frontend/src/funcionalidades/painel/seguranca.test.tsx`: títulos e textos de alertas com marcação HTML são exibidos como texto e nunca inseridos como HTML
+- [X] T129 [P] Revisão de acessibilidade **manual** em 360 px (decisão: sem teste automatizado de viewport por enquanto) com teclado e leitor de tela: cor nunca é a única informação, foco visível, rótulos das caixas da legenda, `prefers-reduced-motion` em todo movimento; registrar achados e correções em `specs/001-mapa-alertas-viagem/checklists/`
+- [X] T130 [P] Construir as imagens para arm64 (`docker buildx build --platform linux/arm64` em `backend/` e `frontend/`) e confirmar que sobem
+- [X] T131 [P] Rodar `pip-audit` e `npm audit`, corrigir ou justificar cada achado
+- [X] T132 Medir SC-001 (nível de qualquer país em até 10 s, por toque e por busca) e o tempo de carga do `/mapa`; ajustar o que passar do esperado
+- [X] T133 Percorrer o roteiro completo de `specs/001-mapa-alertas-viagem/quickstart.md` (passos 1 a 14), corrigir divergências entre o roteiro e o sistema e conferir que as portas dos bancos só escutam em `127.0.0.1`
+- [X] T134 Revisar código duplicado e restos do protótipo (seção "Notícias", alertas de exemplo) e rodar `uv run poe verificar` e `npm run verificar` até passarem sem erros
 
 ---
 
