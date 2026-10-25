@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from farol.api.dependencias import sessao_da_requisicao
-from farol.api.rotas import mapa, saude
+from farol.api.rotas import mapa, paises, saude
 from farol.infra import Configuracoes, configurar_logs, obter_configuracoes, obter_logger
 
 PREFIXO = "/api/v1"
@@ -60,5 +60,6 @@ def criar_app(configuracoes: Configuracoes | None = None) -> FastAPI:
         return JSONResponse({"detalhe": "Erro interno"}, status_code=500)
 
     app.include_router(mapa.roteador, prefix=PREFIXO)
+    app.include_router(paises.roteador, prefix=PREFIXO)
     app.include_router(saude.roteador, prefix=PREFIXO)
     return app

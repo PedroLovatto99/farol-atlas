@@ -30,8 +30,8 @@ paths:
         - name: codigo
           in: path
           required: true
-          description: Código do território (ISO-2 ou código de dependência), como em /mapa.
-          schema: { type: string, pattern: "^[A-Z]{2}$" }
+          description: Código do território (ISO-2 ou código de dependência, de 2 a 3 letras como IOA), como em /mapa.
+          schema: { type: string, pattern: "^[A-Z]{2,3}$" }
       responses:
         "200":
           description: Painel do território
@@ -241,13 +241,14 @@ components:
         conferido_em: { type: string, format: date }
         fontes:
           type: array
-          items:
-            type: object
-            required: [nome, url]
-            properties:
-              nome: { type: string, examples: ["Itamaraty", "Wikipédia"] }
-              url: { type: string, format: uri }
-              licenca: { type: [string, "null"], examples: ["CC BY-SA"] }
+          items: { $ref: "#/components/schemas/Fonte" }
+    Fonte:
+      type: object
+      required: [nome, url]
+      properties:
+        nome: { type: string, examples: ["Itamaraty", "Wikipédia"] }
+        url: { type: string, format: uri }
+        licenca: { type: [string, "null"], examples: ["CC BY-SA"] }
     Saude:
       type: object
       required: [banco, ultima_coleta_completa_em, ultima_tentativa_em, alertas_pendentes]

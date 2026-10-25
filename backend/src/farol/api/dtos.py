@@ -4,21 +4,26 @@ Os nomes e a forma seguem specs/001-mapa-alertas-viagem/contracts/openapi.yaml; 
 contrato compara o OpenAPI gerado com ele.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from farol.dominio import TipoPosto
 
 __all__ = [
+    "AlertaDoPais",
     "Erro",
+    "Fonte",
+    "FontePostos",
     "Mapa",
     "Nivel",
     "NivelRegional",
+    "Pais",
     "PaisSemPosto",
     "PostoNoMapa",
+    "PostoNoPainel",
     "Regiao",
     "Saude",
     "TerritorioNoMapa",
@@ -103,3 +108,62 @@ class Mapa(BaseModel):
     territorios: list[TerritorioNoMapa]
     postos: list[PostoNoMapa]
     paises_sem_posto: list[PaisSemPosto]
+
+
+# --------------------------------------------------------------------------- /paises/{codigo}
+# Texto que é um endereço absoluto: `str` com `format: uri` no OpenAPI. Não usa `AnyUrl`, que
+# reescreveria a URL (o link do gov.br tem de sair exatamente como foi coletado).
+Url = Annotated[str, Field(json_schema_extra={"format": "uri"})]
+
+
+class AlertaDoPais(BaseModel):
+    titulo: str
+    url: Url
+    publicado_em: datetime
+    modificado_em: datetime | None
+    define_nivel: bool
+    situacao_normalizada: bool
+    pendente: bool = False
+
+
+class PostoNoPainel(BaseModel):
+    id: int
+    tipo: TipoPosto
+    cidade: str
+    pais: str
+    grupo: str
+    endereco: str | None
+    telefone_plantao: str | None
+    contato_coletado_em: datetime | None
+    contato_fonte_url: Url | None
+
+
+class Fonte(BaseModel):
+    nome: str
+    url: Url
+    licenca: str | None = None
+
+
+class FontePostos(BaseModel):
+    conferido_em: date
+    fontes: list[Fonte]
+
+
+class Pais(BaseModel):
+    codigo: str
+    nome: str
+    tipo: TipoTerritorio
+    soberano: str | None
+    bandeira: str | None
+    identidade_do_soberano: bool
+    nivel: Nivel
+    regioes: list[Regiao]
+    regiao_unica_do_alerta: bool = False
+    observacao: str | None
+    observacao_no_topo: bool
+    eh_brasil: bool
+    alertas: list[AlertaDoPais]
+    postos: list[PostoNoPainel]
+    posto_responsavel: PostoNoPainel | None
+    sem_posto_indicado: bool
+    fonte_postos: FontePostos | None

@@ -193,17 +193,18 @@ export interface components {
         FontePostos: {
             /** Format: date */
             conferido_em: string;
-            fontes: {
-                /**
-                 * @example Itamaraty
-                 * @example Wikipédia
-                 */
-                nome: string;
-                /** Format: uri */
-                url: string;
-                /** @example CC BY-SA */
-                licenca?: string | null;
-            }[];
+            fontes: components["schemas"]["Fonte"][];
+        };
+        Fonte: {
+            /**
+             * @example Itamaraty
+             * @example Wikipédia
+             */
+            nome: string;
+            /** Format: uri */
+            url: string;
+            /** @example CC BY-SA */
+            licenca?: string | null;
         };
         Saude: {
             /** @enum {string} */
@@ -251,7 +252,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Código do território (ISO-2 ou código de dependência), como em /mapa. */
+                /** @description Código do território (ISO-2 ou código de dependência, de 2 a 3 letras como IOA), como em /mapa. */
                 codigo: string;
             };
             cookie?: never;

@@ -1,4 +1,4 @@
-import { useMemo, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import { NIVEL_PADRAO, type NivelId } from "./compartilhado/niveis";
 import { useMovimentoReduzido } from "./compartilhado/useMovimentoReduzido";
 import { useTelaPequena } from "./compartilhado/useTelaPequena";
@@ -6,8 +6,13 @@ import { ProvedorDeEstado, useEstado } from "./estado/contexto";
 import { Aviso } from "./funcionalidades/aviso/Aviso";
 import { Legenda } from "./funcionalidades/legenda/Legenda";
 import { bordaRegionalDe } from "./funcionalidades/mapa/cor";
+import { calcularEnquadramento, margemDoLayout } from "./funcionalidades/mapa/enquadramento";
+import { responsavelDe } from "./funcionalidades/mapa/responsavel";
 import type { MapaProps, PedidoDeCamera, TerritorioDesenhado } from "./funcionalidades/mapa/tipos";
+import { useGeometria } from "./funcionalidades/mapa/useGeometria";
 import { useMapa } from "./funcionalidades/mapa/useMapa";
+import { Painel } from "./funcionalidades/painel/Painel";
+import { usePais } from "./funcionalidades/painel/usePais";
 import { Sobre } from "./funcionalidades/sobre/Sobre";
 import type { ClienteDaApi, Mapa } from "./servicos/api/cliente";
 
@@ -15,9 +20,13 @@ interface Props {
   cliente: ClienteDaApi;
   /** O componente de mapa (o adaptador do MapLibre; nos testes, um falso). */
   Mapa: ComponentType<MapaProps>;
+  /** Como buscar o arquivo de geometria (nos testes, um falso). Padrão: `fetch`. */
+  buscar?: typeof fetch;
 }
 
-const CAMERA_DO_MUNDO: PedidoDeCamera = { tipo: "mundo" };
+const CAMERA_INICIAL: PedidoDeCamera = { tipo: "mundo" };
+/** Sem geometria carregada não há o que enquadrar: a câmera fica onde está. */
+const CAMERA_PARADA: PedidoDeCamera = { tipo: "manter" };
 const SEM_POSTOS: MapaProps["postos"] = [];
 const SEM_PAISES_SEM_POSTO: MapaProps["paisesSemPosto"] = [];
 
@@ -34,17 +43,75 @@ function territoriosDesenhados(mapa: Mapa): TerritorioDesenhado[] {
   }));
 }
 
-function Tela({ cliente, Mapa: ComponenteDeMapa }: Props) {
+function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
   const { estado, tentarDeNovo } = useMapa(cliente);
   const { estado: selecao, despachar } = useEstado();
   const reduzirMovimento = useMovimentoReduzido();
   const celular = useTelaPequena();
+  const geometria = useGeometria(buscar);
+  const { estado: estadoDoPais, tentarDeNovo: tentarPaisDeNovo } = usePais(
+    cliente,
+    selecao.selecionado,
+  );
+  // O pedido fica no estado: cada toque cria um objeto novo e o mapa o executa de novo, mesmo que
+  // a pessoa tenha movido o mapa e toque no mesmo país outra vez.
+  const [camera, setCamera] = useState<PedidoDeCamera>(CAMERA_INICIAL);
 
   const mapa = estado.situacao === "pronto" ? estado.mapa : null;
   const territorios = useMemo(() => (mapa ? territoriosDesenhados(mapa) : []), [mapa]);
 
+  const selecionar = useCallback(
+    (codigo: string) => {
+      // Só países e dependências de /mapa abrem painel; área neutra e códigos desconhecidos não (FR-016)
+      if (mapa === null || !mapa.territorios.some((t) => t.codigo === codigo)) return;
+      despachar({ tipo: "selecionar", codigo });
+      const enquadramento =
+        geometria.situacao === "pronto"
+          ? calcularEnquadramento({
+              geometria: geometria.geometria,
+              codigo,
+              responsavel: responsavelDe(mapa, codigo),
+              margem: margemDoLayout(celular, window.innerHeight),
+            })
+          : null;
+      setCamera(enquadramento ?? CAMERA_PARADA);
+    },
+    [mapa, geometria, celular, despachar],
+  );
+
+  /** "Ver mundo" e Esc: fecha o painel e devolve a câmera ao mundo. */
+  const verMundo = useCallback(() => {
+    despachar({ tipo: "limpar-selecao" });
+    setCamera({ tipo: "mundo" });
+  }, [despachar]);
+
+  /** Toque no oceano: fecha o painel, sem mexer na câmera. */
+  const limparSelecao = useCallback(() => {
+    despachar({ tipo: "limpar-selecao" });
+    setCamera(CAMERA_PARADA);
+  }, [despachar]);
+
+  const painelAberto = selecao.selecionado !== null && estadoDoPais.situacao !== "ocioso";
+  const modoDoPainel = celular ? "gaveta" : "lateral";
+
+  useEffect(() => {
+    if (!painelAberto) return;
+    function aoTeclar(evento: KeyboardEvent) {
+      if (evento.key !== "Escape") return;
+      // Com um diálogo aberto (Sobre, fronteiras), o Esc é dele
+      if (document.querySelector('[role="dialog"]') !== null) return;
+      verMundo();
+    }
+    document.addEventListener("keydown", aoTeclar);
+    return () => document.removeEventListener("keydown", aoTeclar);
+  }, [painelAberto, verMundo]);
+
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-espaco text-texto">
+    <div
+      className="relative h-dvh w-full overflow-hidden bg-espaco text-texto"
+      data-painel-aberto={painelAberto}
+      data-modo-do-painel={modoDoPainel}
+    >
       <ComponenteDeMapa
         territorios={territorios}
         postos={SEM_POSTOS}
@@ -52,10 +119,10 @@ function Tela({ cliente, Mapa: ComponenteDeMapa }: Props) {
         selecionado={selecao.selecionado}
         grupoEmDestaque={selecao.grupoEmDestaque}
         reduzirMovimento={reduzirMovimento}
-        onSelecionarTerritorio={(codigo) => despachar({ tipo: "selecionar", codigo })}
+        onSelecionarTerritorio={selecionar}
         onSelecionarGrupo={() => {}}
-        onLimparSelecao={() => despachar({ tipo: "limpar-selecao" })}
-        camera={CAMERA_DO_MUNDO}
+        onLimparSelecao={limparSelecao}
+        camera={camera}
       />
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-2 sm:flex-row sm:items-start sm:justify-between">
@@ -82,6 +149,15 @@ function Tela({ cliente, Mapa: ComponenteDeMapa }: Props) {
         </summary>
         <Legenda />
       </details>
+
+      {estadoDoPais.situacao !== "ocioso" && (
+        <Painel
+          estado={estadoDoPais}
+          onFechar={verMundo}
+          onTentarDeNovo={tentarPaisDeNovo}
+          modo={modoDoPainel}
+        />
+      )}
 
       {estado.situacao === "carregando" && (
         <p

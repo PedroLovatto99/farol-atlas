@@ -57,6 +57,31 @@ describe("useGeometria", () => {
     expect(buscar).toHaveBeenCalledTimes(2);
   });
 
+  it("sem passar o buscar, não entra em laço de renderização (a função padrão é sempre a mesma)", async () => {
+    // Regressão: a função padrão era recriada a cada render, o que refazia o efeito, que mudava o
+    // estado, que renderizava de novo... sem parar. Com o painel na tela, isso travava o navegador.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(respostaJson(GEOMETRIA))),
+    );
+    try {
+      let renderizacoes = 0;
+      const { result } = renderHook(() => {
+        renderizacoes += 1;
+        return useGeometria();
+      });
+      await waitFor(() => expect(result.current.situacao).toBe("pronto"));
+      await new Promise((resolver) => setTimeout(resolver, 100));
+      const estavel = renderizacoes;
+      await new Promise((resolver) => setTimeout(resolver, 100));
+
+      expect(renderizacoes).toBe(estavel);
+      expect(estavel).toBeLessThanOrEqual(4);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("HTTP de erro vira erro", async () => {
     const buscar = vi.fn(() => Promise.resolve(respostaJson({}, 404)));
     const { result } = renderHook(() => useGeometria(buscar));

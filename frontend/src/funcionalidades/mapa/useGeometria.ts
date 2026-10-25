@@ -60,9 +60,12 @@ function carregar(buscar: typeof fetch, url: string): Promise<Geometria> {
   return carregamento;
 }
 
+/** Fora do hook, para a função padrão ser sempre a mesma e não refazer o efeito a cada render. */
+const BUSCAR_PADRAO: typeof fetch = (...argumentos) => fetch(...argumentos);
+
 /** Carrega o arquivo de geometria uma única vez, qualquer que seja o número de usuários do hook. */
 export function useGeometria(
-  buscar: typeof fetch = (...argumentos) => fetch(...argumentos),
+  buscar: typeof fetch = BUSCAR_PADRAO,
   url: string = URL_DA_GEOMETRIA,
 ): EstadoDaGeometria {
   const [estado, setEstado] = useState<EstadoDaGeometria>({ situacao: "carregando" });

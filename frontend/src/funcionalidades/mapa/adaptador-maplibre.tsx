@@ -2,9 +2,11 @@
  * Adaptador do MapLibre GL JS 6: o ÚNICO arquivo que importa `maplibre-gl` (princípio III).
  * Cumpre `MapaProps`; trocar a biblioteca só mexe aqui.
  *
- * Nesta etapa (história P1) o mapa é um globo 3D só com oceano e países: preenchimento pela cor
- * do nível, fronteiras e a borda de destaque das regiões mais graves. Seleção, câmera e ícones
- * de postos chegam nas histórias P2 e P3.
+ * O mapa é um globo 3D só com oceano e países: preenchimento pela cor do nível, fronteiras, borda
+ * de destaque das regiões mais graves e contorno do país selecionado. Toque em país seleciona;
+ * oceano limpa a seleção; área neutra é ignorada (FR-016). Os pedidos de câmera são só executados
+ * aqui: a regra de enquadramento é função pura (`enquadramento.ts`). Os ícones de postos chegam na
+ * história P3.
  */
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
@@ -17,6 +19,7 @@ import {
 } from "maplibre-gl";
 import urlDoWorker from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { useEffect, useRef, useState } from "react";
+import { duracaoDoMovimento } from "./enquadramento";
 import { montarFeicoes } from "./feicoes";
 import type { MapaProps } from "./tipos";
 import { useGeometria } from "./useGeometria";
@@ -27,8 +30,14 @@ import { useGeometria } from "./useGeometria";
 setWorkerUrl(urlDoWorker);
 
 const COR_DO_OCEANO = "#DCE8F2";
+const COR_DA_SELECAO = "#0C447C";
 const LARGURA_MAXIMA_DO_CELULAR = 700;
 const COLECAO_VAZIA = { type: "FeatureCollection" as const, features: [] };
+
+/** Desenha o contorno de todo o grupo de enquadramento; sem seleção, o filtro não casa com nada. */
+function filtroDaSelecao(grupo: string | null): ["==", ["get", string], string] {
+  return ["==", ["get", "zoom"], grupo ?? ""];
+}
 
 /** Só oceano e países, sem mapa de fundo. As cores vêm das propriedades de cada feição. */
 const ESTILO: StyleSpecification = {
@@ -50,6 +59,14 @@ const ESTILO: StyleSpecification = {
       filter: ["has", "borda_regional"],
       paint: { "line-color": ["get", "borda_regional"], "line-width": 2.5 },
     },
+    {
+      // Contorno do país selecionado: o filtro (grupo `zoom`) é trocado em `filtroDaSelecao`
+      id: "selecao",
+      type: "line",
+      source: "paises",
+      filter: filtroDaSelecao(null),
+      paint: { "line-color": COR_DA_SELECAO, "line-width": 3 },
+    },
   ],
 };
 
@@ -58,11 +75,27 @@ function visaoDoMundo(): { center: [number, number]; zoom: number } {
   return { center: [25, 18], zoom: celular ? 0.85 : 1.75 };
 }
 
-export function MapaMapLibre({ territorios }: MapaProps) {
+export function MapaMapLibre({
+  territorios,
+  selecionado,
+  reduzirMovimento,
+  onSelecionarTerritorio,
+  onLimparSelecao,
+  camera,
+}: MapaProps) {
   const container = useRef<HTMLDivElement>(null);
   const mapaRef = useRef<MapaDoMapLibre | null>(null);
   const [carregado, setCarregado] = useState(false);
   const geometria = useGeometria();
+
+  // Os eventos do mapa nascem uma vez; este par entrega a eles sempre as funções mais recentes
+  const aoSelecionar = useRef(onSelecionarTerritorio);
+  const aoLimpar = useRef(onLimparSelecao);
+  useEffect(() => {
+    aoSelecionar.current = onSelecionarTerritorio;
+    aoLimpar.current = onLimparSelecao;
+  });
+  const ultimaCamera = useRef(camera);
 
   // O mapa nasce uma vez
   useEffect(() => {
@@ -76,6 +109,20 @@ export function MapaMapLibre({ territorios }: MapaProps) {
     });
     mapa.on("style.load", () => mapa.setProjection({ type: "globe" }));
     mapa.on("load", () => setCarregado(true));
+    mapa.on("click", (evento) => {
+      const feicao = mapa.queryRenderedFeatures(evento.point, { layers: ["paises"] })[0];
+      if (feicao === undefined) return aoLimpar.current(); // oceano
+      const { codigo, tipo } = feicao.properties;
+      if (tipo === "neutro" || typeof codigo !== "string") return; // área neutra: sem painel
+      aoSelecionar.current(codigo);
+    });
+    mapa.on("mousemove", "paises", (evento) => {
+      const neutro = evento.features?.[0]?.properties["tipo"] === "neutro";
+      mapa.getCanvas().style.cursor = neutro ? "" : "pointer";
+    });
+    mapa.on("mouseleave", "paises", () => {
+      mapa.getCanvas().style.cursor = "";
+    });
     mapa.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
     mapa.addControl(
       new AttributionControl({
@@ -99,6 +146,53 @@ export function MapaMapLibre({ territorios }: MapaProps) {
     const dados = montarFeicoes(geometria.geometria, territorios);
     fonte?.setData(dados as unknown as Parameters<GeoJSONSource["setData"]>[0]);
   }, [carregado, geometria, territorios]);
+
+  // Contorno da seleção. Kosovo e Malvinas contornam o grupo do soberano (propriedade `zoom`).
+  useEffect(() => {
+    const mapa = mapaRef.current;
+    if (!carregado || mapa === null) return;
+    const feicao =
+      selecionado !== null && geometria.situacao === "pronto"
+        ? geometria.geometria.features.find((f) => f.properties.codigo === selecionado)
+        : undefined;
+    mapa.setFilter("selecao", filtroDaSelecao(feicao?.properties.zoom ?? selecionado));
+  }, [carregado, geometria, selecionado]);
+
+  // Pedidos de câmera: só executa; quem decide o enquadramento é a tela
+  useEffect(() => {
+    const mapa = mapaRef.current;
+    if (!carregado || mapa === null || ultimaCamera.current === camera) return;
+    ultimaCamera.current = camera;
+    const duration = duracaoDoMovimento(reduzirMovimento);
+    switch (camera.tipo) {
+      case "mundo":
+        mapa.easeTo({ ...visaoDoMundo(), bearing: 0, pitch: 0, duration });
+        break;
+      case "enquadrar": {
+        const [[oeste, sul], [leste, norte]] = camera.caixa;
+        mapa.fitBounds(
+          [
+            [oeste, sul],
+            [leste, norte],
+          ],
+          {
+            padding: {
+              top: camera.margem.topo,
+              left: camera.margem.esquerda,
+              right: camera.margem.direita,
+              bottom: camera.margem.baixo,
+            },
+            maxZoom: camera.zoomMaximo,
+            duration,
+          },
+        );
+        break;
+      }
+      case "garantir-visivel": // chega com os ícones de postos (história P3)
+      case "manter":
+        break;
+    }
+  }, [carregado, camera, reduzirMovimento]);
 
   return (
     <>

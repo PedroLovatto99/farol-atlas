@@ -35,6 +35,15 @@ body {
   color: var(--color-texto);
 }
 
+/* Com o painel aberto, os controles de zoom do mapa saem de baixo dele (lateral: 340 px + margens;
+   gaveta: 55% da altura). */
+[data-painel-aberto="true"][data-modo-do-painel="lateral"] .maplibregl-ctrl-bottom-right {
+  right: 352px;
+}
+[data-painel-aberto="true"][data-modo-do-painel="gaveta"] .maplibregl-ctrl-bottom-right {
+  bottom: 55dvh;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

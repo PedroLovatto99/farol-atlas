@@ -10,10 +10,8 @@ from datetime import timedelta
 from sqlalchemy.orm import Session
 
 from farol.dominio import (
-    Alerta,
     AlertaRepositorio,
     ExecucaoRepositorio,
-    NivelAlerta,
     PostoRepositorio,
     Territorio,
     TerritorioRepositorio,
@@ -21,55 +19,13 @@ from farol.dominio import (
     TipoTerritorio,
 )
 from farol.infra import Relogio, obter_logger
-from farol.mapa.nivel import (
-    AlertaParaNivel,
-    ItemDoAlerta,
-    RegiaoDoAlerta,
-    TerritorioParaNivel,
-    calcular_niveis,
-    titulo_cita,
-)
+from farol.mapa.nivel import AlertaParaNivel, TerritorioParaNivel, calcular_niveis, titulo_cita
+from farol.mapa.preparo import alerta_para_nivel, grupo_do_posto, nomes_para_titulo
 from farol.mapa.visoes import PaisSemPosto, PostoNoMapa, TerritorioNoMapa, VisaoDoMapa
 
 LIMITE_DE_DADOS_ANTIGOS = timedelta(days=3)  # FR-041
 
 _log = obter_logger("farol.mapa")
-
-
-def _base_do_nome(nome: str) -> str:
-    """ "Groenlândia (Dinamarca)" -> "Groenlândia"."""
-    return nome.split(" (")[0].strip()
-
-
-def _nomes_para_titulo(territorio: Territorio) -> tuple[str, ...]:
-    nomes = [_base_do_nome(territorio.nome_pt), *territorio.termos_busca]
-    if territorio.rotulo_busca:
-        nomes.append(_base_do_nome(territorio.rotulo_busca))
-    return tuple(dict.fromkeys(n for n in nomes if n))
-
-
-def _alerta_para_nivel(alerta: Alerta) -> AlertaParaNivel:
-    classificacao = alerta.classificacao_vigente()
-    itens: tuple[ItemDoAlerta, ...] | None
-    if classificacao is None:
-        itens = None  # pendente: sem classificação válida para o conteúdo confirmado
-    elif not classificacao.e_alerta_de_viagem:
-        itens = ()
-    else:
-        itens = tuple(
-            ItemDoAlerta(
-                n.territorio_codigo,
-                n.nivel_pais,
-                tuple(RegiaoDoAlerta(r["nome"], NivelAlerta(r["nivel"])) for r in n.regioes),
-            )
-            for n in classificacao.niveis
-        )
-    return AlertaParaNivel(
-        id=alerta.id,
-        titulo=alerta.confirmado_titulo or alerta.titulo,
-        data_ref=alerta.confirmado_data_ref or alerta.publicado_em,
-        itens=itens,
-    )
 
 
 def montar_mapa(sessao: Session, relogio: Relogio) -> VisaoDoMapa:
@@ -84,13 +40,13 @@ def montar_mapa(sessao: Session, relogio: Relogio) -> VisaoDoMapa:
 
     dados_obtidos = ultima is not None
     alertas = (
-        [_alerta_para_nivel(a) for a in AlertaRepositorio(sessao).listar_confirmados_ativos()]
+        [alerta_para_nivel(a) for a in AlertaRepositorio(sessao).listar_confirmados_ativos()]
         if dados_obtidos
         else []
     )
     niveis = calcular_niveis(
         [
-            TerritorioParaNivel(t.codigo, t.soberano_codigo, _nomes_para_titulo(t))
+            TerritorioParaNivel(t.codigo, t.soberano_codigo, nomes_para_titulo(t))
             for t in territorios
         ],
         alertas,
@@ -127,7 +83,7 @@ def montar_mapa(sessao: Session, relogio: Relogio) -> VisaoDoMapa:
                 cidade=p.cidade,
                 latitude=float(p.latitude),
                 longitude=float(p.longitude),
-                grupo=f"{float(p.latitude)},{float(p.longitude)}",
+                grupo=grupo_do_posto(p),
             )
             for p in postos
         ),
@@ -152,7 +108,7 @@ def _registrar_pendentes_sem_pais(
     pendentes = [a for a in alertas if a.itens is None]
     if not pendentes:
         return
-    todos_os_nomes = [n for t in territorios for n in _nomes_para_titulo(t)]
+    todos_os_nomes = [n for t in territorios for n in nomes_para_titulo(t)]
     for alerta in pendentes:
         if not titulo_cita(alerta.titulo, todos_os_nomes):
             _log.warning(

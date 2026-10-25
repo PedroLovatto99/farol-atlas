@@ -1,10 +1,19 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import App from "./App";
-import { ErroDeApi, type Mapa } from "./servicos/api/cliente";
+import type { MapaProps } from "./funcionalidades/mapa/tipos";
+import { limparCacheDaGeometria } from "./funcionalidades/mapa/useGeometria";
+import { ErroDeApi, type Mapa, type Pais } from "./servicos/api/cliente";
 import { criarApiSimulada } from "./testes/api-simulada";
-import { MAPA_EXEMPLO } from "./testes/dados-exemplo";
+import {
+  ALERTA_EXEMPLO,
+  criarPais,
+  GEOMETRIA_EXEMPLO,
+  MAPA_EXEMPLO,
+  PAIS_EXEMPLO,
+} from "./testes/dados-exemplo";
 import { simularMatchMedia, type MediaSimulada } from "./testes/match-media";
 import { MapaFalso } from "./testes/mapa-falso";
 
@@ -14,6 +23,7 @@ const MOVIMENTO_REDUZIDO = "(prefers-reduced-motion: reduce)";
 let media: MediaSimulada;
 beforeEach(() => {
   media = simularMatchMedia();
+  limparCacheDaGeometria();
 });
 afterEach(() => {
   cleanup(); // desmonta a tela enquanto o matchMedia simulado ainda existe
@@ -27,12 +37,51 @@ function desenhado(codigo: string): HTMLElement {
   return item;
 }
 
-async function abrir(mapa: Mapa = MAPA_EXEMPLO) {
-  const api = criarApiSimulada({ mapa });
-  render(<App cliente={api.cliente} Mapa={MapaFalso} />);
+/** O arquivo de geometria, servido de mentira (o mapa de verdade o carrega pela rede). */
+const buscarGeometria: typeof fetch = () =>
+  Promise.resolve(new Response(JSON.stringify(GEOMETRIA_EXEMPLO), { status: 200 }));
+
+/** Mapa falso que também guarda as últimas props, para o teste chamar a tela como o mapa chamaria. */
+const espiao: { props: MapaProps | null } = { props: null };
+function propsDoMapa(): MapaProps {
+  if (espiao.props === null) throw new Error("o mapa ainda não foi desenhado");
+  return espiao.props;
+}
+function MapaEspiao(props: MapaProps) {
+  useEffect(() => {
+    espiao.props = props;
+  });
+  return <MapaFalso {...props} />;
+}
+
+async function abrir(
+  mapa: Mapa = MAPA_EXEMPLO,
+  paises: Readonly<Record<string, Pais>> = { DK: PAIS_EXEMPLO },
+) {
+  const api = criarApiSimulada({ mapa, paises });
+  render(<App cliente={api.cliente} Mapa={MapaEspiao} buscar={buscarGeometria} />);
   await waitFor(() => expect(desenhado("DK")).toBeInTheDocument());
   return api;
 }
+
+async function tocar(codigo: string) {
+  await userEvent.setup().click(screen.getByRole("button", { name: `tocar ${codigo}` }));
+}
+
+function painel() {
+  return screen.queryByRole("complementary", { name: "Detalhes do país" });
+}
+
+const KOSOVO = criarPais({
+  codigo: "XK",
+  nome: "Sérvia",
+  bandeira: "RS",
+  tipo: "dependencia",
+  soberano: "RS",
+  identidade_do_soberano: true,
+  observacao: "Kosovo: o Brasil não reconhece a independência.",
+  observacao_no_topo: true,
+});
 
 describe("App: ver a situação do mundo", () => {
   it("entrega ao mapa os territórios com os níveis vindos de /mapa", async () => {
@@ -184,5 +233,190 @@ describe("App: celular e movimento reduzido", () => {
     await abrir();
     expect(screen.getByTestId("mapa-camera")).toHaveTextContent("mundo");
     expect(screen.getByTestId("mapa-selecionado")).toBeEmptyDOMElement();
+  });
+});
+
+describe("App: ver os detalhes de um país", () => {
+  it("tocar num território faz uma única chamada a /paises/{codigo} e abre o painel", async () => {
+    const api = await abrir();
+    await tocar("DK");
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Dinamarca" })).toBeVisible();
+    expect(painel()).toBeInTheDocument();
+    expect(api.obterPais).toHaveBeenCalledTimes(1);
+    expect(api.obterPais).toHaveBeenCalledWith("DK", expect.anything());
+    expect(screen.getByTestId("mapa-selecionado")).toHaveTextContent("DK");
+  });
+
+  it("o mapa se aproxima: pede o enquadramento do território, com zoom máximo 5,5", async () => {
+    await abrir();
+    await tocar("DK");
+
+    await waitFor(() => expect(propsDoMapa().camera.tipo).toBe("enquadrar"));
+    expect(propsDoMapa().camera).toMatchObject({
+      tipo: "enquadrar",
+      caixa: [
+        [8, 54.5],
+        [15, 57.8],
+      ],
+      zoomMaximo: 5.5,
+    });
+  });
+
+  it("no computador a margem deixa o lado do painel livre", async () => {
+    media.definir("(max-width: 700px)", false);
+    await abrir();
+    await tocar("DK");
+    await waitFor(() => expect(propsDoMapa().camera.tipo).toBe("enquadrar"));
+    expect(propsDoMapa().camera).toMatchObject({ margem: { direita: 380, baixo: 20 } });
+    expect(await screen.findByRole("complementary")).toHaveAttribute("data-modo", "lateral");
+  });
+
+  it("no celular a margem deixa a parte de baixo livre e o painel vira gaveta", async () => {
+    media.definir("(max-width: 700px)", true);
+    await abrir();
+    await tocar("DK");
+    await waitFor(() => expect(propsDoMapa().camera.tipo).toBe("enquadrar"));
+    expect(propsDoMapa().camera).toMatchObject({
+      margem: { direita: 20, baixo: Math.round(window.innerHeight * 0.55) },
+    });
+    expect(await screen.findByRole("complementary")).toHaveAttribute("data-modo", "gaveta");
+  });
+
+  it("tocar em Kosovo chama /paises/XK, abre o painel da Sérvia com a observação no topo e enquadra a Sérvia", async () => {
+    const api = await abrir(MAPA_EXEMPLO, { XK: KOSOVO });
+    await tocar("XK");
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Sérvia" })).toBeVisible();
+    expect(api.obterPais).toHaveBeenCalledWith("XK", expect.anything());
+    expect(screen.getByText("Kosovo: o Brasil não reconhece a independência.")).toBeVisible();
+    expect(screen.getByTestId("mapa-selecionado")).toHaveTextContent("XK");
+    // o grupo "RS" tem a Sérvia e o Kosovo; a caixa é a da Sérvia
+    expect(propsDoMapa().camera).toMatchObject({
+      tipo: "enquadrar",
+      caixa: [
+        [18.8, 42.2],
+        [23, 46.2],
+      ],
+    });
+  });
+
+  it("os alertas do país aparecem no painel, com o que define o nível", async () => {
+    await abrir(MAPA_EXEMPLO, {
+      DK: criarPais({ nivel: "evitar", alertas: [ALERTA_EXEMPLO] }),
+    });
+    await tocar("DK");
+    expect(await screen.findByText("Define o nível atual")).toBeVisible();
+    expect(screen.getByRole("link", { name: ALERTA_EXEMPLO.titulo })).toBeVisible();
+  });
+
+  it("o oceano não abre painel", async () => {
+    const api = await abrir();
+    await userEvent.setup().click(screen.getByRole("button", { name: "tocar no oceano" }));
+    expect(painel()).not.toBeInTheDocument();
+    expect(api.obterPais).not.toHaveBeenCalled();
+  });
+
+  it("área neutra e códigos que o mapa não conhece não abrem painel", async () => {
+    const api = await abrir();
+    act(() => propsDoMapa().onSelecionarTerritorio("EH"));
+    expect(painel()).not.toBeInTheDocument();
+    expect(api.obterPais).not.toHaveBeenCalled();
+    expect(screen.getByTestId("mapa-selecionado")).toBeEmptyDOMElement();
+  });
+
+  it("trocar de país abre o painel do novo, com uma chamada para cada", async () => {
+    const api = await abrir(MAPA_EXEMPLO, {
+      DK: PAIS_EXEMPLO,
+      LB: criarPais({ codigo: "LB", nome: "Líbano", bandeira: "LB" }),
+    });
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    await tocar("LB");
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Líbano" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 2, name: "Dinamarca" })).not.toBeInTheDocument();
+    expect(api.obterPais).toHaveBeenCalledTimes(2);
+  });
+
+  it("erro ao carregar o país mostra a mensagem e deixa tentar de novo", async () => {
+    const api = await abrir(MAPA_EXEMPLO, {});
+    await tocar("DK"); // a API simulada responde 404 para o que não conhece
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Território não encontrado");
+    api.obterPais.mockResolvedValueOnce(PAIS_EXEMPLO);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Tentar de novo" }));
+    expect(await screen.findByRole("heading", { level: 2, name: "Dinamarca" })).toBeVisible();
+    expect(api.obterPais).toHaveBeenCalledTimes(2);
+  });
+
+  it("Esc fecha o painel e volta a câmera ao mundo", async () => {
+    await abrir();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    expect(propsDoMapa().camera.tipo).toBe("enquadrar");
+
+    await userEvent.setup().keyboard("{Escape}");
+
+    expect(painel()).not.toBeInTheDocument();
+    expect(propsDoMapa().camera.tipo).toBe("mundo");
+    expect(screen.getByTestId("mapa-selecionado")).toBeEmptyDOMElement();
+  });
+
+  it("o botão 'Ver mundo' fecha o painel e volta a câmera ao mundo", async () => {
+    await abrir();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Ver mundo" }));
+
+    expect(painel()).not.toBeInTheDocument();
+    expect(propsDoMapa().camera.tipo).toBe("mundo");
+    expect(screen.getByTestId("mapa-selecionado")).toBeEmptyDOMElement();
+  });
+
+  it("tocar de novo no mesmo país enquadra outra vez (a pessoa pode ter movido o mapa)", async () => {
+    await abrir();
+    await tocar("DK");
+    await waitFor(() => expect(propsDoMapa().camera.tipo).toBe("enquadrar"));
+    const primeira = propsDoMapa().camera;
+
+    await tocar("DK");
+    await waitFor(() => expect(propsDoMapa().camera).not.toBe(primeira));
+    expect(propsDoMapa().camera.tipo).toBe("enquadrar");
+  });
+
+  it("Esc com um modal aberto fecha só o modal, não o painel", async () => {
+    await abrir();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    const usuario = userEvent.setup();
+    await usuario.click(screen.getByRole("button", { name: "Sobre" }));
+    expect(screen.getByRole("dialog")).toBeVisible();
+
+    await usuario.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(painel()).toBeInTheDocument();
+  });
+
+  it("com movimento reduzido, o mapa recebe a preferência junto do pedido de câmera", async () => {
+    media.definir("(prefers-reduced-motion: reduce)", true);
+    await abrir();
+    await tocar("DK");
+    await waitFor(() => expect(propsDoMapa().camera.tipo).toBe("enquadrar"));
+    expect(propsDoMapa().reduzirMovimento).toBe(true);
+  });
+
+  it("sem a geometria carregada, tocar abre o painel e mantém a câmera", async () => {
+    const api = criarApiSimulada();
+    const semGeometria: typeof fetch = () => Promise.reject(new TypeError("sem rede"));
+    render(<App cliente={api.cliente} Mapa={MapaEspiao} buscar={semGeometria} />);
+    await waitFor(() => expect(desenhado("DK")).toBeInTheDocument());
+
+    await tocar("DK");
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Dinamarca" })).toBeVisible();
+    expect(propsDoMapa().camera.tipo).toBe("manter");
   });
 });
