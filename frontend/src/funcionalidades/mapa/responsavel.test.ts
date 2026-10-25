@@ -25,7 +25,11 @@ const MAPA: Mapa = {
 
 describe("responsavelDe", () => {
   it("devolve a coordenada do posto responsável de um país sem posto", () => {
-    expect(responsavelDe(MAPA, "PR")).toEqual({ latitude: 25.76, longitude: -80.19 });
+    expect(responsavelDe(MAPA, "PR")).toEqual({
+      latitude: 25.76,
+      longitude: -80.19,
+      grupo: "25.76,-80.19",
+    });
   });
 
   it("devolve nulo para país com posto próprio", () => {

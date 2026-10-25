@@ -10,6 +10,7 @@ export function MapaFalso(props: MapaProps) {
       <p data-testid="mapa-selecionado">{props.selecionado ?? ""}</p>
       <p data-testid="mapa-grupo-em-destaque">{props.grupoEmDestaque ?? ""}</p>
       <p data-testid="mapa-camera">{props.camera.tipo}</p>
+      <p data-testid="mapa-grupos-do-painel">{props.gruposDoPainel.join("|")}</p>
       <p data-testid="mapa-reduzir-movimento">{String(props.reduzirMovimento)}</p>
 
       <ul aria-label="territórios desenhados">
@@ -33,6 +34,20 @@ export function MapaFalso(props: MapaProps) {
           <li key={p.grupo} data-grupo={p.grupo} data-tipos={p.tipos.join("|")}>
             <button type="button" onClick={() => props.onSelecionarGrupo(p.grupo)}>
               {`tocar ícone ${p.grupo}`}
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <ul aria-label="ícones de países sem posto">
+        {props.paisesSemPosto.map((p) => (
+          <li
+            key={p.territorio}
+            data-territorio={p.territorio}
+            data-responsavel={p.responsavel?.grupo ?? ""}
+          >
+            <button type="button" onClick={() => props.onSelecionarTerritorio(p.territorio)}>
+              {`tocar ícone sem posto ${p.territorio}`}
             </button>
           </li>
         ))}

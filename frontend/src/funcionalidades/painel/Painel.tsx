@@ -4,7 +4,7 @@ import { Bandeira } from "../../compartilhado/Bandeira";
 import { formatarData } from "../../compartilhado/datas";
 import { NIVEIS } from "../../compartilhado/niveis";
 import { ehUrlWeb } from "../../compartilhado/urlSegura";
-import type { FontePostos, Pais } from "../../servicos/api/cliente";
+import type { FontePostos, Pais, PostoNoPainel } from "../../servicos/api/cliente";
 import { URL_DO_PORTAL_CONSULAR } from "../aviso/Aviso";
 import { SobreFronteiras } from "../legenda/SobreFronteiras";
 import { COR_DA_BORDA_REGIONAL } from "../mapa/cor";
@@ -19,6 +19,27 @@ interface Props {
   onTentarDeNovo(): void;
   /** Computador: painel lateral. Celular: gaveta na parte de baixo. */
   modo?: "lateral" | "gaveta";
+  /** Ids dos postos abertos, decididos pela tela: o ícone de cada um acompanha no mapa. */
+  postosExpandidos?: readonly number[];
+  /** A pessoa expandiu ou recolheu um posto (inclusive o responsável). */
+  onAlternarPosto?(posto: PostoNoPainel, aberto: boolean): void;
+}
+
+interface ControleDosPostos {
+  postosExpandidos: readonly number[] | undefined;
+  onAlternarPosto: ((posto: PostoNoPainel, aberto: boolean) => void) | undefined;
+}
+
+/** Só controla o posto quando a tela dá o estado; sem ele o posto abre e fecha sozinho. */
+function controleDe(
+  posto: PostoNoPainel,
+  { postosExpandidos, onAlternarPosto }: ControleDosPostos,
+) {
+  if (postosExpandidos === undefined || onAlternarPosto === undefined) return {};
+  return {
+    aberto: postosExpandidos.includes(posto.id),
+    onAlternar: (aberto: boolean) => onAlternarPosto(posto, aberto),
+  };
 }
 
 const CLASSES_DO_MODO = {
@@ -81,14 +102,14 @@ function LinhaDaFonte({ fonte }: { fonte: FontePostos }) {
   );
 }
 
-function Postos({ pais }: { pais: Pais }) {
+function Postos({ pais, controle }: { pais: Pais; controle: ControleDosPostos }) {
   const temPostos = pais.postos.length > 0;
   return (
     <Secao titulo="Representação brasileira">
       {temPostos && (
         <div>
           {pais.postos.map((posto) => (
-            <Posto key={posto.id} posto={posto} />
+            <Posto key={posto.id} posto={posto} {...controleDe(posto, controle)} />
           ))}
         </div>
       )}
@@ -96,7 +117,11 @@ function Postos({ pais }: { pais: Pais }) {
       {!temPostos && pais.posto_responsavel !== null && (
         <>
           <p className="text-sm">Sem posto no país. O atendimento é feito por:</p>
-          <Posto posto={pais.posto_responsavel} mostrarPais />
+          <Posto
+            posto={pais.posto_responsavel}
+            mostrarPais
+            {...controleDe(pais.posto_responsavel, controle)}
+          />
         </>
       )}
 
@@ -168,7 +193,7 @@ function Regioes({ pais }: { pais: Pais }) {
   );
 }
 
-function Conteudo({ pais }: { pais: Pais }) {
+function Conteudo({ pais, controle }: { pais: Pais; controle: ControleDosPostos }) {
   if (pais.eh_brasil) {
     return (
       <p className="text-sm text-texto-2">
@@ -187,7 +212,7 @@ function Conteudo({ pais }: { pais: Pais }) {
         <Observacao texto={pais.observacao} />
       )}
       <AlertasDoPais alertas={pais.alertas} />
-      <Postos pais={pais} />
+      <Postos pais={pais} controle={controle} />
     </>
   );
 }
@@ -196,7 +221,14 @@ function Conteudo({ pais }: { pais: Pais }) {
  * Painel do país (FR-009 a FR-015): bandeira, nome, nível, regiões, alertas, postos e posto
  * responsável. Painel lateral no computador e gaveta no celular.
  */
-export function Painel({ estado, onFechar, onTentarDeNovo, modo = "lateral" }: Props) {
+export function Painel({
+  estado,
+  onFechar,
+  onTentarDeNovo,
+  modo = "lateral",
+  postosExpandidos,
+  onAlternarPosto,
+}: Props) {
   const pais = estado.situacao === "pronto" ? estado.pais : null;
   return (
     <aside
@@ -241,7 +273,7 @@ export function Painel({ estado, onFechar, onTentarDeNovo, modo = "lateral" }: P
             </button>
           </div>
         )}
-        {pais !== null && <Conteudo pais={pais} />}
+        {pais !== null && <Conteudo pais={pais} controle={{ postosExpandidos, onAlternarPosto }} />}
       </div>
     </aside>
   );

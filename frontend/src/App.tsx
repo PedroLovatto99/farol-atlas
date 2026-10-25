@@ -7,6 +7,7 @@ import { Aviso } from "./funcionalidades/aviso/Aviso";
 import { Legenda } from "./funcionalidades/legenda/Legenda";
 import { bordaRegionalDe } from "./funcionalidades/mapa/cor";
 import { calcularEnquadramento, margemDoLayout } from "./funcionalidades/mapa/enquadramento";
+import { agruparPostos, paisesSemPostoDesenhados } from "./funcionalidades/mapa/marcadores";
 import { responsavelDe } from "./funcionalidades/mapa/responsavel";
 import type { MapaProps, PedidoDeCamera, TerritorioDesenhado } from "./funcionalidades/mapa/tipos";
 import { useGeometria } from "./funcionalidades/mapa/useGeometria";
@@ -14,7 +15,7 @@ import { useMapa } from "./funcionalidades/mapa/useMapa";
 import { Painel } from "./funcionalidades/painel/Painel";
 import { usePais } from "./funcionalidades/painel/usePais";
 import { Sobre } from "./funcionalidades/sobre/Sobre";
-import type { ClienteDaApi, Mapa } from "./servicos/api/cliente";
+import type { ClienteDaApi, Mapa, PostoNoPainel } from "./servicos/api/cliente";
 
 interface Props {
   cliente: ClienteDaApi;
@@ -29,6 +30,7 @@ const CAMERA_INICIAL: PedidoDeCamera = { tipo: "mundo" };
 const CAMERA_PARADA: PedidoDeCamera = { tipo: "manter" };
 const SEM_POSTOS: MapaProps["postos"] = [];
 const SEM_PAISES_SEM_POSTO: MapaProps["paisesSemPosto"] = [];
+const SEM_GRUPOS: readonly string[] = [];
 
 /**
  * Sem coleta completa nada foi confirmado: todo território fica "não verificado", mesmo que a
@@ -59,6 +61,17 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
 
   const mapa = estado.situacao === "pronto" ? estado.mapa : null;
   const territorios = useMemo(() => (mapa ? territoriosDesenhados(mapa) : []), [mapa]);
+  const postos = useMemo(() => (mapa ? agruparPostos(mapa.postos) : SEM_POSTOS), [mapa]);
+  const paisesSemPosto = useMemo(
+    () => (mapa ? paisesSemPostoDesenhados(mapa) : SEM_PAISES_SEM_POSTO),
+    [mapa],
+  );
+  // Os ícones dos postos que o painel lista aparecem em qualquer zoom, e só quando o painel já chegou
+  const gruposDoPainel = useMemo(() => {
+    if (estadoDoPais.situacao !== "pronto") return SEM_GRUPOS;
+    const { postos: doPais, posto_responsavel: responsavel } = estadoDoPais.pais;
+    return [...doPais, ...(responsavel === null ? [] : [responsavel])].map((p) => p.grupo);
+  }, [estadoDoPais]);
 
   const selecionar = useCallback(
     (codigo: string) => {
@@ -77,6 +90,47 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
       setCamera(enquadramento ?? CAMERA_PARADA);
     },
     [mapa, geometria, celular, despachar],
+  );
+
+  /** Toque num ícone de posto (FR-018g): abre o painel do país do posto, sem reenquadrar o mapa. */
+  const tocarIcone = useCallback(
+    (grupo: string) => {
+      const doGrupo = mapa?.postos.filter((p) => p.grupo === grupo) ?? [];
+      const primeiro = doGrupo[0];
+      if (primeiro === undefined) return;
+      despachar({
+        tipo: "tocar-icone",
+        territorio: primeiro.territorio,
+        grupo,
+        ids: doGrupo.map((p) => p.id),
+      });
+      setCamera(CAMERA_PARADA);
+    },
+    [mapa, despachar],
+  );
+
+  /**
+   * Expandir ou recolher um posto no painel (inclusive o responsável): o ícone dele fica em
+   * destaque no mapa, e o mapa só anda se o ícone estiver fora da área visível (FR-018a, FR-018c).
+   */
+  const alternarPosto = useCallback(
+    (posto: PostoNoPainel, aberto: boolean) => {
+      if (!aberto) return despachar({ tipo: "recolher-posto", id: posto.id, grupo: posto.grupo });
+      // O navegador repete o evento quando o posto abre por código (toque no ícone): nada a fazer
+      if (selecao.postosExpandidos.includes(posto.id) && selecao.grupoEmDestaque === posto.grupo) {
+        return;
+      }
+      despachar({ tipo: "expandir-posto", id: posto.id, grupo: posto.grupo });
+      const noMapa = mapa?.postos.find((p) => p.id === posto.id);
+      if (noMapa === undefined) return;
+      setCamera({
+        tipo: "garantir-visivel",
+        latitude: noMapa.latitude,
+        longitude: noMapa.longitude,
+        margem: margemDoLayout(celular, window.innerHeight),
+      });
+    },
+    [mapa, selecao.postosExpandidos, selecao.grupoEmDestaque, celular, despachar],
   );
 
   /** "Ver mundo" e Esc: fecha o painel e devolve a câmera ao mundo. */
@@ -114,13 +168,14 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
     >
       <ComponenteDeMapa
         territorios={territorios}
-        postos={SEM_POSTOS}
-        paisesSemPosto={SEM_PAISES_SEM_POSTO}
+        postos={postos}
+        paisesSemPosto={paisesSemPosto}
         selecionado={selecao.selecionado}
         grupoEmDestaque={selecao.grupoEmDestaque}
+        gruposDoPainel={gruposDoPainel}
         reduzirMovimento={reduzirMovimento}
         onSelecionarTerritorio={selecionar}
-        onSelecionarGrupo={() => {}}
+        onSelecionarGrupo={tocarIcone}
         onLimparSelecao={limparSelecao}
         camera={camera}
       />
@@ -156,6 +211,8 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
           onFechar={verMundo}
           onTentarDeNovo={tentarPaisDeNovo}
           modo={modoDoPainel}
+          postosExpandidos={selecao.postosExpandidos}
+          onAlternarPosto={alternarPosto}
         />
       )}
 

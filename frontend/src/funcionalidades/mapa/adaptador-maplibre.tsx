@@ -4,24 +4,38 @@
  *
  * O mapa é um globo 3D só com oceano e países: preenchimento pela cor do nível, fronteiras, borda
  * de destaque das regiões mais graves e contorno do país selecionado. Toque em país seleciona;
- * oceano limpa a seleção; área neutra é ignorada (FR-016). Os pedidos de câmera são só executados
- * aqui: a regra de enquadramento é função pura (`enquadramento.ts`). Os ícones de postos chegam na
- * história P3.
+ * oceano limpa a seleção; área neutra é ignorada (FR-016). Os ícones dos postos são botões do
+ * React, desenhados por portal dentro de marcadores do MapLibre. As regras (quais ícones aparecem,
+ * enquadramento, plano de câmera) são funções puras fora daqui; o adaptador só as executa.
  */
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   AttributionControl,
   Map as MapaDoMapLibre,
+  Marker,
   NavigationControl,
   setWorkerUrl,
   type GeoJSONSource,
   type StyleSpecification,
 } from "maplibre-gl";
 import urlDoWorker from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { planejarCamera, type ContextoDaCamera } from "./camera";
 import { duracaoDoMovimento } from "./enquadramento";
 import { montarFeicoes } from "./feicoes";
-import type { MapaProps } from "./tipos";
+import { Marcador } from "./Marcador";
+import {
+  ZOOM_DOS_MARCADORES,
+  linhaAteOResponsavel,
+  paisesSemPostoVisiveis,
+  postosVisiveis,
+  rotuloDoGrupo,
+  rotuloDoPaisSemPosto,
+  seloDoMarcador,
+  varianteDoMarcador,
+} from "./marcadores";
+import type { MapaProps, Margem } from "./tipos";
 import { useGeometria } from "./useGeometria";
 
 // O MapLibre 6 lê os mapas num web worker. O Vite (no modo de desenvolvimento) pré-empacota a
@@ -31,6 +45,7 @@ setWorkerUrl(urlDoWorker);
 
 const COR_DO_OCEANO = "#DCE8F2";
 const COR_DA_SELECAO = "#0C447C";
+const COR_DA_LINHA_ATE_O_RESPONSAVEL = "#0C447C";
 const LARGURA_MAXIMA_DO_CELULAR = 700;
 const COLECAO_VAZIA = { type: "FeatureCollection" as const, features: [] };
 
@@ -42,7 +57,10 @@ function filtroDaSelecao(grupo: string | null): ["==", ["get", string], string] 
 /** Só oceano e países, sem mapa de fundo. As cores vêm das propriedades de cada feição. */
 const ESTILO: StyleSpecification = {
   version: 8,
-  sources: { paises: { type: "geojson", data: COLECAO_VAZIA } },
+  sources: {
+    paises: { type: "geojson", data: COLECAO_VAZIA },
+    linha: { type: "geojson", data: COLECAO_VAZIA },
+  },
   layers: [
     { id: "oceano", type: "background", paint: { "background-color": COR_DO_OCEANO } },
     { id: "paises", type: "fill", source: "paises", paint: { "fill-color": ["get", "cor"] } },
@@ -67,6 +85,17 @@ const ESTILO: StyleSpecification = {
       filter: filtroDaSelecao(null),
       paint: { "line-color": COR_DA_SELECAO, "line-width": 3 },
     },
+    {
+      // Ligação do ícone do país sem posto até o posto responsável (FR-018)
+      id: "linha-responsavel",
+      type: "line",
+      source: "linha",
+      paint: {
+        "line-color": COR_DA_LINHA_ATE_O_RESPONSAVEL,
+        "line-width": 2,
+        "line-dasharray": [2, 2],
+      },
+    },
   ],
 };
 
@@ -75,17 +104,71 @@ function visaoDoMundo(): { center: [number, number]; zoom: number } {
   return { center: [25, 18], zoom: celular ? 0.85 : 1.75 };
 }
 
+/** Onde o ponto está na tela e do que o mapa está olhando, para decidir se precisa mover. */
+function medirMapa(mapa: MapaDoMapLibre, longitude: number, latitude: number): ContextoDaCamera {
+  const centro = mapa.getCenter();
+  const posicao = mapa.project([longitude, latitude]);
+  const tela = mapa.getCanvas();
+  return {
+    centro: { longitude: centro.lng, latitude: centro.lat },
+    pontoNaTela: Number.isFinite(posicao.x) && Number.isFinite(posicao.y) ? posicao : null,
+    tamanho: { largura: tela.clientWidth, altura: tela.clientHeight },
+  };
+}
+
+/**
+ * Onde o ponto deve cair para ficar na área livre: o deslocamento do centro da tela até o centro
+ * do que o painel não cobre. Mover só o centro, sem `padding`, não deixa estado para trás.
+ */
+function deslocamentoDaAreaLivre(margem: Margem): [number, number] {
+  return [(margem.esquerda - margem.direita) / 2, (margem.topo - margem.baixo) / 2];
+}
+
+/** Ícone no mapa: um marcador do MapLibre cujo conteúdo é desenhado pelo React (portal). */
+function MarcadorNoMapa(props: {
+  mapa: MapaDoMapLibre;
+  longitude: number;
+  latitude: number;
+  children: ReactNode;
+}) {
+  const { mapa, longitude, latitude, children } = props;
+  const [elemento] = useState(() => {
+    const el = document.createElement("div");
+    el.className = "marcador-raiz";
+    return el;
+  });
+
+  useEffect(() => {
+    // `opacityWhenCovered`: ícones do outro lado do globo somem e não recebem toque
+    const marcador = new Marker({ element: elemento, anchor: "center", opacityWhenCovered: 0 })
+      .setLngLat([longitude, latitude])
+      .addTo(mapa);
+    return () => {
+      marcador.remove();
+    };
+  }, [mapa, elemento, longitude, latitude]);
+
+  return createPortal(children, elemento);
+}
+
 export function MapaMapLibre({
   territorios,
+  postos,
+  paisesSemPosto,
   selecionado,
+  grupoEmDestaque,
+  gruposDoPainel,
   reduzirMovimento,
   onSelecionarTerritorio,
+  onSelecionarGrupo,
   onLimparSelecao,
   camera,
 }: MapaProps) {
   const container = useRef<HTMLDivElement>(null);
-  const mapaRef = useRef<MapaDoMapLibre | null>(null);
-  const [carregado, setCarregado] = useState(false);
+  // O mapa só entra aqui depois de carregado: é a partir daí que há o que desenhar
+  const [mapa, setMapa] = useState<MapaDoMapLibre | null>(null);
+  // Só importa se o zoom passou do limite dos ícones: guardar o zoom inteiro renderizaria a cada quadro
+  const [zoomAlto, setZoomAlto] = useState(false);
   const geometria = useGeometria();
 
   // Os eventos do mapa nascem uma vez; este par entrega a eles sempre as funções mais recentes
@@ -101,75 +184,103 @@ export function MapaMapLibre({
   useEffect(() => {
     const elemento = container.current;
     if (elemento === null) return;
-    const mapa = new MapaDoMapLibre({
+    const novo = new MapaDoMapLibre({
       container: elemento,
       style: ESTILO,
       attributionControl: false,
       ...visaoDoMundo(),
     });
-    mapa.on("style.load", () => mapa.setProjection({ type: "globe" }));
-    mapa.on("load", () => setCarregado(true));
-    mapa.on("click", (evento) => {
-      const feicao = mapa.queryRenderedFeatures(evento.point, { layers: ["paises"] })[0];
+    novo.on("style.load", () => novo.setProjection({ type: "globe" }));
+    novo.on("load", () => setMapa(novo));
+    novo.on("zoom", () => setZoomAlto(novo.getZoom() >= ZOOM_DOS_MARCADORES));
+    novo.on("click", (evento) => {
+      // O clique num ícone é do ícone, não do país que está embaixo dele
+      const alvo = evento.originalEvent.target;
+      if (alvo instanceof Element && alvo.closest(".marcador-raiz") !== null) return;
+      const feicao = novo.queryRenderedFeatures(evento.point, { layers: ["paises"] })[0];
       if (feicao === undefined) return aoLimpar.current(); // oceano
       const { codigo, tipo } = feicao.properties;
       if (tipo === "neutro" || typeof codigo !== "string") return; // área neutra: sem painel
       aoSelecionar.current(codigo);
     });
-    mapa.on("mousemove", "paises", (evento) => {
+    novo.on("mousemove", "paises", (evento) => {
       const neutro = evento.features?.[0]?.properties["tipo"] === "neutro";
-      mapa.getCanvas().style.cursor = neutro ? "" : "pointer";
+      novo.getCanvas().style.cursor = neutro ? "" : "pointer";
     });
-    mapa.on("mouseleave", "paises", () => {
-      mapa.getCanvas().style.cursor = "";
+    novo.on("mouseleave", "paises", () => {
+      novo.getCanvas().style.cursor = "";
     });
-    mapa.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
-    mapa.addControl(
+    novo.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
+    novo.addControl(
       new AttributionControl({
         compact: true,
         customAttribution: "Fronteiras: Natural Earth (visão do Brasil)",
       }),
       "bottom-left",
     );
-    mapaRef.current = mapa;
     return () => {
-      mapaRef.current = null;
-      mapa.remove();
+      setMapa(null);
+      novo.remove();
     };
   }, []);
 
   // Cores e bordas: sempre a geometria mais os níveis atuais
   useEffect(() => {
-    const mapa = mapaRef.current;
-    if (!carregado || mapa === null || geometria.situacao !== "pronto") return;
+    if (mapa === null || geometria.situacao !== "pronto") return;
     const fonte = mapa.getSource<GeoJSONSource>("paises");
     const dados = montarFeicoes(geometria.geometria, territorios);
     fonte?.setData(dados as unknown as Parameters<GeoJSONSource["setData"]>[0]);
-  }, [carregado, geometria, territorios]);
+  }, [mapa, geometria, territorios]);
 
   // Contorno da seleção. Kosovo e Malvinas contornam o grupo do soberano (propriedade `zoom`).
   useEffect(() => {
-    const mapa = mapaRef.current;
-    if (!carregado || mapa === null) return;
+    if (mapa === null) return;
     const feicao =
       selecionado !== null && geometria.situacao === "pronto"
         ? geometria.geometria.features.find((f) => f.properties.codigo === selecionado)
         : undefined;
     mapa.setFilter("selecao", filtroDaSelecao(feicao?.properties.zoom ?? selecionado));
-  }, [carregado, geometria, selecionado]);
+  }, [mapa, geometria, selecionado]);
 
-  // Pedidos de câmera: só executa; quem decide o enquadramento é a tela
+  // Linha tracejada do país sem posto selecionado até o posto responsável
   useEffect(() => {
-    const mapa = mapaRef.current;
-    if (!carregado || mapa === null || ultimaCamera.current === camera) return;
+    if (mapa === null) return;
+    const linha = linhaAteOResponsavel(selecionado, paisesSemPosto);
+    const dados = {
+      type: "FeatureCollection" as const,
+      features:
+        linha === null
+          ? []
+          : [
+              {
+                type: "Feature" as const,
+                properties: {},
+                geometry: { type: "LineString" as const, coordinates: linha },
+              },
+            ],
+    };
+    mapa.getSource<GeoJSONSource>("linha")?.setData(dados);
+  }, [mapa, selecionado, paisesSemPosto]);
+
+  // Pedidos de câmera: o plano é decidido por função pura; aqui só se executa
+  useEffect(() => {
+    if (mapa === null || ultimaCamera.current === camera) return;
     ultimaCamera.current = camera;
     const duration = duracaoDoMovimento(reduzirMovimento);
-    switch (camera.tipo) {
+    // O ponto só é medido para "garantir-visivel"; os outros pedidos não consultam o mapa
+    const alvo =
+      camera.tipo === "garantir-visivel"
+        ? { longitude: camera.longitude, latitude: camera.latitude }
+        : { longitude: 0, latitude: 0 };
+    const plano = planejarCamera(camera, () => medirMapa(mapa, alvo.longitude, alvo.latitude));
+    switch (plano.tipo) {
+      case "nenhum":
+        break;
       case "mundo":
         mapa.easeTo({ ...visaoDoMundo(), bearing: 0, pitch: 0, duration });
         break;
       case "enquadrar": {
-        const [[oeste, sul], [leste, norte]] = camera.caixa;
+        const [[oeste, sul], [leste, norte]] = plano.caixa;
         mapa.fitBounds(
           [
             [oeste, sul],
@@ -177,22 +288,46 @@ export function MapaMapLibre({
           ],
           {
             padding: {
-              top: camera.margem.topo,
-              left: camera.margem.esquerda,
-              right: camera.margem.direita,
-              bottom: camera.margem.baixo,
+              top: plano.margem.topo,
+              left: plano.margem.esquerda,
+              right: plano.margem.direita,
+              bottom: plano.margem.baixo,
             },
-            maxZoom: camera.zoomMaximo,
+            maxZoom: plano.zoomMaximo,
             duration,
           },
         );
         break;
       }
-      case "garantir-visivel": // chega com os ícones de postos (história P3)
-      case "manter":
+      case "centralizar":
+        // Sem `zoom`: o mapa só anda até o ícone aparecer (FR-018c, FR-018h)
+        mapa.easeTo({
+          center: [plano.longitude, plano.latitude],
+          offset: deslocamentoDaAreaLivre(plano.margem),
+          duration,
+        });
         break;
     }
-  }, [carregado, camera, reduzirMovimento]);
+  }, [mapa, camera, reduzirMovimento]);
+
+  const zoom = zoomAlto ? ZOOM_DOS_MARCADORES : 0;
+  const postosNoMapa = useMemo(
+    () =>
+      postosVisiveis(
+        { zoom, selecionado, gruposDoPainel, grupoEmDestaque },
+        postos,
+        paisesSemPosto,
+      ),
+    [zoom, selecionado, gruposDoPainel, grupoEmDestaque, postos, paisesSemPosto],
+  );
+  const paisesSemPostoNoMapa = useMemo(
+    () =>
+      paisesSemPostoVisiveis(
+        { zoom, selecionado, gruposDoPainel, grupoEmDestaque },
+        paisesSemPosto,
+      ),
+    [zoom, selecionado, gruposDoPainel, grupoEmDestaque, paisesSemPosto],
+  );
 
   return (
     <>
@@ -208,6 +343,44 @@ export function MapaMapLibre({
       >
         <div ref={container} className="h-full w-full" />
       </div>
+
+      {mapa !== null &&
+        postosNoMapa.map((posto) => (
+          <MarcadorNoMapa
+            key={posto.grupo}
+            mapa={mapa}
+            longitude={posto.longitude}
+            latitude={posto.latitude}
+          >
+            <Marcador
+              variante={varianteDoMarcador(posto.tipos)}
+              selo={seloDoMarcador(posto.tipos)}
+              rotulo={rotuloDoGrupo(posto)}
+              emDestaque={posto.grupo === grupoEmDestaque}
+              reduzirMovimento={reduzirMovimento}
+              onToque={() => onSelecionarGrupo(posto.grupo)}
+            />
+          </MarcadorNoMapa>
+        ))}
+      {mapa !== null &&
+        paisesSemPostoNoMapa.map((pais) => (
+          <MarcadorNoMapa
+            key={pais.territorio}
+            mapa={mapa}
+            longitude={pais.longitude}
+            latitude={pais.latitude}
+          >
+            <Marcador
+              variante="sem-posto"
+              selo={0}
+              rotulo={rotuloDoPaisSemPosto(pais)}
+              emDestaque={false}
+              reduzirMovimento={reduzirMovimento}
+              onToque={() => onSelecionarTerritorio(pais.territorio)}
+            />
+          </MarcadorNoMapa>
+        ))}
+
       {geometria.situacao === "erro" && (
         <p
           role="alert"

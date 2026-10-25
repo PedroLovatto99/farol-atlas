@@ -17,6 +17,7 @@ export interface TerritorioDesenhado {
 
 export interface PostoDesenhado {
   grupo: string;                 // ícone compartilhado (FR-018d)
+  cidade: string;                // nome acessível do ícone
   latitude: number;
   longitude: number;
   tipos: TipoPosto[];            // mais de um quando dois postos dividem o ícone
@@ -25,9 +26,10 @@ export interface PostoDesenhado {
 
 export interface PaisSemPostoDesenhado {
   territorio: CodigoTerritorio;
+  nome: string;                  // nome acessível do ícone
   latitude: number;
   longitude: number;
-  responsavel: { latitude: number; longitude: number } | null; // linha tracejada (FR-018)
+  responsavel: { latitude: number; longitude: number; grupo: string } | null; // linha tracejada (FR-018)
 }
 
 export interface MapaProps {
@@ -37,6 +39,7 @@ export interface MapaProps {
 
   selecionado: CodigoTerritorio | null;      // contorno de seleção
   grupoEmDestaque: string | null;            // FR-018a: maior, com contorno, à frente; aparece em qualquer zoom (FR-018h)
+  gruposDoPainel: readonly string[];         // ícones dos postos que o painel aberto lista: aparecem em qualquer zoom (FR-017)
   reduzirMovimento: boolean;                 // FR-039, FR-018f: sem animação
 
   onSelecionarTerritorio(codigo: CodigoTerritorio): void;   // toque num país; áreas neutras não chamam (FR-016)
@@ -50,7 +53,7 @@ export interface MapaProps {
 export type PedidoDeCamera =
   | { tipo: "mundo" }
   | { tipo: "enquadrar"; caixa: [[number, number], [number, number]]; margem: Margem; zoomMaximo: number }
-  | { tipo: "garantir-visivel"; latitude: number; longitude: number }   // FR-018c: só pan, sem mudar o zoom
+  | { tipo: "garantir-visivel"; latitude: number; longitude: number; margem: Margem }   // FR-018c: só pan, sem mudar o zoom; a margem é a área coberta pelo painel
   | { tipo: "manter" };                                                  // FR-018g: toque no ícone não reenquadra
 ```
 
@@ -59,7 +62,10 @@ export type PedidoDeCamera =
 | Regra | Origem |
 |---|---|
 | Globo 3D, só oceano e países (sem mapa de fundo) | plano |
-| Marcadores só a partir do zoom 3.5, exceto: país selecionado, seu posto responsável e `grupoEmDestaque` | FR-017, FR-018h |
+| Marcadores só a partir do zoom 3.5, exceto: os do painel aberto (`gruposDoPainel`), o posto responsável do país sem posto selecionado, o ícone do país sem posto selecionado e `grupoEmDestaque` | FR-017, FR-018h |
+| Toque num ícone de posto chama `onSelecionarGrupo`; toque no ícone de país sem posto chama `onSelecionarTerritorio` | FR-018g |
+| O clique num ícone não chega ao mapa (não seleciona o país que está embaixo) | FR-018g |
+| Linha tracejada só do país sem posto selecionado até o posto responsável | FR-018 |
 | Marcadores do outro lado do globo não aparecem nem recebem toque | protótipo (`opacityWhenCovered`) |
 | `garantir-visivel` move o centro apenas se o ponto está fora da área visível, sem alterar o zoom | FR-018c, FR-018h |
 | `reduzirMovimento` ⇒ `duration: 0` em qualquer movimento de câmera | FR-039 |
@@ -69,4 +75,4 @@ export type PedidoDeCamera =
 
 ## O que fica fora do componente (funções puras, testadas à parte)
 
-`calcularEnquadramento` (maior parte do território; inclui o responsável só se a largura < 180° de longitude; zoom máximo 5.5), `corDoTerritorio`, `territorioEsmaecido` (FR-025 a FR-027), `postosVisiveis`, `buscarTerritorios` (sem acento e sem diferença de maiúscula).
+`calcularEnquadramento` (maior parte do território; inclui o responsável só se a largura < 180° de longitude; zoom máximo 5.5), `planejarCamera` (decide se `garantir-visivel` precisa mover; o ponto do outro lado do globo nunca está visível), `corDoTerritorio`, `territorioEsmaecido` (FR-025 a FR-027), `postosVisiveis`, `paisesSemPostoVisiveis`, `agruparPostos`, `buscarTerritorios` (sem acento e sem diferença de maiúscula).

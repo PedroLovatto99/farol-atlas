@@ -12,7 +12,15 @@ export interface Estado {
   niveisMarcados: readonly NivelId[];
 }
 
-export type Acao = { tipo: "selecionar"; codigo: string } | { tipo: "limpar-selecao" };
+export type Acao =
+  | { tipo: "selecionar"; codigo: string }
+  | { tipo: "limpar-selecao" }
+  /** Expandir um posto no painel põe o ícone dele em destaque, e só ele (FR-018a, FR-018b). */
+  | { tipo: "expandir-posto"; id: number; grupo: string }
+  /** Recolher o posto em destaque tira o destaque (FR-018b). */
+  | { tipo: "recolher-posto"; id: number; grupo: string }
+  /** Tocar num ícone abre o painel do país com os postos do ícone já expandidos (FR-018g). */
+  | { tipo: "tocar-icone"; territorio: string; grupo: string; ids: readonly number[] };
 
 export const ESTADO_INICIAL: Estado = {
   selecionado: null,
@@ -27,5 +35,34 @@ export function reducer(estado: Estado, acao: Acao): Estado {
       return { ...estado, selecionado: acao.codigo, postosExpandidos: [], grupoEmDestaque: null };
     case "limpar-selecao":
       return { ...estado, selecionado: null, postosExpandidos: [], grupoEmDestaque: null };
+    case "expandir-posto":
+      // O navegador repete o evento ao abrir por código: nada a mudar, nem uma renderização
+      if (estado.postosExpandidos.includes(acao.id) && estado.grupoEmDestaque === acao.grupo) {
+        return estado;
+      }
+      return {
+        ...estado,
+        postosExpandidos: estado.postosExpandidos.includes(acao.id)
+          ? estado.postosExpandidos
+          : [...estado.postosExpandidos, acao.id],
+        grupoEmDestaque: acao.grupo,
+      };
+    case "recolher-posto": {
+      const aberto = estado.postosExpandidos.includes(acao.id);
+      const emDestaque = estado.grupoEmDestaque === acao.grupo;
+      if (!aberto && !emDestaque) return estado;
+      return {
+        ...estado,
+        postosExpandidos: estado.postosExpandidos.filter((id) => id !== acao.id),
+        grupoEmDestaque: emDestaque ? null : estado.grupoEmDestaque,
+      };
+    }
+    case "tocar-icone":
+      return {
+        ...estado,
+        selecionado: acao.territorio,
+        postosExpandidos: acao.ids,
+        grupoEmDestaque: acao.grupo,
+      };
   }
 }

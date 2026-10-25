@@ -11,8 +11,11 @@ import {
   ALERTA_EXEMPLO,
   criarPais,
   GEOMETRIA_EXEMPLO,
+  MAPA_COM_POSTOS,
   MAPA_EXEMPLO,
+  PAIS_COM_DOIS_POSTOS,
   PAIS_EXEMPLO,
+  PAIS_SEM_POSTO,
 } from "./testes/dados-exemplo";
 import { simularMatchMedia, type MediaSimulada } from "./testes/match-media";
 import { MapaFalso } from "./testes/mapa-falso";
@@ -418,5 +421,175 @@ describe("App: ver os detalhes de um país", () => {
 
     expect(await screen.findByRole("heading", { level: 2, name: "Dinamarca" })).toBeVisible();
     expect(propsDoMapa().camera.tipo).toBe("manter");
+  });
+});
+
+describe("App: postos no mapa", () => {
+  const PAISES = { DK: PAIS_EXEMPLO, US: PAIS_COM_DOIS_POSTOS, PR: PAIS_SEM_POSTO };
+  const WASHINGTON = "38.9,-77";
+  const MIAMI = "25.76,-80.19";
+
+  function icone(grupo: string): HTMLElement {
+    const lista = screen.getByRole("list", { name: "ícones de postos" });
+    const item = lista.querySelector<HTMLElement>(`[data-grupo="${grupo}"]`);
+    if (item === null) throw new Error(`ícone ${grupo} não foi entregue ao mapa`);
+    return item;
+  }
+
+  function resumo(tipo: string): HTMLElement {
+    return screen.getByText(tipo, { selector: "summary span" });
+  }
+
+  function aberto(tipo: string): boolean {
+    return resumo(tipo).closest("details")?.open ?? false;
+  }
+
+  function destaque(): HTMLElement {
+    return screen.getByTestId("mapa-grupo-em-destaque");
+  }
+
+  async function abrirComPostos() {
+    return abrir(MAPA_COM_POSTOS, PAISES);
+  }
+
+  async function tocarIcone(grupo: string) {
+    await userEvent.setup().click(screen.getByRole("button", { name: `tocar ícone ${grupo}` }));
+  }
+
+  it("entrega ao mapa um ícone por cidade, com os dois postos de Washington juntos", async () => {
+    await abrirComPostos();
+    expect(icone(WASHINGTON)).toHaveAttribute("data-tipos", "Embaixada|Consulado-Geral");
+    expect(icone(MIAMI)).toHaveAttribute("data-tipos", "Consulado-Geral");
+    expect(icone("55.6761,12.5683")).toHaveAttribute("data-tipos", "Embaixada");
+  });
+
+  it("entrega os países sem posto, ligados ao posto responsável", async () => {
+    await abrirComPostos();
+    const lista = screen.getByRole("list", { name: "ícones de países sem posto" });
+    expect(lista.querySelector('[data-territorio="PR"]')).toHaveAttribute(
+      "data-responsavel",
+      MIAMI,
+    );
+    expect(lista.querySelector('[data-territorio="LY"]')).toHaveAttribute("data-responsavel", "");
+  });
+
+  it("tocar num ícone abre o painel do país com os postos expandidos e o ícone em destaque", async () => {
+    const api = await abrirComPostos();
+    await tocarIcone(WASHINGTON);
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Estados Unidos" })).toBeVisible();
+    expect(api.obterPais).toHaveBeenCalledTimes(1);
+    expect(api.obterPais).toHaveBeenCalledWith("US", expect.anything());
+    expect(destaque()).toHaveTextContent(WASHINGTON);
+    expect(screen.getByTestId("mapa-selecionado")).toHaveTextContent("US");
+    // o ícone é compartilhado por dois postos: os dois abrem
+    expect(aberto("Embaixada")).toBe(true);
+    expect(aberto("Consulado-Geral")).toBe(true);
+  });
+
+  it("tocar num ícone não reenquadra o mapa (FR-018g)", async () => {
+    await abrirComPostos();
+    await tocarIcone(WASHINGTON);
+    await screen.findByRole("heading", { level: 2, name: "Estados Unidos" });
+    expect(propsDoMapa().camera.tipo).toBe("manter");
+  });
+
+  it("tocar num ícone de outro país troca o painel, sem reenquadrar", async () => {
+    const api = await abrirComPostos();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    expect(propsDoMapa().camera.tipo).toBe("enquadrar");
+
+    await tocarIcone(WASHINGTON);
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Estados Unidos" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Dinamarca" })).not.toBeInTheDocument();
+    expect(propsDoMapa().camera.tipo).toBe("manter");
+    expect(api.obterPais).toHaveBeenCalledTimes(2);
+  });
+
+  it("tocar no ícone de um país sem posto seleciona o país, como o toque no território", async () => {
+    await abrirComPostos();
+    await userEvent.setup().click(screen.getByRole("button", { name: "tocar ícone sem posto PR" }));
+    expect(await screen.findByRole("heading", { level: 2, name: /Porto Rico/ })).toBeVisible();
+    expect(propsDoMapa().camera.tipo).toBe("enquadrar");
+  });
+
+  it("expandir um posto no painel põe o ícone dele em destaque", async () => {
+    await abrirComPostos();
+    await tocar("US");
+    await screen.findByRole("heading", { level: 2, name: "Estados Unidos" });
+    expect(destaque()).toBeEmptyDOMElement();
+
+    await userEvent.setup().click(resumo("Embaixada"));
+
+    await waitFor(() => expect(destaque()).toHaveTextContent(WASHINGTON));
+  });
+
+  it("expandir um posto pede ao mapa só para garantir que o ícone esteja visível", async () => {
+    await abrirComPostos();
+    await tocar("US");
+    await screen.findByRole("heading", { level: 2, name: "Estados Unidos" });
+
+    await userEvent.setup().click(resumo("Embaixada"));
+
+    await waitFor(() => expect(propsDoMapa().camera.tipo).toBe("garantir-visivel"));
+    expect(propsDoMapa().camera).toMatchObject({
+      latitude: 38.9,
+      longitude: -77,
+      margem: { direita: 380 },
+    });
+  });
+
+  it("recolher o posto tira o destaque", async () => {
+    await abrirComPostos();
+    await tocar("US");
+    await screen.findByRole("heading", { level: 2, name: "Estados Unidos" });
+    const usuario = userEvent.setup();
+
+    await usuario.click(resumo("Embaixada"));
+    await waitFor(() => expect(destaque()).toHaveTextContent(WASHINGTON));
+    await usuario.click(resumo("Embaixada"));
+
+    await waitFor(() => expect(destaque()).toBeEmptyDOMElement());
+  });
+
+  it("fechar o painel tira o destaque", async () => {
+    await abrirComPostos();
+    await tocarIcone(WASHINGTON);
+    await screen.findByRole("heading", { level: 2, name: "Estados Unidos" });
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Ver mundo" }));
+
+    expect(destaque()).toBeEmptyDOMElement();
+  });
+
+  it("expandir o posto responsável de um país sem posto destaca o ícone dele, em outro país (FR-018e)", async () => {
+    await abrirComPostos();
+    await tocar("PR");
+    await screen.findByRole("heading", { level: 2, name: /Porto Rico/ });
+
+    await userEvent.setup().click(resumo("Consulado-Geral"));
+
+    await waitFor(() => expect(destaque()).toHaveTextContent(MIAMI));
+  });
+
+  it("diz ao mapa quais ícones o painel aberto usa, para aparecerem em qualquer zoom", async () => {
+    await abrirComPostos();
+    expect(screen.getByTestId("mapa-grupos-do-painel")).toBeEmptyDOMElement();
+
+    await tocar("US");
+    await screen.findByRole("heading", { level: 2, name: "Estados Unidos" });
+    expect(screen.getByTestId("mapa-grupos-do-painel")).toHaveTextContent(WASHINGTON);
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Ver mundo" }));
+    expect(screen.getByTestId("mapa-grupos-do-painel")).toBeEmptyDOMElement();
+  });
+
+  it("no painel de um país sem posto, o ícone do posto responsável também fica à mostra", async () => {
+    await abrirComPostos();
+    await tocar("PR");
+    await screen.findByRole("heading", { level: 2, name: /Porto Rico/ });
+    expect(screen.getByTestId("mapa-grupos-do-painel")).toHaveTextContent(MIAMI);
   });
 });

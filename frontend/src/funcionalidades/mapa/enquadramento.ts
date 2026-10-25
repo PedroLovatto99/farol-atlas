@@ -14,6 +14,9 @@ export const LIMITE_DE_LARGURA = 180;
 
 const DURACAO_DO_MOVIMENTO = 1600;
 const FRACAO_DA_GAVETA = 0.55;
+/** O aviso de site não oficial fica sobre o mapa, no topo; o enquadramento deixa essa faixa livre. */
+const TOPO_DO_COMPUTADOR = 100;
+const TOPO_DO_CELULAR = 150; // o aviso quebra em mais linhas na tela estreita
 
 export type PedidoDeEnquadramento = Extract<PedidoDeCamera, { tipo: "enquadrar" }>;
 
@@ -136,12 +139,12 @@ export function calcularEnquadramento({
 export function margemDoLayout(celular: boolean, alturaDaJanela: number): Margem {
   return celular
     ? {
-        topo: 60,
+        topo: TOPO_DO_CELULAR,
         esquerda: 20,
         direita: 20,
         baixo: Math.round(alturaDaJanela * FRACAO_DA_GAVETA),
       }
-    : { topo: 60, esquerda: 20, direita: 380, baixo: 20 };
+    : { topo: TOPO_DO_COMPUTADOR, esquerda: 20, direita: 380, baixo: 20 };
 }
 
 /** Duração dos movimentos de câmera: nenhuma com a preferência por movimento reduzido (FR-039). */

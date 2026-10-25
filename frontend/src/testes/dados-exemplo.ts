@@ -209,6 +209,50 @@ export const GEOMETRIA_EXEMPLO = {
     },
     {
       type: "Feature",
+      properties: {
+        codigo: "US",
+        tipo: "pais",
+        soberano: null,
+        titulo: "Estados Unidos",
+        zoom: "US",
+      },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-125, 25],
+            [-67, 25],
+            [-67, 49],
+            [-125, 49],
+            [-125, 25],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: {
+        codigo: "PR",
+        tipo: "dependencia",
+        soberano: "US",
+        titulo: "Porto Rico",
+        zoom: "PR",
+      },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-67.3, 17.9],
+            [-65.2, 17.9],
+            [-65.2, 18.5],
+            [-67.3, 18.5],
+            [-67.3, 17.9],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
       properties: { codigo: "EH", tipo: "neutro", soberano: null, titulo: "Saara", zoom: null },
       geometry: {
         type: "Polygon",
@@ -225,3 +269,120 @@ export const GEOMETRIA_EXEMPLO = {
     },
   ],
 } as const;
+
+/** /mapa com ícones: um grupo de dois postos (Washington), um país sem posto e a Líbia. */
+export const MAPA_COM_POSTOS: Mapa = {
+  ...MAPA_EXEMPLO,
+  territorios: [
+    ...MAPA_EXEMPLO.territorios,
+    {
+      codigo: "US",
+      nome: "Estados Unidos",
+      rotulo_busca: "Estados Unidos",
+      termos_busca: [],
+      tipo: "pais",
+      soberano: null,
+      bandeira: "US",
+      identidade_do_soberano: false,
+      nivel: "sem_alerta",
+      regioes: [],
+      observacao: null,
+    },
+    {
+      codigo: "PR",
+      nome: "Porto Rico (Estados Unidos)",
+      rotulo_busca: "Porto Rico (Estados Unidos)",
+      termos_busca: [],
+      tipo: "dependencia",
+      soberano: "US",
+      bandeira: "PR",
+      identidade_do_soberano: false,
+      nivel: "sem_alerta",
+      regioes: [],
+      observacao: "Território dos Estados Unidos.",
+    },
+    {
+      codigo: "LY",
+      nome: "Líbia",
+      rotulo_busca: "Líbia",
+      termos_busca: [],
+      tipo: "pais",
+      soberano: null,
+      bandeira: "LY",
+      identidade_do_soberano: false,
+      nivel: "nao_viajar",
+      regioes: [],
+      observacao: null,
+    },
+  ],
+  postos: [
+    ...MAPA_EXEMPLO.postos,
+    {
+      id: 89,
+      territorio: "US",
+      tipo: "Embaixada",
+      cidade: "Washington",
+      latitude: 38.9,
+      longitude: -77,
+      grupo: "38.9,-77",
+    },
+    {
+      id: 90,
+      territorio: "US",
+      tipo: "Consulado-Geral",
+      cidade: "Washington",
+      latitude: 38.9,
+      longitude: -77,
+      grupo: "38.9,-77",
+    },
+    {
+      id: 91,
+      territorio: "US",
+      tipo: "Consulado-Geral",
+      cidade: "Miami",
+      latitude: 25.76,
+      longitude: -80.19,
+      grupo: "25.76,-80.19",
+    },
+  ],
+  paises_sem_posto: [
+    { territorio: "PR", latitude: 18.2, longitude: -66.5, posto_responsavel_id: 91 },
+    { territorio: "LY", latitude: 27, longitude: 17, posto_responsavel_id: null },
+  ],
+};
+
+const POSTO_WASHINGTON = {
+  ...POSTO_EXEMPLO,
+  pais: "Estados Unidos",
+  cidade: "Washington",
+  grupo: "38.9,-77",
+};
+
+/** Painel dos Estados Unidos: dois postos na mesma cidade, que dividem o ícone. */
+export const PAIS_COM_DOIS_POSTOS: Pais = criarPais({
+  codigo: "US",
+  nome: "Estados Unidos",
+  bandeira: "US",
+  postos: [
+    { ...POSTO_WASHINGTON, id: 89, tipo: "Embaixada" },
+    { ...POSTO_WASHINGTON, id: 90, tipo: "Consulado-Geral" },
+  ],
+});
+
+/** Painel de Porto Rico: sem posto, atendido pelo consulado de Miami. */
+export const PAIS_SEM_POSTO: Pais = criarPais({
+  codigo: "PR",
+  nome: "Porto Rico (Estados Unidos)",
+  bandeira: "PR",
+  tipo: "dependencia",
+  soberano: "US",
+  postos: [],
+  posto_responsavel: {
+    ...POSTO_EXEMPLO,
+    id: 91,
+    tipo: "Consulado-Geral",
+    cidade: "Miami",
+    pais: "Estados Unidos",
+    grupo: "25.76,-80.19",
+  },
+});

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Pais } from "../../servicos/api/cliente";
@@ -402,5 +402,75 @@ describe("Painel: carregando e erro", () => {
     );
     await userEvent.setup().click(screen.getByRole("button", { name: "Ver mundo" }));
     expect(onFechar).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Painel: postos abertos e fechados pelo estado da tela", () => {
+  const DOIS = criarPais({
+    postos: [
+      criarPosto({ id: 1, tipo: "Embaixada", cidade: "Copenhague" }),
+      criarPosto({ id: 2, tipo: "Consulado", cidade: "Aarhus", grupo: "56.1,10.2" }),
+    ],
+  });
+
+  function abertos(): boolean[] {
+    return Array.from(document.querySelectorAll("details")).map((d) => d.open);
+  }
+
+  it("abre só os postos que a tela manda abrir", () => {
+    render(
+      <Painel
+        estado={{ situacao: "pronto", pais: DOIS }}
+        onFechar={vi.fn()}
+        onTentarDeNovo={vi.fn()}
+        postosExpandidos={[2]}
+        onAlternarPosto={vi.fn()}
+      />,
+    );
+    expect(abertos()).toEqual([false, true]);
+  });
+
+  it("avisa a tela qual posto foi expandido e qual foi recolhido", async () => {
+    const aoAlternar = vi.fn();
+    render(
+      <Painel
+        estado={{ situacao: "pronto", pais: DOIS }}
+        onFechar={vi.fn()}
+        onTentarDeNovo={vi.fn()}
+        postosExpandidos={[]}
+        onAlternarPosto={aoAlternar}
+      />,
+    );
+    await userEvent.setup().click(screen.getByText("Aarhus"));
+    await waitFor(() =>
+      expect(aoAlternar).toHaveBeenCalledWith(expect.objectContaining({ id: 2 }), true),
+    );
+  });
+
+  it("o posto responsável também abre e avisa a tela (FR-018e)", async () => {
+    const aoAlternar = vi.fn();
+    const responsavel = criarPosto({
+      id: 91,
+      tipo: "Consulado-Geral",
+      cidade: "Miami",
+      pais: "Estados Unidos",
+      grupo: "25.76,-80.19",
+    });
+    render(
+      <Painel
+        estado={{
+          situacao: "pronto",
+          pais: criarPais({ postos: [], posto_responsavel: responsavel }),
+        }}
+        onFechar={vi.fn()}
+        onTentarDeNovo={vi.fn()}
+        postosExpandidos={[]}
+        onAlternarPosto={aoAlternar}
+      />,
+    );
+    await userEvent.setup().click(screen.getByText("Consulado-Geral"));
+    await waitFor(() =>
+      expect(aoAlternar).toHaveBeenCalledWith(expect.objectContaining({ id: 91 }), true),
+    );
   });
 });

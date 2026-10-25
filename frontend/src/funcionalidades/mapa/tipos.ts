@@ -25,6 +25,8 @@ export interface TerritorioDesenhado {
 export interface PostoDesenhado {
   /** Ícone compartilhado por postos na mesma coordenada (FR-018d). */
   grupo: string;
+  /** Cidade do ícone, para o nome acessível. */
+  cidade: string;
   latitude: number;
   longitude: number;
   /** Mais de um quando dois postos dividem o ícone. */
@@ -34,10 +36,12 @@ export interface PostoDesenhado {
 
 export interface PaisSemPostoDesenhado {
   territorio: CodigoTerritorio;
+  /** Nome do país, para o nome acessível do ícone. */
+  nome: string;
   latitude: number;
   longitude: number;
-  /** Ponto do posto responsável, para a linha tracejada (FR-018). */
-  responsavel: { latitude: number; longitude: number } | null;
+  /** Ponto e ícone do posto responsável, para a linha tracejada (FR-018). */
+  responsavel: { latitude: number; longitude: number; grupo: string } | null;
 }
 
 export interface Margem {
@@ -54,8 +58,8 @@ export type Caixa = readonly [readonly [number, number], readonly [number, numbe
 export type PedidoDeCamera =
   | { tipo: "mundo" }
   | { tipo: "enquadrar"; caixa: Caixa; margem: Margem; zoomMaximo: number }
-  /** FR-018c: só desloca o centro, sem mudar o zoom. */
-  | { tipo: "garantir-visivel"; latitude: number; longitude: number }
+  /** FR-018c: só desloca o centro, sem mudar o zoom. A margem é a área coberta pelo painel. */
+  | { tipo: "garantir-visivel"; latitude: number; longitude: number; margem: Margem }
   /** FR-018g: tocar num ícone não reenquadra o mapa. */
   | { tipo: "manter" };
 
@@ -68,6 +72,8 @@ export interface MapaProps {
   selecionado: CodigoTerritorio | null;
   /** FR-018a: maior, com contorno e à frente; aparece em qualquer zoom (FR-018h). */
   grupoEmDestaque: string | null;
+  /** Ícones dos postos que o painel aberto lista: aparecem em qualquer zoom (FR-017). */
+  gruposDoPainel: readonly string[];
   /** FR-039 e FR-018f: sem animação. */
   reduzirMovimento: boolean;
 

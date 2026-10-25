@@ -7,10 +7,20 @@ import { MapaFalso } from "./mapa-falso";
 function propsBase(): MapaProps {
   return {
     territorios: [{ codigo: "DK", nivel: "sem_alerta", bordaRegional: null, esmaecido: false }],
-    postos: [{ grupo: "g1", latitude: 1, longitude: 2, tipos: ["Embaixada"], territorios: ["DK"] }],
+    postos: [
+      {
+        grupo: "g1",
+        cidade: "Copenhague",
+        latitude: 1,
+        longitude: 2,
+        tipos: ["Embaixada"],
+        territorios: ["DK"],
+      },
+    ],
     paisesSemPosto: [],
     selecionado: "DK",
     grupoEmDestaque: "g1",
+    gruposDoPainel: ["g1"],
     reduzirMovimento: true,
     onSelecionarTerritorio: vi.fn(),
     onSelecionarGrupo: vi.fn(),

@@ -1,6 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { criarPosto } from "../../testes/dados-exemplo";
 import { Posto } from "./Posto";
 
@@ -107,5 +107,43 @@ describe("Posto", () => {
     await expandir();
     expect(screen.queryByRole("link", { name: /fonte/i })).not.toBeInTheDocument();
     expect(screen.getByText(/coletado em 23\/10\/2026/i)).toBeVisible();
+  });
+});
+
+describe("Posto: aberto e fechado pelo estado da tela (destaque do ícone, FR-018a)", () => {
+  it("o ícone do tipo do posto aparece no resumo, o mesmo do mapa", () => {
+    const { container } = render(<Posto posto={criarPosto({ tipo: "Consulado-Geral" })} />);
+    expect(container.querySelector("summary .tabler-icon-building")).not.toBeNull();
+    cleanup();
+    const embaixada = render(<Posto posto={criarPosto({ tipo: "Embaixada" })} />);
+    expect(embaixada.container.querySelector("summary .tabler-icon-building-bank")).not.toBeNull();
+    cleanup();
+    const escritorio = render(<Posto posto={criarPosto({ tipo: "Escritório Comercial" })} />);
+    expect(escritorio.container.querySelector("summary .tabler-icon-briefcase")).not.toBeNull();
+  });
+
+  it("abre quando a tela manda abrir e fecha quando manda fechar", () => {
+    const { container, rerender } = render(<Posto posto={criarPosto()} aberto={false} />);
+    const detalhes = container.querySelector("details");
+    expect(detalhes).toHaveProperty("open", false);
+
+    rerender(<Posto posto={criarPosto()} aberto />);
+    expect(detalhes).toHaveProperty("open", true);
+    expect(screen.getByRole("link", { name: "Abrir no Google Maps" })).toBeVisible();
+
+    rerender(<Posto posto={criarPosto()} aberto={false} />);
+    expect(detalhes).toHaveProperty("open", false);
+  });
+
+  it("avisa a tela quando a pessoa expande e quando recolhe", async () => {
+    const aoAlternar = vi.fn();
+    render(<Posto posto={criarPosto()} aberto={false} onAlternar={aoAlternar} />);
+    const usuario = userEvent.setup();
+
+    await usuario.click(screen.getByText("Embaixada"));
+    await waitFor(() => expect(aoAlternar).toHaveBeenLastCalledWith(true));
+
+    await usuario.click(screen.getByText("Embaixada"));
+    await waitFor(() => expect(aoAlternar).toHaveBeenLastCalledWith(false));
   });
 });

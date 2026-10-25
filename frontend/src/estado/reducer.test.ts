@@ -45,3 +45,103 @@ describe("estado da aplicação", () => {
     expect(ESTADO_INICIAL).toEqual(antes);
   });
 });
+
+describe("estado: postos expandidos e destaque do ícone (FR-018a a FR-018g)", () => {
+  const COM_DK = { ...ESTADO_INICIAL, selecionado: "DK" };
+
+  it("expandir um posto o guarda e põe o ícone dele em destaque", () => {
+    const estado = reducer(COM_DK, { tipo: "expandir-posto", id: 1, grupo: "a" });
+    expect(estado.postosExpandidos).toEqual([1]);
+    expect(estado.grupoEmDestaque).toBe("a");
+  });
+
+  it("só um ícone fica em destaque por vez: o último posto expandido", () => {
+    const um = reducer(COM_DK, { tipo: "expandir-posto", id: 1, grupo: "a" });
+    const dois = reducer(um, { tipo: "expandir-posto", id: 2, grupo: "b" });
+    expect(dois.postosExpandidos).toEqual([1, 2]);
+    expect(dois.grupoEmDestaque).toBe("b");
+  });
+
+  it("expandir de novo o mesmo posto não muda nada (o evento do navegador se repete)", () => {
+    const um = reducer(COM_DK, { tipo: "expandir-posto", id: 1, grupo: "a" });
+    expect(reducer(um, { tipo: "expandir-posto", id: 1, grupo: "a" })).toBe(um);
+  });
+
+  it("recolher o posto em destaque tira o destaque", () => {
+    const aberto = reducer(COM_DK, { tipo: "expandir-posto", id: 1, grupo: "a" });
+    const estado = reducer(aberto, { tipo: "recolher-posto", id: 1, grupo: "a" });
+    expect(estado.postosExpandidos).toEqual([]);
+    expect(estado.grupoEmDestaque).toBeNull();
+  });
+
+  it("recolher um posto que não está em destaque não tira o destaque do outro", () => {
+    const um = reducer(COM_DK, { tipo: "expandir-posto", id: 1, grupo: "a" });
+    const dois = reducer(um, { tipo: "expandir-posto", id: 2, grupo: "b" });
+    const estado = reducer(dois, { tipo: "recolher-posto", id: 1, grupo: "a" });
+    expect(estado.postosExpandidos).toEqual([2]);
+    expect(estado.grupoEmDestaque).toBe("b");
+  });
+
+  it("recolher um posto que já está recolhido não muda nada", () => {
+    expect(reducer(COM_DK, { tipo: "recolher-posto", id: 9, grupo: "z" })).toBe(COM_DK);
+  });
+
+  it("fechar o painel remove o destaque e os postos expandidos", () => {
+    const aberto = reducer(COM_DK, { tipo: "expandir-posto", id: 1, grupo: "a" });
+    const estado = reducer(aberto, { tipo: "limpar-selecao" });
+    expect(estado.grupoEmDestaque).toBeNull();
+    expect(estado.postosExpandidos).toEqual([]);
+  });
+
+  it("tocar num ícone seleciona o país do posto, com o posto expandido e em destaque", () => {
+    const estado = reducer(ESTADO_INICIAL, {
+      tipo: "tocar-icone",
+      territorio: "US",
+      grupo: "g",
+      ids: [89],
+    });
+    expect(estado).toMatchObject({
+      selecionado: "US",
+      postosExpandidos: [89],
+      grupoEmDestaque: "g",
+    });
+  });
+
+  it("tocar num ícone compartilhado por dois postos expande os dois", () => {
+    const estado = reducer(ESTADO_INICIAL, {
+      tipo: "tocar-icone",
+      territorio: "US",
+      grupo: "g",
+      ids: [89, 90],
+    });
+    expect(estado.postosExpandidos).toEqual([89, 90]);
+    expect(estado.grupoEmDestaque).toBe("g");
+  });
+
+  it("tocar num ícone de outro país troca o painel e os postos expandidos", () => {
+    const comDk = reducer(COM_DK, { tipo: "expandir-posto", id: 1, grupo: "a" });
+    const estado = reducer(comDk, {
+      tipo: "tocar-icone",
+      territorio: "US",
+      grupo: "g",
+      ids: [89],
+    });
+    expect(estado.selecionado).toBe("US");
+    expect(estado.postosExpandidos).toEqual([89]);
+    expect(estado.grupoEmDestaque).toBe("g");
+  });
+
+  it("expandir o posto responsável de um país sem posto destaca o ícone dele, em outro país", () => {
+    const semPosto = { ...ESTADO_INICIAL, selecionado: "PR" };
+    const estado = reducer(semPosto, { tipo: "expandir-posto", id: 91, grupo: "miami" });
+    expect(estado.selecionado).toBe("PR");
+    expect(estado.grupoEmDestaque).toBe("miami");
+  });
+
+  it("selecionar outro território depois de expandir limpa o destaque", () => {
+    const aberto = reducer(COM_DK, { tipo: "expandir-posto", id: 1, grupo: "a" });
+    const estado = reducer(aberto, { tipo: "selecionar", codigo: "US" });
+    expect(estado.grupoEmDestaque).toBeNull();
+    expect(estado.postosExpandidos).toEqual([]);
+  });
+});

@@ -140,11 +140,16 @@ describe("calcularEnquadramento", () => {
 
 describe("margemDoLayout", () => {
   it("no computador o painel fica à direita", () => {
-    expect(margemDoLayout(false, 900)).toEqual({ topo: 60, esquerda: 20, direita: 380, baixo: 20 });
+    expect(margemDoLayout(false, 900)).toEqual({
+      topo: 100,
+      esquerda: 20,
+      direita: 380,
+      baixo: 20,
+    });
   });
 
   it("no celular a gaveta ocupa 55% da altura, embaixo", () => {
-    expect(margemDoLayout(true, 800)).toEqual({ topo: 60, esquerda: 20, direita: 20, baixo: 440 });
+    expect(margemDoLayout(true, 800)).toEqual({ topo: 150, esquerda: 20, direita: 20, baixo: 440 });
   });
 });
 
