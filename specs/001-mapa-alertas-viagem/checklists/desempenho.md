@@ -20,7 +20,7 @@
 | `/mapa` (20 chamadas) | mediana 52 ms, p95 106 ms, pior 702 ms (a primeira, a frio) | |
 | `/paises/{codigo}` (238 territórios) | mediana 35 ms, p95 57 ms, pior 75 ms | |
 | Tamanho do `/mapa` | 90 KB; **12 KB com gzip** | |
-| `territorios.geojson` | 607 KB sem compressão | |
+| `territorios.geojson` | 2,1 MB sem compressão; 704 KB com gzip (era 607 KB e 206 KB, antes de simplificar menos para os postos caírem dentro do país) | |
 | Rolagem horizontal em 360 px | nenhuma | |
 | Erros no console do navegador | nenhum | |
 
@@ -32,7 +32,7 @@ O `/mapa` saía sem compressão (90 KB). Em rede de celular lenta isso é o que 
 
 ## Sem ajuste
 
-- O `territorios.geojson` (607 KB) é o maior arquivo da primeira carga. Em hospedagem estática como a Vercel ele sai comprimido (212 KB, 35% do tamanho); o servidor de desenvolvimento não comprime.
+- O `territorios.geojson` (2,1 MB) é o maior arquivo da primeira carga. Em hospedagem estática como a Vercel ele sai comprimido (704 KB, 33% do tamanho); o servidor de desenvolvimento não comprime. Depois de passar de 5% para 20% dos vértices (25/10/2026), a carga até o mapa pronto foi de 1,1 s no celular de 360 px e 0,6 s no computador, no mesmo ambiente das medidas acima (antes: 1,2 s e 1,0 s): o tamanho local não pesou, mas a rede móvel lenta vai sentir os 704 KB.
 - O pior caso do `/mapa` (702 ms) foi a primeira chamada, com o banco e a conexão frios.
 
 ## O que ficou sem medir

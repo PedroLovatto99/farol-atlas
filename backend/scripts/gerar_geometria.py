@@ -9,12 +9,14 @@ Entrada: Natural Earth 10m, países, versão "ponto de vista do Brasil", já pr�
 
   1. Baixar (https://www.naturalearthdata.com/ ou https://naciscdn.org/naturalearth/):
        10m/cultural/ne_10m_admin_0_countries_bra.zip
-  2. Pré-processar com o mapshaper (precisão 0.0005, para o Vaticano não sumir):
+  2. Pré-processar com o mapshaper (precisão 0.0005, para o Vaticano não sumir). A simplificação de
+     20% mantém os postos dentro do desenho do próprio país (a 5% o ícone de Genebra caía na
+     França e o de Nassau, no mar); o arquivo final tem 2,1 MB (700 KB comprimido):
 
        npx mapshaper ne_10m_admin_0_countries_bra.shp \\
          -rename-fields nome=ADMIN,iso=ISO_A2_EH,soberano=SOVEREIGNT,a3=ADM0_A3 \\
          -filter-fields nome,iso,soberano,a3 \\
-         -simplify 5% keep-shapes \\
+         -simplify 20% keep-shapes \\
          -o natural_earth_bra.geojson format=geojson precision=0.0005
 
   3. Gerar:
@@ -43,7 +45,7 @@ from pathlib import Path
 from typing import Any
 
 import pycountry
-from shapely.geometry import MultiPolygon, mapping, shape
+from shapely.geometry import MultiPolygon, Point, mapping, shape
 from shapely.geometry.base import BaseGeometry
 
 # Áreas neutras: disputas e territórios sem população (o "-99" é o código das sem ISO)
@@ -145,9 +147,18 @@ def _dependencia(
 
 
 def gerar(
-    natural_earth: dict[str, Any], nomes_itamaraty: dict[str, str], sem_posto: list[dict[str, str]]
+    natural_earth: dict[str, Any],
+    nomes_itamaraty: dict[str, str],
+    sem_posto: list[dict[str, str]],
+    icones_anteriores: dict[str, tuple[float, float]] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
-    """Devolve (geojson, seed, avisos)."""
+    """Devolve (geojson, seed, avisos).
+
+    `icones_anteriores` (código → latitude, longitude) são os ícones do seed atual: um ícone que
+    ainda cai dentro do desenho do país é mantido, para que mudar a simplificação não mova o ícone
+    (com mais detalhe, a "maior parte" do arquipélago das Seychelles passou a ser Aldabra, a mais
+    de mil quilômetros da capital).
+    """
     avisos: list[str] = []
     entradas = natural_earth["features"]
     principal = {
@@ -274,10 +285,12 @@ def gerar(
         if not do_pais:
             avisos.append(f"sem desenho para {iso}")
             continue
-        maior = max(
-            (g for f in do_pais for g in _pedacos(shape(f["geometry"]))), key=lambda g: g.area
-        )
-        ponto = maior.representative_point()
+        pedacos = [g for f in do_pais for g in _pedacos(shape(f["geometry"]))]
+        anterior = (icones_anteriores or {}).get(iso)
+        if anterior is not None and any(p.covers(Point(anterior[1], anterior[0])) for p in pedacos):
+            icones.append({"codigo": iso, "latitude": anterior[0], "longitude": anterior[1]})
+            continue
+        ponto = max(pedacos, key=lambda g: g.area).representative_point()
         icones.append(
             {"codigo": iso, "latitude": round(ponto.y, 5), "longitude": round(ponto.x, 5)}
         )
@@ -288,6 +301,13 @@ def gerar(
         "icones_sem_posto": sorted(icones, key=lambda i: i["codigo"]),
     }
     return geojson, seed, avisos
+
+
+def _icones_do_seed(caminho: Path) -> dict[str, tuple[float, float]]:
+    if not caminho.exists():
+        return {}
+    seed = json.loads(caminho.read_text(encoding="utf-8"))
+    return {i["codigo"]: (i["latitude"], i["longitude"]) for i in seed["icones_sem_posto"]}
 
 
 def main(argumentos: list[str]) -> int:
@@ -301,7 +321,7 @@ def main(argumentos: list[str]) -> int:
     entrada, pasta_postos, saida_geojson, saida_seed = (Path(a) for a in argumentos)
     natural_earth = json.loads(entrada.read_text(encoding="utf-8"))
     nomes, sem_posto = ler_itamaraty(pasta_postos)
-    geojson, seed, avisos = gerar(natural_earth, nomes, sem_posto)
+    geojson, seed, avisos = gerar(natural_earth, nomes, sem_posto, _icones_do_seed(saida_seed))
     for aviso in avisos:
         print("AVISO:", aviso)
     saida_geojson.parent.mkdir(parents=True, exist_ok=True)

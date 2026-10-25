@@ -16,7 +16,7 @@ RAIZ = Path(__file__).resolve().parents[4]
 GEOJSON = RAIZ / "frontend" / "public" / "geo" / "territorios.geojson"
 SEED = RAIZ / "dados" / "territorios" / "territorios.json"
 POSTOS = RAIZ / "dados" / "postos"
-LIMITE_DE_BYTES = 1_500_000
+LIMITE_DE_BYTES = 2_500_000  # 10m com 20% dos vértices: 2,1 MB (700 KB comprimido)
 # Entradas da lista do Itamaraty que o mapa desenha como dependência de outro país
 DEPENDENCIAS_NA_LISTA = {"TW", "GF", "PR"}
 
@@ -250,6 +250,19 @@ def test_icone_dos_paises_sem_posto(seed: dict[str, Any]) -> None:
     for icone in seed["icones_sem_posto"]:
         assert -90 <= icone["latitude"] <= 90
         assert -180 <= icone["longitude"] <= 180
+
+
+def test_icone_dos_paises_sem_posto_fica_dentro_do_proprio_pais(
+    seed: dict[str, Any], feicoes: list[dict[str, Any]]
+) -> None:
+    from shapely.geometry import Point, shape
+
+    for icone in seed["icones_sem_posto"]:
+        desenho = [
+            shape(f["geometry"]) for f in feicoes if f["properties"]["codigo"] == icone["codigo"]
+        ]
+        ponto = Point(icone["longitude"], icone["latitude"])
+        assert any(g.covers(ponto) for g in desenho), icone["codigo"]
 
 
 def test_arquivo_de_geometria_nao_cresce_sem_querer(feicoes: list[dict[str, Any]]) -> None:

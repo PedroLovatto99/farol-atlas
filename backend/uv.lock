@@ -356,6 +356,7 @@ dev = [
     { name = "pytest" },
     { name = "python-dotenv" },
     { name = "ruff" },
+    { name = "shapely" },
     { name = "types-pyyaml" },
     { name = "types-requests" },
 ]
@@ -392,6 +393,7 @@ dev = [
     { name = "pytest" },
     { name = "python-dotenv" },
     { name = "ruff" },
+    { name = "shapely", specifier = ">=2.2.0" },
     { name = "types-pyyaml" },
     { name = "types-requests" },
 ]
