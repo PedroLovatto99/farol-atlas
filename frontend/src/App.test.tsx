@@ -593,3 +593,86 @@ describe("App: postos no mapa", () => {
     expect(screen.getByTestId("mapa-grupos-do-painel")).toHaveTextContent(MIAMI);
   });
 });
+
+describe("App: filtrar o mapa por nível (P5)", () => {
+  const legenda = () => screen.getByRole("region", { name: "Legenda" });
+  const caixa = (nome: string) => within(legenda()).getByRole("checkbox", { name: nome });
+
+  it("abre com todos os níveis marcados e nenhum território esmaecido", async () => {
+    await abrir();
+    for (const codigo of ["DK", "LB", "BO", "GL", "XK"]) {
+      expect(desenhado(codigo)).toHaveAttribute("data-esmaecido", "false");
+    }
+    expect(within(legenda()).getAllByRole("checkbox")).toHaveLength(4);
+  });
+
+  it("desmarcar 'sem alerta' esmaece só os países desse nível; marcar devolve a cor", async () => {
+    await abrir();
+    const usuario = userEvent.setup();
+    await usuario.click(caixa("Sem alerta do Itamaraty"));
+
+    expect(desenhado("DK")).toHaveAttribute("data-esmaecido", "true");
+    expect(desenhado("GL")).toHaveAttribute("data-esmaecido", "true");
+    expect(desenhado("LB")).toHaveAttribute("data-esmaecido", "false");
+    // continua desenhado, com o nível e a cor: esmaecer não esconde nem pinta de cinza
+    expect(desenhado("DK")).toHaveAttribute("data-nivel", "sem_alerta");
+
+    await usuario.click(caixa("Sem alerta do Itamaraty"));
+    expect(desenhado("DK")).toHaveAttribute("data-esmaecido", "false");
+  });
+
+  it("Líbano com só 'não viaje' marcado continua visível, por causa do Sul do Líbano (FR-027)", async () => {
+    await abrir();
+    const usuario = userEvent.setup();
+    for (const nome of [
+      "Sem alerta do Itamaraty",
+      "Evite viagens não essenciais",
+      "Não verificado",
+    ]) {
+      await usuario.click(caixa(nome));
+    }
+    expect(desenhado("LB")).toHaveAttribute("data-esmaecido", "false");
+    expect(desenhado("DK")).toHaveAttribute("data-esmaecido", "true");
+    expect(desenhado("BO")).toHaveAttribute("data-esmaecido", "true");
+  });
+
+  it("país esmaecido ainda abre o painel ao ser tocado (FR-026)", async () => {
+    await abrir();
+    const usuario = userEvent.setup();
+    await usuario.click(caixa("Sem alerta do Itamaraty"));
+    await tocar("DK");
+    expect(await screen.findByRole("heading", { level: 2, name: "Dinamarca" })).toBeVisible();
+  });
+
+  it("sem coleta completa o filtro age sobre 'não verificado', como o mapa mostra", async () => {
+    await abrir({ ...MAPA_EXEMPLO, dados_obtidos: false, atualizado_em: null });
+    await userEvent.setup().click(caixa("Não verificado"));
+    expect(desenhado("DK")).toHaveAttribute("data-esmaecido", "true");
+    expect(desenhado("LB")).toHaveAttribute("data-esmaecido", "true");
+  });
+
+  it("com tudo desmarcado aparece a mensagem; o botão marca todos de novo", async () => {
+    await abrir();
+    const usuario = userEvent.setup();
+    expect(screen.queryByText(/nenhum nível marcado/i)).not.toBeInTheDocument();
+    for (const caixaDoNivel of within(legenda()).getAllByRole("checkbox")) {
+      await usuario.click(caixaDoNivel);
+    }
+    expect(screen.getByText(/nenhum nível marcado/i)).toBeVisible();
+    expect(desenhado("LB")).toHaveAttribute("data-esmaecido", "true");
+
+    await usuario.click(screen.getByRole("button", { name: "Marcar todos os níveis" }));
+    expect(screen.queryByText(/nenhum nível marcado/i)).not.toBeInTheDocument();
+    expect(desenhado("LB")).toHaveAttribute("data-esmaecido", "false");
+    for (const c of within(legenda()).getAllByRole("checkbox")) expect(c).toBeChecked();
+  });
+
+  it("mexer no filtro não fecha o painel aberto", async () => {
+    await abrir();
+    const usuario = userEvent.setup();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    await usuario.click(caixa("Evite viagens não essenciais"));
+    expect(painel()).toBeInTheDocument();
+  });
+});

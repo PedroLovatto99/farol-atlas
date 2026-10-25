@@ -78,3 +78,29 @@ describe("montarFeicoes", () => {
     expect(xk?.geometry).toBe(GEOMETRIA.features[2]?.geometry);
   });
 });
+
+describe("montarFeicoes: esmaecimento do filtro (FR-025)", () => {
+  it("marca como esmaecido o que o filtro esmaeceu, mantendo a cor do nível", () => {
+    const resultado = montarFeicoes(GEOMETRIA, [
+      { ...desenhado("BO", "sem_alerta"), esmaecido: true },
+      desenhado("LB", "evitar"),
+    ]);
+    const por = Object.fromEntries(
+      resultado.features.map((f) => [f.properties.codigo, f.properties]),
+    );
+    expect(por["BO"]?.esmaecido).toBe(true);
+    expect(por["BO"]?.cor).toBe(NIVEIS.sem_alerta.cor);
+    expect(por["LB"]?.esmaecido).toBe(false);
+  });
+
+  it("área neutra e território sem informação nunca esmaecem", () => {
+    const resultado = montarFeicoes(GEOMETRIA, [
+      { ...desenhado("BO", "sem_alerta"), esmaecido: true },
+    ]);
+    const por = Object.fromEntries(
+      resultado.features.map((f) => [f.properties.codigo, f.properties]),
+    );
+    expect(por["AQ"]?.esmaecido).toBe(false);
+    expect(por["LB"]?.esmaecido).toBe(false);
+  });
+});

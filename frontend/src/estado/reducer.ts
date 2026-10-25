@@ -1,5 +1,6 @@
 /** Estado compartilhado da aplicação (sem biblioteca global): seleção, postos e filtro de níveis. */
 import { ORDEM_DA_LEGENDA, type NivelId } from "../compartilhado/niveis";
+import { alternarNivel } from "../funcionalidades/legenda/filtro";
 
 export interface Estado {
   /** Código do território selecionado (inclusive Kosovo e Malvinas, que abrem o painel do soberano). */
@@ -20,7 +21,11 @@ export type Acao =
   /** Recolher o posto em destaque tira o destaque (FR-018b). */
   | { tipo: "recolher-posto"; id: number; grupo: string }
   /** Tocar num ícone abre o painel do país com os postos do ícone já expandidos (FR-018g). */
-  | { tipo: "tocar-icone"; territorio: string; grupo: string; ids: readonly number[] };
+  | { tipo: "tocar-icone"; territorio: string; grupo: string; ids: readonly number[] }
+  /** Marca ou desmarca um nível na legenda; não mexe na seleção nem nos postos (FR-024). */
+  | { tipo: "alternar-nivel"; nivel: NivelId }
+  /** O botão da mensagem "nenhum nível marcado". */
+  | { tipo: "marcar-todos-niveis" };
 
 export const ESTADO_INICIAL: Estado = {
   selecionado: null,
@@ -64,5 +69,10 @@ export function reducer(estado: Estado, acao: Acao): Estado {
         postosExpandidos: acao.ids,
         grupoEmDestaque: acao.grupo,
       };
+    case "alternar-nivel":
+      return { ...estado, niveisMarcados: alternarNivel(estado.niveisMarcados, acao.nivel) };
+    case "marcar-todos-niveis":
+      if (ORDEM_DA_LEGENDA.every((n) => estado.niveisMarcados.includes(n))) return estado;
+      return { ...estado, niveisMarcados: ORDEM_DA_LEGENDA };
   }
 }

@@ -46,6 +46,8 @@ setWorkerUrl(urlDoWorker);
 const COR_DO_OCEANO = "#DCE8F2";
 const COR_DA_SELECAO = "#0C447C";
 const COR_DA_LINHA_ATE_O_RESPONSAVEL = "#0C447C";
+/** Opacidade de um país esmaecido pelo filtro: ainda se vê a cor do nível e ainda se toca (FR-025). */
+const OPACIDADE_ESMAECIDA = 0.25;
 const LARGURA_MAXIMA_DO_CELULAR = 700;
 const COLECAO_VAZIA = { type: "FeatureCollection" as const, features: [] };
 
@@ -63,7 +65,16 @@ const ESTILO: StyleSpecification = {
   },
   layers: [
     { id: "oceano", type: "background", paint: { "background-color": COR_DO_OCEANO } },
-    { id: "paises", type: "fill", source: "paises", paint: { "fill-color": ["get", "cor"] } },
+    {
+      id: "paises",
+      type: "fill",
+      source: "paises",
+      // Filtro de níveis (FR-025): esmaecer reduz a opacidade e mantém a cor; o toque segue valendo
+      paint: {
+        "fill-color": ["get", "cor"],
+        "fill-opacity": ["case", ["get", "esmaecido"], OPACIDADE_ESMAECIDA, 1],
+      },
+    },
     {
       id: "fronteiras",
       type: "line",
@@ -75,7 +86,11 @@ const ESTILO: StyleSpecification = {
       type: "line",
       source: "paises",
       filter: ["has", "borda_regional"],
-      paint: { "line-color": ["get", "borda_regional"], "line-width": 2.5 },
+      paint: {
+        "line-color": ["get", "borda_regional"],
+        "line-width": 2.5,
+        "line-opacity": ["case", ["get", "esmaecido"], OPACIDADE_ESMAECIDA, 1],
+      },
     },
     {
       // Contorno do país selecionado: o filtro (grupo `zoom`) é trocado em `filtroDaSelecao`

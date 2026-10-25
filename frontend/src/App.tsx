@@ -4,7 +4,10 @@ import { useMovimentoReduzido } from "./compartilhado/useMovimentoReduzido";
 import { useTelaPequena } from "./compartilhado/useTelaPequena";
 import { ProvedorDeEstado, useEstado } from "./estado/contexto";
 import { Aviso } from "./funcionalidades/aviso/Aviso";
+import { Busca } from "./funcionalidades/busca/Busca";
+import { nenhumNivelMarcado, territorioEsmaecido } from "./funcionalidades/legenda/filtro";
 import { Legenda } from "./funcionalidades/legenda/Legenda";
+import { SemNiveisMarcados } from "./funcionalidades/legenda/SemNiveisMarcados";
 import { bordaRegionalDe } from "./funcionalidades/mapa/cor";
 import { calcularEnquadramento, margemDoLayout } from "./funcionalidades/mapa/enquadramento";
 import { agruparPostos, paisesSemPostoDesenhados } from "./funcionalidades/mapa/marcadores";
@@ -31,18 +34,27 @@ const CAMERA_PARADA: PedidoDeCamera = { tipo: "manter" };
 const SEM_POSTOS: MapaProps["postos"] = [];
 const SEM_PAISES_SEM_POSTO: MapaProps["paisesSemPosto"] = [];
 const SEM_GRUPOS: readonly string[] = [];
+const SEM_TERRITORIOS: Mapa["territorios"] = [];
 
 /**
  * Sem coleta completa nada foi confirmado: todo território fica "não verificado", mesmo que a
- * resposta traga outra coisa (princípio V e FR-002).
+ * resposta traga outra coisa (princípio V e FR-002). O filtro da legenda age sobre esse mesmo
+ * nível, o que o mapa mostra.
  */
-function territoriosDesenhados(mapa: Mapa): TerritorioDesenhado[] {
-  return mapa.territorios.map((t) => ({
-    codigo: t.codigo,
-    nivel: mapa.dados_obtidos ? t.nivel : NIVEL_PADRAO,
-    bordaRegional: mapa.dados_obtidos ? bordaRegionalDe(t.regioes) : null,
-    esmaecido: false,
-  }));
+function territoriosDesenhados(
+  mapa: Mapa,
+  niveisMarcados: readonly NivelId[],
+): TerritorioDesenhado[] {
+  return mapa.territorios.map((t) => {
+    const nivel = mapa.dados_obtidos ? t.nivel : NIVEL_PADRAO;
+    const regioes = mapa.dados_obtidos ? t.regioes : [];
+    return {
+      codigo: t.codigo,
+      nivel,
+      bordaRegional: bordaRegionalDe(regioes),
+      esmaecido: territorioEsmaecido({ nivel, regioes }, niveisMarcados),
+    };
+  });
 }
 
 function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
@@ -60,7 +72,11 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
   const [camera, setCamera] = useState<PedidoDeCamera>(CAMERA_INICIAL);
 
   const mapa = estado.situacao === "pronto" ? estado.mapa : null;
-  const territorios = useMemo(() => (mapa ? territoriosDesenhados(mapa) : []), [mapa]);
+  const niveisMarcados = selecao.niveisMarcados;
+  const territorios = useMemo(
+    () => (mapa ? territoriosDesenhados(mapa, niveisMarcados) : []),
+    [mapa, niveisMarcados],
+  );
   const postos = useMemo(() => (mapa ? agruparPostos(mapa.postos) : SEM_POSTOS), [mapa]);
   const paisesSemPosto = useMemo(
     () => (mapa ? paisesSemPostoDesenhados(mapa) : SEM_PAISES_SEM_POSTO),
@@ -189,6 +205,7 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
             desatualizado={mapa?.desatualizado ?? false}
             carregando={estado.situacao === "carregando"}
           />
+          <Busca territorios={mapa?.territorios ?? SEM_TERRITORIOS} onEscolher={selecionar} />
         </div>
         <div className="pointer-events-auto self-end sm:self-auto">
           <Sobre />
@@ -202,7 +219,10 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
         <summary className="flex min-h-11 cursor-pointer list-none items-center rounded-xl border border-linha bg-white px-3 text-sm font-semibold shadow-sm sm:hidden">
           Legenda
         </summary>
-        <Legenda />
+        <Legenda
+          niveisMarcados={niveisMarcados}
+          onAlternarNivel={(nivel) => despachar({ tipo: "alternar-nivel", nivel })}
+        />
       </details>
 
       {estadoDoPais.situacao !== "ocioso" && (
@@ -214,6 +234,10 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
           postosExpandidos={selecao.postosExpandidos}
           onAlternarPosto={alternarPosto}
         />
+      )}
+
+      {mapa !== null && nenhumNivelMarcado(niveisMarcados) && (
+        <SemNiveisMarcados onMarcarTodos={() => despachar({ tipo: "marcar-todos-niveis" })} />
       )}
 
       {estado.situacao === "carregando" && (

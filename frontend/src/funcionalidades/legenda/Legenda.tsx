@@ -1,9 +1,17 @@
-import { NIVEIS, ORDEM_DA_LEGENDA } from "../../compartilhado/niveis";
+import { NIVEIS, ORDEM_DA_LEGENDA, type NivelId } from "../../compartilhado/niveis";
 import { COR_DA_BORDA_REGIONAL } from "../mapa/cor";
 import { SobreFronteiras } from "./SobreFronteiras";
 
-/** Legenda em texto: a cor sozinha nunca é a informação (FR-003). */
-export function Legenda() {
+interface Props {
+  niveisMarcados: readonly NivelId[];
+  onAlternarNivel(nivel: NivelId): void;
+}
+
+/**
+ * Legenda em texto: a cor sozinha nunca é a informação (FR-003). Também é o filtro por nível: uma
+ * caixa de marcar por nível, com o rótulo em texto (FR-024).
+ */
+export function Legenda({ niveisMarcados, onAlternarNivel }: Props) {
   return (
     <section
       aria-label="Legenda"
@@ -11,14 +19,22 @@ export function Legenda() {
     >
       <ul className="space-y-1.5">
         {ORDEM_DA_LEGENDA.map((nivel) => (
-          <li key={nivel} className="flex items-center gap-2">
-            <span
-              data-amostra
-              aria-hidden="true"
-              className="h-3 w-[18px] shrink-0 rounded-sm"
-              style={{ backgroundColor: NIVEIS[nivel].cor }}
-            />
-            <span>{NIVEIS[nivel].rotulo}</span>
+          <li key={nivel}>
+            <label className="flex min-h-11 cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={niveisMarcados.includes(nivel)}
+                onChange={() => onAlternarNivel(nivel)}
+                className="h-5 w-5 shrink-0 accent-marinho"
+              />
+              <span
+                data-amostra
+                aria-hidden="true"
+                className="h-3 w-[18px] shrink-0 rounded-sm"
+                style={{ backgroundColor: NIVEIS[nivel].cor }}
+              />
+              <span>{NIVEIS[nivel].rotulo}</span>
+            </label>
           </li>
         ))}
         <li className="flex items-start gap-2">

@@ -239,10 +239,10 @@ description: "Lista de tarefas da feature Mapa de alertas de viagem para brasile
 
 **Teste independente**: digitar "mexi", "GRO", "groenlandia" e "vaticano" e escolher a sugestão (`quickstart.md`, passo 10).
 
-- [ ] T108 [P] [US4] Teste da busca em `frontend/src/funcionalidades/busca/busca.test.ts`: sem acento e sem diferença de maiúsculas; "mexi" encontra México; "kosovo", "malvinas" e "ilhas malvinas" encontram `XK` e `FK` pelos `termos_busca`, com os rótulos "Kosovo (Sérvia)" e "Malvinas (Argentina)"; "gro" e "groenlandia" encontram "Groenlândia (Dinamarca)"; encontra Vaticano e Mônaco; busca vazia e sem resultado
-- [ ] T109 [P] [US4] Teste do componente em `frontend/src/funcionalidades/busca/Busca.test.tsx`: sugestões enquanto digita (papel `combobox`, navegação por teclado); escolher um resultado seleciona o território e pede câmera; escolher Kosovo ou Malvinas abre o painel do soberano (título "Sérvia"/"Argentina", bandeira do soberano, observação no topo) e pede a câmera do soberano; sem resultado mostra mensagem e **não** move o mapa; países esmaecidos continuam encontráveis
-- [ ] T110 [US4] Implementar `frontend/src/funcionalidades/busca/busca.ts` (normalização NFKD, índice a partir dos territórios de `/mapa`, casando `nome`, `rotulo_busca` e `termos_busca`)
-- [ ] T111 [US4] Implementar `frontend/src/funcionalidades/busca/Busca.tsx` e integrá-lo em `frontend/src/App.tsx`, abrindo o painel como no toque
+- [X] T108 [P] [US4] Teste da busca em `frontend/src/funcionalidades/busca/buscarTerritorios.test.ts`: sem acento e sem diferença de maiúsculas; "mexi" encontra México; "kosovo", "malvinas" e "ilhas malvinas" encontram `XK` e `FK` pelos `termos_busca`, com os rótulos "Kosovo (Sérvia)" e "Malvinas (Argentina)"; "gro" e "groenlandia" encontram "Groenlândia (Dinamarca)"; encontra Vaticano e Mônaco; busca vazia e sem resultado
+- [X] T109 [P] [US4] Teste do componente em `frontend/src/funcionalidades/busca/Busca.test.tsx`: sugestões enquanto digita (papel `combobox`, navegação por teclado); escolher um resultado seleciona o território e pede câmera; escolher Kosovo ou Malvinas abre o painel do soberano (título "Sérvia"/"Argentina", bandeira do soberano, observação no topo) e pede a câmera do soberano; sem resultado mostra mensagem e **não** move o mapa; países esmaecidos continuam encontráveis
+- [X] T110 [US4] Implementar `frontend/src/funcionalidades/busca/buscarTerritorios.ts` (nome diferente de `Busca.tsx`: o Windows não distingue maiúsculas) (normalização NFKD, índice a partir dos territórios de `/mapa`, casando `nome`, `rotulo_busca` e `termos_busca`)
+- [X] T111 [US4] Implementar `frontend/src/funcionalidades/busca/Busca.tsx` e integrá-lo em `frontend/src/App.tsx`, abrindo o painel como no toque
 
 **Checkpoint**: P1 a P4 funcionam juntas.
 
@@ -254,11 +254,11 @@ description: "Lista de tarefas da feature Mapa de alertas de viagem para brasile
 
 **Teste independente**: desmarcar e marcar níveis, desmarcar todos, e conferir o Líbano com só "não viaje" marcado (`quickstart.md`, passos 4 e 11).
 
-- [ ] T112 [P] [US5] Teste das funções de filtro em `frontend/src/funcionalidades/legenda/filtro.test.ts`: território esmaecido quando seu nível está desmarcado; **não** esmaecido quando o nível de uma região de alerta está marcado (Líbano com só "não viaje"); neutros nunca esmaecem; nenhum nível marcado
-- [ ] T113 [P] [US5] Teste do componente em `frontend/src/funcionalidades/legenda/Legenda.test.tsx` (acrescentar): caixas de marcar, todas marcadas ao abrir; desmarcar esmaece e marcar devolve a cor; tocar num país esmaecido abre o painel; com tudo desmarcado aparece a mensagem e o botão que marca todos
-- [ ] T114 [US5] Implementar `frontend/src/funcionalidades/legenda/filtro.ts` e as ações de níveis marcados em `frontend/src/estado/reducer.ts`
-- [ ] T115 [US5] Transformar `frontend/src/funcionalidades/legenda/Legenda.tsx` em filtro (caixas acessíveis com rótulo em texto) e mostrar a mensagem de "nenhum nível marcado" com o botão em `frontend/src/App.tsx`
-- [ ] T116 [US5] Estender `frontend/src/funcionalidades/mapa/adaptador-maplibre.tsx` para aplicar `esmaecido` (opacidade reduzida mantendo a cor e a interação)
+- [X] T112 [P] [US5] Teste das funções de filtro em `frontend/src/funcionalidades/legenda/filtro.test.ts`: território esmaecido quando seu nível está desmarcado; **não** esmaecido quando o nível de uma região de alerta está marcado (Líbano com só "não viaje"); neutros nunca esmaecem; nenhum nível marcado
+- [X] T113 [P] [US5] Teste do componente em `frontend/src/funcionalidades/legenda/Legenda.test.tsx` (acrescentar): caixas de marcar, todas marcadas ao abrir; desmarcar esmaece e marcar devolve a cor; tocar num país esmaecido abre o painel; com tudo desmarcado aparece a mensagem e o botão que marca todos
+- [X] T114 [US5] Implementar `frontend/src/funcionalidades/legenda/filtro.ts` e as ações de níveis marcados em `frontend/src/estado/reducer.ts`
+- [X] T115 [US5] Transformar `frontend/src/funcionalidades/legenda/Legenda.tsx` em filtro (caixas acessíveis com rótulo em texto) e mostrar a mensagem (componente `SemNiveisMarcados.tsx`) de "nenhum nível marcado" com o botão em `frontend/src/App.tsx`
+- [X] T116 [US5] Estender `frontend/src/funcionalidades/mapa/adaptador-maplibre.tsx` para aplicar `esmaecido` (opacidade reduzida mantendo a cor e a interação)
 
 **Checkpoint**: P1 a P5 funcionam juntas.
 

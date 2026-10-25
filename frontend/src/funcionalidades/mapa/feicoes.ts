@@ -35,6 +35,8 @@ export interface PropriedadesDesenhadas extends PropriedadesDaGeometria {
   cor: string;
   /** Cor da borda regional; ausente quando o território não tem região em destaque. */
   borda_regional?: string;
+  /** Filtro de níveis (FR-025): o mapa reduz a opacidade, mantendo a cor do nível. */
+  esmaecido: boolean;
 }
 
 export function montarFeicoes(
@@ -49,6 +51,7 @@ export function montarFeicoes(
       const propriedades: PropriedadesDesenhadas = {
         ...feicao.properties,
         cor: corDoTerritorio(feicao.properties.tipo, desenhado?.nivel),
+        esmaecido: desenhado?.esmaecido ?? false,
       };
       if (desenhado?.bordaRegional) {
         propriedades.borda_regional = COR_DA_BORDA_REGIONAL[desenhado.bordaRegional];

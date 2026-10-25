@@ -46,6 +46,49 @@ describe("estado da aplicação", () => {
   });
 });
 
+describe("estado: filtro por nível (FR-024 a FR-026)", () => {
+  it("desmarcar um nível o tira da lista de marcados", () => {
+    const estado = reducer(ESTADO_INICIAL, { tipo: "alternar-nivel", nivel: "sem_alerta" });
+    expect(estado.niveisMarcados).not.toContain("sem_alerta");
+    expect(estado.niveisMarcados).toHaveLength(ORDEM_DA_LEGENDA.length - 1);
+  });
+
+  it("marcar de novo devolve o nível", () => {
+    const sem = reducer(ESTADO_INICIAL, { tipo: "alternar-nivel", nivel: "evitar" });
+    const volta = reducer(sem, { tipo: "alternar-nivel", nivel: "evitar" });
+    expect([...volta.niveisMarcados].sort()).toEqual([...ORDEM_DA_LEGENDA].sort());
+  });
+
+  it("'marcar todos' devolve todos os níveis depois de desmarcar tudo", () => {
+    let estado = ESTADO_INICIAL;
+    for (const nivel of ORDEM_DA_LEGENDA) {
+      estado = reducer(estado, { tipo: "alternar-nivel", nivel });
+    }
+    expect(estado.niveisMarcados).toEqual([]);
+    const todos = reducer(estado, { tipo: "marcar-todos-niveis" });
+    expect([...todos.niveisMarcados].sort()).toEqual([...ORDEM_DA_LEGENDA].sort());
+  });
+
+  it("mexer no filtro não mexe na seleção nem nos postos", () => {
+    const aberto = {
+      ...ESTADO_INICIAL,
+      selecionado: "DK",
+      postosExpandidos: [1],
+      grupoEmDestaque: "a",
+    };
+    const estado = reducer(aberto, { tipo: "alternar-nivel", nivel: "evitar" });
+    expect(estado).toMatchObject({
+      selecionado: "DK",
+      postosExpandidos: [1],
+      grupoEmDestaque: "a",
+    });
+  });
+
+  it("'marcar todos' com tudo marcado não muda o estado", () => {
+    expect(reducer(ESTADO_INICIAL, { tipo: "marcar-todos-niveis" })).toBe(ESTADO_INICIAL);
+  });
+});
+
 describe("estado: postos expandidos e destaque do ícone (FR-018a a FR-018g)", () => {
   const COM_DK = { ...ESTADO_INICIAL, selecionado: "DK" };
 
