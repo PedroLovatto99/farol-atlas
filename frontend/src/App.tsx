@@ -6,7 +6,7 @@ import { ProvedorDeEstado, useEstado } from "./estado/contexto";
 import { Aviso } from "./funcionalidades/aviso/Aviso";
 import { Busca } from "./funcionalidades/busca/Busca";
 import { nenhumNivelMarcado, territorioEsmaecido } from "./funcionalidades/legenda/filtro";
-import { Legenda } from "./funcionalidades/legenda/Legenda";
+import { LegendaRecolhivel } from "./funcionalidades/legenda/LegendaRecolhivel";
 import { SemNiveisMarcados } from "./funcionalidades/legenda/SemNiveisMarcados";
 import { bordaRegionalDe } from "./funcionalidades/mapa/cor";
 import { calcularEnquadramento, margemDoLayout } from "./funcionalidades/mapa/enquadramento";
@@ -212,18 +212,11 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
         </div>
       </header>
 
-      <details
-        open={!celular}
-        className="absolute bottom-10 left-2 z-10 max-w-[calc(100%-1rem)] sm:max-w-xs"
-      >
-        <summary className="flex min-h-11 cursor-pointer list-none items-center rounded-xl border border-linha bg-white px-3 text-sm font-semibold shadow-sm sm:hidden">
-          Legenda
-        </summary>
-        <Legenda
-          niveisMarcados={niveisMarcados}
-          onAlternarNivel={(nivel) => despachar({ tipo: "alternar-nivel", nivel })}
-        />
-      </details>
+      <LegendaRecolhivel
+        telaPequena={celular}
+        niveisMarcados={niveisMarcados}
+        onAlternarNivel={(nivel) => despachar({ tipo: "alternar-nivel", nivel })}
+      />
 
       {estadoDoPais.situacao !== "ocioso" && (
         <Painel

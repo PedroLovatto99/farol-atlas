@@ -29,6 +29,7 @@ beforeEach(() => {
   limparCacheDaGeometria();
 });
 afterEach(() => {
+  window.localStorage.clear(); // a escolha da legenda não pode vazar de um teste para o outro
   cleanup(); // desmonta a tela enquanto o matchMedia simulado ainda existe
   media.restaurar();
 });
@@ -206,24 +207,37 @@ describe("App: erro ao carregar", () => {
 describe("App: celular e movimento reduzido", () => {
   it("em tela larga a legenda fica aberta", async () => {
     media.definir(CELULAR, false);
-    const { container } = render(<App cliente={criarApiSimulada().cliente} Mapa={MapaFalso} />);
-    await waitFor(() => expect(container.querySelector("details")).toBeInTheDocument());
-    expect(container.querySelector("details")).toHaveProperty("open", true);
+    render(<App cliente={criarApiSimulada().cliente} Mapa={MapaFalso} />);
+    const botao = await screen.findByRole("button", { name: "Legenda das cores" });
+    expect(botao).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("region", { name: "Legenda" })).toBeVisible();
   });
 
-  it("em tela de celular a legenda começa recolhida e abre pelo botão 'Legenda'", async () => {
+  it("em tela de celular a legenda começa recolhida e abre pelo botão 'Legenda das cores'", async () => {
     media.definir(CELULAR, true);
     const usuario = userEvent.setup();
-    const { container } = render(<App cliente={criarApiSimulada().cliente} Mapa={MapaFalso} />);
-    const detalhes = await waitFor(() => {
-      const el = container.querySelector("details");
-      if (el === null) throw new Error("sem legenda");
-      return el;
-    });
-    expect(detalhes).toHaveProperty("open", false);
+    render(<App cliente={criarApiSimulada().cliente} Mapa={MapaFalso} />);
+    const botao = await screen.findByRole("button", { name: "Legenda das cores" });
+    expect(botao).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
 
-    await usuario.click(screen.getByText("Legenda", { selector: "summary" }));
-    expect(detalhes).toHaveProperty("open", true);
+    await usuario.click(botao);
+    expect(botao).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("region", { name: "Legenda" })).toBeVisible();
+  });
+
+  it("o filtro por nível continua valendo com a legenda recolhida", async () => {
+    media.definir(CELULAR, false);
+    const usuario = userEvent.setup();
+    render(<App cliente={criarApiSimulada().cliente} Mapa={MapaFalso} />);
+    const botao = await screen.findByRole("button", { name: "Legenda das cores" });
+    await usuario.click(screen.getByRole("checkbox", { name: "Não viaje" }));
+
+    await usuario.click(botao); // recolhe
+    await usuario.click(botao); // abre
+
+    expect(screen.getByRole("checkbox", { name: "Não viaje" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Evite viagens não essenciais" })).toBeChecked();
   });
 
   it("passa 'reduzir movimento' ao mapa", async () => {

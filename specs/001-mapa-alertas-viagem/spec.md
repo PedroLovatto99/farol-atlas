@@ -225,6 +225,7 @@ A legenda funciona também como filtro: cada nível tem uma caixa de marcar e to
 **Filtro por nível (P5)**
 
 - **FR-024**: A legenda MUST funcionar também como filtro, com uma caixa de marcar por nível, todas marcadas ao abrir o site.
+- **FR-024a**: A legenda MUST poder ser recolhida e mostrada por um botão "Legenda das cores", com `aria-expanded`, acessível pelo teclado. Recolhida, MUST sobrar só o botão (sem cobrir o mapa, o aviso nem o "Sobre"); recolher MUST NOT alterar o filtro por nível. A escolha MUST ser lembrada entre visitas (`localStorage`, sem ele a legenda segue a regra seguinte e funciona do mesmo jeito); sem escolha guardada, começa recolhida em tela estreita (até 700 px) e aberta nas demais.
 - **FR-025**: Desmarcar um nível MUST esmaecer os países daquele nível, sem escondê-los nem pintá-los de cinza; marcá-lo de novo MUST devolver a cor.
 - **FR-026**: Países esmaecidos MUST continuar podendo ser tocados e encontrados pela busca.
 - **FR-027**: Um país com região de alerta mais grave MUST aparecer (não esmaecido) quando o nível dessa região estiver marcado.

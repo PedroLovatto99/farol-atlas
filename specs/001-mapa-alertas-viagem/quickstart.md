@@ -70,7 +70,7 @@ Sem esse comando, o serviço `worker` coleta sozinho os alertas todo dia às 06:
 | 9 | Expandir um posto no painel | Ícone maior, com contorno, à frente dos outros; só um por vez; recolher ou fechar tira o destaque | FR-018a, FR-018b |
 | 10 | Digitar "groenlandia" na busca | Sugere "Groenlândia (Dinamarca)"; ao escolher, o mapa vai até lá e abre o painel | P4 |
 | 11 | Desmarcar níveis na legenda | Países esmaecidos (não cinza, não escondidos), ainda tocáveis; mensagem com botão se desmarcar todos | P5 |
-| 12 | Janela com 360 px de largura | Todas as funções utilizáveis; painel vira gaveta | FR-042 |
+| 12 | Janela com 360 px de largura | Todas as funções utilizáveis; painel vira gaveta; legenda recolhida, só com o botão "Legenda das cores" (abrir, desmarcar um nível, recolher e abrir de novo mantém o filtro; recarregar lembra a escolha) | FR-042, FR-024a |
 | 13 | Ativar "reduzir movimento" no sistema | Mapa e painel sem animação | FR-039 |
 | 14 | Com coletas falhando (ex.: sem internet no worker) por mais de 3 dias (nos testes, com o relógio ajustado) | Continua mostrando o resultado da última coleta completa, com a data; aviso de dados desatualizados | FR-040, FR-041 |
 
