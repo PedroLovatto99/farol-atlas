@@ -1,0 +1,116 @@
+# Ambiente de desenvolvimento do Farol Atlas. Sobe tudo com: docker compose up --build
+#
+# Bancos (constituição, princípio VIII): em desenvolvimento as portas ligam só em 127.0.0.1,
+# para abrir o banco com um cliente local; nunca em outro endereço. O número da porta no host
+# pode ser trocado (PORTA_POSTGRES, PORTA_POSTGRES_TESTE) se já houver um PostgreSQL local
+# usando 5432 ou 5433. Em produção, nenhuma porta
+# de banco é publicada (o compose de produção está fora desta feature).
+
+x-backend: &backend
+  image: farol-backend
+  build: ./backend
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://farol:farol@postgres:5432/farol}
+    DIRETORIO_DADOS: /app/dados
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-farol}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-farol}
+      POSTGRES_DB: ${POSTGRES_DB:-farol}
+    ports:
+      - "127.0.0.1:${PORTA_POSTGRES:-5432}:5432"
+    volumes:
+      - dados-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Banco dos testes do backend: só sobe com --profile teste; dados em memória
+  postgres-teste:
+    image: postgres:18
+    profiles: ["teste"]
+    environment:
+      POSTGRES_USER: farol
+      POSTGRES_PASSWORD: farol
+      POSTGRES_DB: farol_teste
+    ports:
+      - "127.0.0.1:${PORTA_POSTGRES_TESTE:-5433}:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U farol -d farol_teste"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Aplica as migrações e o seed, depois termina
+  migracao:
+    <<: *backend
+    command: ["sh", "-c", "alembic upgrade head && python -m farol.dominio.seed"]
+    volumes:
+      - ./dados:/app/dados:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *backend
+    command:
+      [
+        "uvicorn",
+        "farol.api.app:criar_app",
+        "--factory",
+        "--reload",
+        "--reload-dir",
+        "/app/src",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+      ]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://farol:farol@postgres:5432/farol}
+      DIRETORIO_DADOS: /app/dados
+      # Windows: os eventos de arquivo não chegam ao container, então usa polling
+      WATCHFILES_FORCE_POLLING: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/src:/app/src
+    depends_on:
+      migracao:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "farol.worker"]
+    volumes:
+      - ./backend/src:/app/src
+    depends_on:
+      migracao:
+        condition: service_completed_successfully
+
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+
+volumes:
+  dados-postgres:

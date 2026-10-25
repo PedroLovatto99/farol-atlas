@@ -1,0 +1,12 @@
+#!/bin/sh
+# Hook opcional: roda as verificações do backend e do frontend antes de cada push.
+# Ativar (uma vez por clone):  git config core.hooksPath .githooks
+set -e
+
+raiz=$(git rev-parse --show-toplevel)
+
+echo "pre-push: verificando o backend..."
+(cd "$raiz/backend" && uv run poe verificar)
+
+echo "pre-push: verificando o frontend..."
+(cd "$raiz/frontend" && npm run verificar)

@@ -1,14 +1,19 @@
 <!--
 Relatório de Impacto da Sincronização
-- Mudança de versão: (modelo sem versão) → 1.0.0
-- Princípios: todos novos (I a VIII); os 5 espaços do modelo foram ampliados para 8
-- Seções adicionadas: Idioma e Convenções; Governança
-- Seções removidas: nenhuma
-- Modelos:
-  ✅ .specify/templates/tasks-template.md — testes deixaram de ser opcionais (Princípio II)
-  ✅ .specify/templates/plan-template.md — "Constitution Check" já deriva os critérios deste arquivo
-  ✅ .specify/templates/spec-template.md — sem mudança necessária
+- Mudança de versão: 1.0.1 → 1.0.2 (PATCH: esclarecimento sem mudar a intenção do princípio)
+- Princípio VIII: em desenvolvimento, as portas do banco (e, no futuro, do Chroma) podem ligar só em
+  127.0.0.1; em produção, ficam apenas na rede interna do Docker, sem porta publicada.
+- Princípio III (v1.0.1), dois esclarecimentos:
+  1. a proibição de o backend gerar HTML não se aplica à documentação automática da API em
+     desenvolvimento (desligada em produção);
+  2. "não fazer uma requisição por país" vale para o carregamento do mapa; uma requisição
+     quando o usuário seleciona um país é permitida.
+- Seções adicionadas/removidas: nenhuma
+- Modelos: nenhuma mudança necessária (plan-template, spec-template e tasks-template seguem válidos)
 - TODOs pendentes: nenhum
+- Histórico: 1.0.0 (2026-10-22) criou os princípios I a VIII, Idioma e Convenções e Governança;
+  tornou os testes obrigatórios no tasks-template; 1.0.1 (2026-10-23) esclareceu o princípio III
+  (documentação automática da API e requisição ao selecionar um país).
 -->
 # Constituição do Farol Atlas
 
@@ -53,6 +58,9 @@ offline são a única forma de detectar regressões na extração.
 - Entradas e saídas da API MUST ser DTOs Pydantic; nenhuma rota devolve objetos do banco. Os tipos
   do frontend MUST ser gerados a partir do OpenAPI da API.
 - O backend MUST devolver apenas JSON e MUST NOT gerar HTML nem CSS. Ler HTML na coleta é permitido.
+  A documentação automática da API (ex.: `/docs` e `/redoc`) não conta como HTML gerado pelo
+  backend, desde que seja habilitada só em desenvolvimento, por variável de ambiente, e fique
+  desabilitada em produção.
 - Consultas que devolvem listas MUST carregar os relacionamentos de uma vez (sem N+1: nunca uma
   consulta por item dentro de um laço). Rotas de lista MUST ter teste que limita o número de
   consultas ao banco.
@@ -62,7 +70,9 @@ offline são a única forma de detectar regressões na extração.
   responsabilidade única.
 - Componentes MUST NOT conter regra de negócio nem chamar a API diretamente: recebem dados prontos
   por props, vindos de hooks ou serviços.
-- MUST NOT fazer uma requisição por país: o mapa recebe seus dados numa única chamada.
+- No carregamento, o mapa MUST receber seus dados numa única chamada e MUST NOT fazer uma
+  requisição por país. Uma requisição quando o usuário seleciona um país (ex.: os detalhes do
+  painel) é permitida.
 - A biblioteca do mapa MUST ficar isolada atrás de uma interface própria; trocá-la não pode exigir
   mudança em outros componentes.
 
@@ -123,7 +133,8 @@ fornecedor garante que continue no ar.
   frontend MUST NOT inseri-los como HTML sem sanitizar, e o chat MUST NOT seguir instruções contidas
   neles.
 - O CORS MUST aceitar apenas o domínio do frontend. Banco e Chroma MUST NOT ficar expostos na
-  internet, apenas na rede interna do Docker.
+  internet. Em produção, MUST ficar apenas na rede interna do Docker, sem porta publicada. Em
+  desenvolvimento, as portas do banco (e, no futuro, do Chroma) podem ligar só em `127.0.0.1`.
 - Dados pessoais MUST ser limitados ao necessário: perguntas do chat MUST NOT ficar associadas ao IP
   de quem perguntou.
 - As dependências MUST ser conferidas contra vulnerabilidades conhecidas a cada mudança.
@@ -147,4 +158,4 @@ consagrados podem ficar em inglês.
   novo princípio ou ampliação material; PATCH para esclarecimentos e correções de redação.
 - Toda revisão de mudança MUST verificar a conformidade com os princípios acima.
 
-**Versão**: 1.0.0 | **Ratificada em**: 2026-10-22 | **Última emenda**: 2026-10-22
+**Versão**: 1.0.2 | **Ratificada em**: 2026-10-22 | **Última emenda**: 2026-10-23

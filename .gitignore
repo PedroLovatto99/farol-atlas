@@ -5,12 +5,25 @@
 amostras_coleta/
 resultado_coleta.json
 
-# Python
-__pycache__/
-.venv/
-venv/
-
-# Sistema e IDE
-.idea/
+# Global
+*.log
+.DS_Store
 Thumbs.db
 desktop.ini
+.idea/
+
+# Node
+node_modules/
+dist/
+coverage/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/

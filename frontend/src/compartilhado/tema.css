@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+/* Tokens do tema. As cores dos níveis também existem em niveis.ts (o MapLibre precisa do hex);
+   um teste confere que as duas listas são iguais. */
+@theme {
+  --color-nivel-sem-alerta: #c0dd97;
+  --color-nivel-evitar: #fac775;
+  --color-nivel-nao-viajar: #e24b4a;
+  --color-nivel-nao-verificado: #d3d1c7;
+
+  --color-area-neutra: #f1efe8;
+  --color-borda-regional-nao-viaje: #a32d2d;
+  --color-borda-regional-evite: #854f0b;
+  --color-linha-responsavel: #0c447c;
+  --color-oceano: #dce8f2;
+
+  /* Fundo atrás do globo (o céu). O "espaco" logo abaixo é uma superfície clara dos cartões. */
+  --color-ceu: #04060c;
+  --color-espaco: #f4f3ee;
+  --color-marinho: #0c447c;
+  --color-texto: #1f1f1d;
+  --color-texto-2: #5f5e5a;
+  --color-linha: #e6e4dc;
+  --color-aviso-fundo: #faeeda;
+  --color-aviso-texto: #633806;
+  --color-aviso-borda: #ef9f27;
+}
+
+html,
+body,
+#raiz {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--color-texto);
+  /* o céu já na primeira pintura, antes de o React montar (sem piscar de branco) */
+  background: var(--color-ceu);
+}
+
+/* Ícones de postos no mapa. O destaque (FR-018a) é maior, tem contorno e fica à frente; as medidas
+   ficam nestes tokens e o contorno é uma borda grossa, não só uma cor. */
+:root {
+  --marcador-tamanho: 30px;
+  --marcador-destaque-tamanho: 42px;
+  --marcador-destaque-contorno: 4px solid var(--color-marinho);
+}
+
+.marcador {
+  position: relative;
+  display: flex;
+  width: var(--marcador-tamanho);
+  height: var(--marcador-tamanho);
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-marinho);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--color-marinho);
+  cursor: pointer;
+  padding: 0;
+}
+.marcador[data-variante="embaixada"] {
+  background: var(--color-marinho);
+  border-color: #fff;
+  color: #fff;
+}
+.marcador[data-variante="escritorio"] {
+  border-radius: 6px;
+}
+.marcador[data-variante="sem-posto"] {
+  border-style: dashed;
+}
+.marcador[data-em-destaque="true"] {
+  width: var(--marcador-destaque-tamanho);
+  height: var(--marcador-destaque-tamanho);
+  /* Anel azul separado do ícone por uma folga branca: aparece sobre qualquer fundo, sem depender só da cor */
+  box-shadow: 0 0 0 3px #fff;
+  outline: var(--marcador-destaque-contorno);
+  outline-offset: 3px;
+}
+.marcador[data-animar="true"] {
+  animation: marcador-pulso 1.2s ease-out 2;
+}
+@keyframes marcador-pulso {
+  from {
+    box-shadow:
+      0 0 0 2px #fff,
+      0 0 0 2px var(--color-linha-responsavel);
+  }
+  to {
+    box-shadow:
+      0 0 0 2px #fff,
+      0 0 0 14px transparent;
+  }
+}
+.marcador:focus-visible {
+  outline: 3px solid var(--color-borda-regional-evite);
+  outline-offset: 2px;
+}
+.marcador-selo {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  padding: 0 4px;
+  border: 1px solid var(--color-marinho);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--color-marinho);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+}
+/* O elemento que o MapLibre posiciona: o ícone em destaque fica à frente dos outros */
+.marcador-raiz:has(.marcador[data-em-destaque="true"]) {
+  z-index: 5;
+}
+/* Ícones do outro lado do globo: invisíveis e sem toque */
+.maplibregl-marker-covered {
+  pointer-events: none;
+}
+
+/* Com o painel aberto, os controles de zoom do mapa saem de baixo dele (lateral: 340 px + margens;
+   gaveta: 55% da altura). */
+[data-painel-aberto="true"][data-modo-do-painel="lateral"] .maplibregl-ctrl-bottom-right {
+  right: 352px;
+}
+[data-painel-aberto="true"][data-modo-do-painel="gaveta"] .maplibregl-ctrl-bottom-right {
+  bottom: 55dvh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
