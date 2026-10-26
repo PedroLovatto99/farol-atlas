@@ -1,0 +1,33 @@
+name: Auditoria
+
+# Procura vulnerabilidades conhecidas nas dependências do backend. Roda fora do CI normal
+# porque o resultado muda com o tempo, mesmo sem nenhuma mudança no código.
+on:
+  schedule:
+    - cron: "23 6 * * 1" # segundas, 06:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pip-audit:
+    name: pip-audit (backend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Instalar dependências
+        run: uv sync --frozen
+
+      - name: Auditar dependências
+        run: uv run poe auditoria
