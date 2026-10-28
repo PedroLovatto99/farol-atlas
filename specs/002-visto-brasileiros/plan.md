@@ -66,7 +66,7 @@ specs/002-visto-brasileiros/
 │   ├── comandos-do-dono.md      # Comandos, saídas, códigos de saída, log e agenda
 │   └── mapa-props-vistos.md     # Mudanças em MapaProps, camadas, legenda e estado
 ├── checklists/requirements.md
-└── tasks.md             # Fase 2 (/speckit-tasks; não criado aqui)
+└── tasks.md             # Fase 2 (/speckit-tasks)
 ```
 
 ### Source Code (repository root)
@@ -116,7 +116,8 @@ backend/
 └── tests/
     ├── fixtures/wikipedia/        # página real + README.md (feito)
     ├── unidade/vistos/            # parser, normalização, dicionários, combinados, RG, permanência, validade,
-    │                              #   estabilidade, retenção, tradutor, comandos, agenda
+    │                              #   estabilidade, retenção, tradutor
+    ├── unidade/worker/            # comandos e agenda de vistos (junto dos testes da 001)
     ├── unidade/infra/             # cliente HTTP (movido), "captcha" na fixture, User-Agent
     ├── integracao/vistos/         # repositórios, migração, serviço de coleta (retenção), leitura, comandos
     ├── integracao/api/            # /vistos e paises.visto
