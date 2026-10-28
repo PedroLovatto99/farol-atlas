@@ -20,6 +20,7 @@ from farol.vistos.fonte import (
     TABELA_PRINCIPAL,
     LinhaDaFonte,
 )
+from farol.vistos.normalizacao import normalizar
 from farol.vistos.permanencia import Permanencia, TipoDePermanencia
 
 ISENTO = CategoriaDeVisto.ISENTO
@@ -46,12 +47,13 @@ def test_um_candidato_por_codigo_do_mapa(
     dicionario_real: Dicionario, linhas_da_fonte: list[LinhaDaFonte]
 ) -> None:
     resultado = consolidar(linhas_da_fonte, dicionario_real)
-    assert resultado.paises_reconhecidos == 226  # 193 da principal + 33 dos territórios, 3 em SH
-    assert len(resultado.candidatos) == 226
+    # 193 da principal + 35 dos territórios (com Kosovo e Malvinas), 3 em SH
+    assert resultado.paises_reconhecidos == 228
+    assert len(resultado.candidatos) == 228
     assert all(codigo == candidato.codigo for codigo, candidato in resultado.candidatos.items())
     assert resultado.nomes_desconhecidos == ()
     assert resultado.rotulos_desconhecidos == ()
-    assert len(resultado.ignoradas) == 21
+    assert len(resultado.ignoradas) == 19
 
 
 def test_a_consolidacao_e_deterministica(
@@ -385,7 +387,7 @@ def test_hash_da_observacao_so_para_paises_da_lista_curada(dicionario_real: Dici
 # --------------------------------------------------------------------------- nomes
 def test_nomes_ignorados_e_desconhecidos_nao_geram_candidato(dicionario_real: Dicionario) -> None:
     linhas = [
-        linha("Kosovo", "Visa not required", tabela=TABELA_NAO_RECONHECIDOS),
+        linha("Abkhazia", "Visa not required", tabela=TABELA_NAO_RECONHECIDOS),
         linha("Atlantis", "Visa not required"),
         linha("Albania", "Visa not required"),
     ]
@@ -418,3 +420,26 @@ def test_sem_linhas_nao_ha_candidatos(dicionario_real: Dicionario) -> None:
     resultado = consolidar([], dicionario_real)
     assert resultado.candidatos == {}
     assert resultado.paises_reconhecidos == 0
+
+
+def test_kosovo_e_malvinas_geram_candidato_pela_linha_propria(
+    dicionario_real: Dicionario, linhas_da_fonte: list[LinhaDaFonte]
+) -> None:
+    """A regra de entrada é a da linha da fonte, não a da Sérvia nem a da Argentina."""
+    nomes = {"Serbia", "Argentina", "Kosovo", "Falkland Islands"}
+    linhas = [linha_ for linha_ in linhas_da_fonte if linha_.nome in nomes]
+    assert {linha_.nome for linha_ in linhas} == nomes
+
+    resultado = consolidar(linhas, dicionario_real)
+
+    assert set(resultado.candidatos) == {"RS", "AR", "XK", "FK"}
+    assert resultado.ignoradas == ()
+    assert resultado.paises_reconhecidos == 4
+    por_nome = {linha_.nome: linha_ for linha_ in linhas}
+    for codigo, nome in (("XK", "Kosovo"), ("FK", "Falkland Islands")):
+        candidato = resultado.candidatos[codigo]
+        assert candidato.rotulo_original == normalizar(por_nome[nome].rotulo)
+        assert [linha_.nome for linha_ in candidato.linhas_fonte] == [nome]
+    assert resultado.candidatos["AR"].aceita_rg is True
+    assert resultado.candidatos["FK"].aceita_rg is False  # nunca herda o RG da Argentina
+    assert resultado.candidatos["XK"].aceita_rg is False

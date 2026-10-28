@@ -31,7 +31,7 @@ docker compose exec worker python -m farol.worker vistos confirmar AR
 ## Resumo de `coletar --vistos`
 
 ```text
-Coleta de vistos VÁLIDA: 226 países reconhecidos (mínimo 204)
+Coleta de vistos VÁLIDA: 228 países reconhecidos (mínimo 206)
 Artigo: revisão 1380975986, última edição em 19/10/2026 05:08 UTC
 Dados aplicados: 3 | sem mudança: 222 | retidos: 1
 Retidos (esperam confirmação; veja `vistos pendentes`):

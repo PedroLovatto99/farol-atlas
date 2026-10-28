@@ -320,7 +320,7 @@ components:
       type: object
       required:
         [situacao, motivo_outra_situacao, rotulo_original, aceita_rg, varia_conforme_motivo, permanencia,
-         observacoes, origem, soberano_nome, dado_de, desatualizado, fonte]
+         observacoes, origem, soberano_nome, territorio_nome, dado_de, desatualizado, fonte]
       properties:
         situacao: { $ref: "#/components/schemas/SituacaoDeVisto" }
         motivo_outra_situacao:
@@ -349,6 +349,13 @@ components:
         soberano_nome:
           type: [string, "null"]
           description: Nome do soberano, para a nota "vale a entrada de …"; preenchido só quando `origem` é `soberano`.
+        territorio_nome:
+          type: [string, "null"]
+          description: |
+            Nome do território a que o visto se refere quando o painel tem a identidade de outro país
+            (Kosovo e Ilhas Malvinas, convenção da 001); nulo nos demais. A seção se intitula
+            "Visto: <nome>". A identidade do painel (nome, bandeira, nota) é a do soberano, mas a
+            regra de entrada é a da linha própria da fonte.
         dado_de:
           type: [string, "null"]
           format: date-time

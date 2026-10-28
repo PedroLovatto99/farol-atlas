@@ -55,7 +55,7 @@ def test_mudanca_para_menos_exigente_fica_retida_mesmo_com_um_pais_so(
     resumo = cenario.coletar()
 
     assert resumo.valida
-    assert (resumo.aplicadas, resumo.sem_mudanca) == (0, 225)
+    assert (resumo.aplicadas, resumo.sem_mudanca) == (0, 227)
     [retida] = resumo.retidas
     assert (retida.codigo, retida.categoria_exibida, retida.categoria_lida) == (
         "DZ",
@@ -119,7 +119,7 @@ def test_retidos_acima_de_10_por_cento_dos_reconhecidos_avisam_de_vandalismo_em_
 ) -> None:
     primeira_coleta(cenario)
     for nome in nomes_nao_isentos(cenario, quantos):
-        cenario.editar(nome, rotulo="Visa not required")  # 10% de 226 são 22,6
+        cenario.editar(nome, rotulo="Visa not required")  # 10% de 228 são 22,8
 
     with caplog.at_level(logging.INFO, logger=LOG):
         resumo = cenario.coletar()
@@ -135,8 +135,8 @@ def test_retidos_acima_de_10_por_cento_dos_reconhecidos_avisam_de_vandalismo_em_
         assert avisos[0].levelno == logging.WARNING
         assert getattr(avisos[0], "dados", None) == {
             "retidas": 23,
-            "reconhecidos": 226,
-            "percentual": 10.2,
+            "reconhecidos": 228,
+            "percentual": 10.1,
         }
 
 
@@ -255,7 +255,7 @@ def test_primeira_coleta_valida_nao_retem_nada_mesmo_sem_dado_anterior(
     resumo = cenario.coletar()
     assert resumo.retidas == ()
     assert cenario.mudancas() == []
-    assert resumo.aplicadas == 226
+    assert resumo.aplicadas == 228
 
 
 # --------------------------------------------------------------------------- 12f
@@ -272,7 +272,7 @@ def test_retencao_some_sozinha_quando_a_fonte_volta_ao_valor_exibido(
     resumo = cenario.coletar()
 
     assert resumo.retidas == ()
-    assert (resumo.aplicadas, resumo.sem_mudanca) == (0, 226)
+    assert (resumo.aplicadas, resumo.sem_mudanca) == (0, 228)
     [mudanca] = cenario.mudancas("DZ")
     assert mudanca.estado is REVERTIDA
     assert mudanca.resolvida_em == cenario.relogio.agora()
@@ -326,7 +326,7 @@ def test_nome_que_o_dicionario_passa_a_reconhecer_e_aplicado_sem_retencao(
     )
     primeira = cenario.coletar()
     assert primeira.nomes_nao_reconhecidos == ("Albania",)
-    assert primeira.paises_reconhecidos == 225
+    assert primeira.paises_reconhecidos == 227
     assert cenario.requisito("AL") is None  # sem informação, mas a linha está na fonte
     cenario.semana_seguinte()
 
@@ -434,7 +434,7 @@ def test_rejeitada_nao_reabre_com_o_mesmo_valor_da_fonte(cenario: "Cenario") -> 
     argelia = cenario.requisito("DZ")
     assert argelia is not None
     assert argelia.categoria is EXIGIDO
-    assert (resumo.aplicadas, resumo.sem_mudanca) == (0, 226)
+    assert (resumo.aplicadas, resumo.sem_mudanca) == (0, 228)
 
 
 def test_rejeitada_e_superada_quando_a_fonte_muda_para_outro_valor_e_a_decisao_recomeca(
@@ -497,8 +497,8 @@ def test_a_linha_sair_da_fonte_fica_retida_e_o_pais_mantem_o_ultimo_dado_valido(
     resumo = cenario.coletar()
 
     assert resumo.valida
-    assert resumo.paises_reconhecidos == 225
-    assert (resumo.aplicadas, resumo.sem_mudanca) == (0, 225)
+    assert resumo.paises_reconhecidos == 227
+    assert (resumo.aplicadas, resumo.sem_mudanca) == (0, 227)
     [retida] = resumo.retidas
     assert (retida.codigo, retida.categoria_exibida, retida.categoria_lida) == ("DZ", EXIGIDO, None)
     argelia = cenario.requisito("DZ")  # o registro continua, com a data dele
@@ -525,7 +525,7 @@ def test_a_linha_voltar_com_o_valor_exibido_reverte_a_saida_sem_confirmacao(
     resumo = cenario.coletar()
 
     assert resumo.retidas == ()
-    assert (resumo.aplicadas, resumo.sem_mudanca) == (0, 226)
+    assert (resumo.aplicadas, resumo.sem_mudanca) == (0, 228)
     [mudanca] = cenario.mudancas("DZ")
     assert mudanca.estado is REVERTIDA
     argelia = cenario.requisito("DZ")
@@ -538,7 +538,7 @@ def test_vandalismo_que_apaga_linhas_e_e_desfeito_nunca_deixa_pais_sem_informaca
     cenario: "Cenario",
 ) -> None:
     primeira_coleta(cenario)
-    # 22 linhas a menos ainda passam nos 90% (204 de 226); mais que isso a coleta é rejeitada
+    # 22 linhas a menos ainda passam nos 90% (206 de 228); mais que isso a coleta é rejeitada
     apagadas = [linha for linha in cenario.linhas if linha.tabela == TABELA_PRINCIPAL][:22]
     cenario.remover(*(linha.nome for linha in apagadas))
 
@@ -547,7 +547,7 @@ def test_vandalismo_que_apaga_linhas_e_e_desfeito_nunca_deixa_pais_sem_informaca
     assert apagou.valida
     assert len(apagou.retidas) == 22
     assert all(r.categoria_lida is None for r in apagou.retidas)
-    assert len(cenario.requisitos()) == 226  # o site não mudou
+    assert len(cenario.requisitos()) == 228  # o site não mudou
     cenario.semana_seguinte()
     for linha in apagadas:
         cenario.acrescentar(linha)
@@ -555,9 +555,9 @@ def test_vandalismo_que_apaga_linhas_e_e_desfeito_nunca_deixa_pais_sem_informaca
     restaurou = cenario.coletar()
 
     assert restaurou.retidas == ()
-    assert restaurou.sem_mudanca == 226
+    assert restaurou.sem_mudanca == 228
     assert {m.estado for m in cenario.mudancas()} == {REVERTIDA}
-    assert len(cenario.requisitos()) == 226
+    assert len(cenario.requisitos()) == 228
 
 
 def test_a_saida_retida_continua_uma_so_enquanto_a_linha_fica_fora(cenario: "Cenario") -> None:
@@ -666,12 +666,12 @@ def test_nome_desconhecido_vira_item_pendente_e_nao_afeta_nenhum_pais(
 
     assert resumo.valida
     assert resumo.nomes_nao_reconhecidos == ("Atlantis",)
-    assert resumo.paises_reconhecidos == 226
+    assert resumo.paises_reconhecidos == 228
     [item] = cenario.itens(TipoDeItemParaRevisao.NOME)
     assert (item.valor, item.estado) == ("atlantis", EstadoDoItem.PENDENTE)
     assert item.primeira_vez_em == item.ultima_vez_em == cenario.relogio.agora()
     assert [(c["tabela"], c["nome_na_fonte"]) for c in item.contexto] == [("principal", "Atlantis")]
-    assert len(cenario.requisitos()) == 226
+    assert len(cenario.requisitos()) == 228
 
 
 def test_nome_pendente_e_resolvido_quando_uma_coleta_posterior_o_reconhece(

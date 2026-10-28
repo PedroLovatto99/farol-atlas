@@ -48,16 +48,17 @@ APELIDOS = {
     "Clipperton Island": "CLP",
     "U.S. Virgin Islands": "VI",
     "São Tomé and Príncipe": "ST",
+    # Kosovo e Malvinas: a identidade do painel é a do soberano (001), mas a regra de entrada é a
+    # da linha própria da fonte (esclarecimento de 28/10/2026, research.md 3.4a)
+    "Kosovo": "XK",
+    "Falkland Islands": "FK",
 }
 
-_CONVENCAO = "Usa a identidade d{} por convenção da 001 (o painel dele é o d{})"
 _SEM_DESENHO = "Sem desenho próprio no mapa"
 _NAO_RECONHECIDO = "Território não reconhecido, sem desenho no mapa"
 _FRANCA = "Parte da França no mapa, sem desenho próprio"
 _PAISES_BAIXOS = "Parte dos Países Baixos no mapa, sem desenho próprio"
 IGNORAR = {
-    "Kosovo": _CONVENCAO.format("a Sérvia", "a Sérvia"),
-    "Falkland Islands": _CONVENCAO.format("a Argentina", "a Argentina"),
     "Abkhazia": _NAO_RECONHECIDO,
     "South Ossetia": _NAO_RECONHECIDO,
     "Northern Cyprus": _NAO_RECONHECIDO,

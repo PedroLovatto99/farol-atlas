@@ -14,6 +14,7 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Protocol
 
 import pytest
 from alembic import command
@@ -25,7 +26,9 @@ from sqlalchemy.engine.interfaces import DBAPICursor, ExecutionContext
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from farol.dominio import CategoriaDeVisto, ColetaVistos, RequisitoVisto, ResultadoDaColetaDeVistos
 from farol.infra import Pagina
+from farol.vistos import ResumoDaColetaDeVistos, ServicoDeColetaDeVistos, Tradutor
 from farol.vistos.fonte import TABELA_DE_TERRITORIOS, TABELA_NAO_RECONHECIDOS, LinhaDaFonte
 
 RAIZ_BACKEND = Path(__file__).resolve().parents[1]
@@ -325,6 +328,83 @@ class WikipediaFalsa:
 def wikipedia(html_da_wikipedia: str) -> WikipediaFalsa:
     """Wikipédia falsa já servindo a página real do artigo."""
     return WikipediaFalsa(html_da_wikipedia)
+
+
+class ColetorDeVistos(Protocol):
+    def __call__(self, html: str, tradutor: Tradutor | None = None) -> ResumoDaColetaDeVistos: ...
+
+
+class GravadorDeVisto(Protocol):
+    def __call__(
+        self,
+        codigo: str,
+        *,
+        categoria: CategoriaDeVisto = ...,
+        rotulo: str = ...,
+        observacoes: Sequence[tuple[str, str | None]] = ...,
+        aceita_rg: bool = ...,
+    ) -> RequisitoVisto: ...
+
+
+@pytest.fixture
+def coletar_vistos(sessao: Session, relogio: RelogioFalso) -> ColetorDeVistos:
+    """Roda uma coleta de vistos de verdade sobre a página dada, no banco já semeado do teste.
+
+    O relógio deve estar a mais de 24 h da última edição do artigo (19/10/2026), ou a coleta é
+    adiada. O padrão dos testes (23/10/2026) serve.
+    """
+
+    def coletar(html: str, tradutor: Tradutor | None = None) -> ResumoDaColetaDeVistos:
+        resumo = ServicoDeColetaDeVistos(sessao, WikipediaFalsa(html), relogio, tradutor).coletar()
+        assert resumo.valida, resumo.motivo
+        return resumo
+
+    return coletar
+
+
+@pytest.fixture
+def gravar_visto(sessao: Session, relogio: RelogioFalso) -> GravadorDeVisto:
+    """Grava à mão o visto exibido de um território (com a sua coleta válida), sem passar pela
+    coleta. Serve aos testes da API que só precisam de um dado qualquer, ou de texto malicioso.
+    `observacoes` são pares (texto, tradução)."""
+
+    def gravar(
+        codigo: str,
+        *,
+        categoria: CategoriaDeVisto = CategoriaDeVisto.ISENTO,
+        rotulo: str = "Visa not required",
+        observacoes: Sequence[tuple[str, str | None]] = (),
+        aceita_rg: bool = False,
+    ) -> RequisitoVisto:
+        instante = relogio.agora()
+        coleta = ColetaVistos(
+            iniciada_em=instante,
+            finalizada_em=instante,
+            resultado=ResultadoDaColetaDeVistos.VALIDA,
+            linhas_lidas=1,
+            paises_reconhecidos=1,
+        )
+        sessao.add(coleta)
+        sessao.flush()
+        requisito = RequisitoVisto(
+            territorio_codigo=codigo,
+            categoria=categoria,
+            rotulo_original=rotulo,
+            linhas_fonte=[],
+            hash_fonte="0" * 64,
+            aceita_rg=aceita_rg,
+            observacoes=[
+                {"texto": texto, "hash": f"{n:064d}", "traducao": traducao}
+                for n, (texto, traducao) in enumerate(observacoes)
+            ],
+            lido_em=instante,
+            coleta_id=coleta.id,
+        )
+        sessao.add(requisito)
+        sessao.flush()
+        return requisito
+
+    return gravar
 
 
 # --------------------------------------------------------------------------- tradutor falso

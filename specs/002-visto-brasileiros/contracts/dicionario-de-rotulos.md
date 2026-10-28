@@ -72,7 +72,6 @@ nomes:
   Ascension Island: SH
   Tristan da Cunha: SH
 ignorar:
-  Kosovo: Usa a identidade da Sérvia, por convenção da 001
   Abkhazia: Território não reconhecido, sem desenho no mapa
 ```
 
@@ -80,7 +79,7 @@ ignorar:
 - Cada código tem de existir em `territorio` (o teste confere contra o seed) e **não pode** ser de área neutra. Um nome não pode estar nas duas listas.
 - Nome fora das duas listas ⇒ `item_para_revisao` (tipo `nome`); a linha não afeta nenhum território.
 - Várias linhas da fonte para o mesmo código (Santa Helena, Ascensão e Tristão da Cunha; a linha do Reino Unido e das dependências da Coroa) ⇒ tratadas como partes de um rótulo combinado (FR-007).
-- As convenções de território da 001 **não** são repetidas aqui: o painel de Kosovo e de Malvinas já é o do soberano pelo cadastro (`identidade_do_soberano`), e o `ignorar` apenas evita ler a linha própria deles.
+- A **identidade** do painel (001) não é repetida aqui: o painel de Kosovo e de Malvinas já é o do soberano pelo cadastro (`identidade_do_soberano`). Já a **regra de entrada** é a da linha própria da fonte: `Kosovo: XK` e `Falkland Islands: FK` ficam em `nomes` (não em `ignorar`), e a leitura nunca usa o visto do soberano para eles (`research.md` 3.4a).
 
 ## `regras_por_pais.yaml`: "varia conforme o motivo da viagem"
 

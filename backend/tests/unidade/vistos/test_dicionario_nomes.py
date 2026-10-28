@@ -28,11 +28,12 @@ APELIDOS = {
     "U.S. Virgin Islands": "VI",
 }
 
-# Os 21 nomes ignorados de propósito (research.md 3.4)
+# Kosovo e Malvinas têm a identidade da Sérvia e da Argentina no painel (001), mas a regra de
+# entrada é a da linha própria da fonte (feature 002, esclarecimento de 28/10/2026)
+LINHA_PROPRIA_DE_IDENTIDADE = {"Kosovo": "XK", "Falkland Islands": "FK"}
+
+# Os 19 nomes ignorados de propósito (research.md 3.4)
 IGNORADOS = {
-    # por convenção da 001
-    "Kosovo",
-    "Falkland Islands",
     # território não reconhecido, sem desenho no mapa
     "Abkhazia",
     "South Ossetia",
@@ -61,7 +62,8 @@ IGNORADOS = {
 
 def test_os_numeros_aprovados() -> None:
     assert len(APELIDOS) == 18
-    assert len(IGNORADOS) == 21
+    assert len(IGNORADOS) == 19
+    assert len(LINHA_PROPRIA_DE_IDENTIDADE) == 2
 
 
 def test_todo_nome_da_fixture_esta_em_nomes_ou_em_ignorar(
@@ -82,8 +84,8 @@ def test_o_dicionario_tem_so_os_nomes_da_fixture(
     da_fixture = {chave_de_consulta(linha.nome) for linha in linhas_da_fonte}
     assert len(da_fixture) == 249  # sem nome repetido nas três tabelas
     assert set(dicionario_real.nomes) | set(dicionario_real.ignorar) == da_fixture
-    assert len(dicionario_real.nomes) == 228
-    assert len(dicionario_real.ignorar) == 21
+    assert len(dicionario_real.nomes) == 230
+    assert len(dicionario_real.ignorar) == 19
 
 
 @pytest.mark.parametrize(("nome", "codigo"), sorted(APELIDOS.items()))
@@ -93,7 +95,7 @@ def test_apelido_liga_ao_codigo_certo(dicionario_real: Dicionario, nome: str, co
     assert not ligacao.ignorado
 
 
-def test_os_ignorados_sao_exatamente_os_21_aprovados_e_cada_um_tem_motivo(
+def test_os_ignorados_sao_exatamente_os_19_aprovados_e_cada_um_tem_motivo(
     dicionario_real: Dicionario,
 ) -> None:
     assert {chave_de_consulta(n) for n in IGNORADOS} == set(dicionario_real.ignorar)
@@ -124,9 +126,14 @@ def test_a_validacao_contra_o_seed_roda_no_carregamento(
     carregar_dicionario(codigos_validos=codigos_do_mapa, codigos_neutros={"EH", "AQ"})
 
 
-def test_kosovo_e_falkland_islands_sao_ignorados(dicionario_real: Dicionario) -> None:
-    assert dicionario_real.ligar_nome("Kosovo").ignorado
-    assert dicionario_real.ligar_nome("Falkland Islands").ignorado
+@pytest.mark.parametrize(("nome", "codigo"), sorted(LINHA_PROPRIA_DE_IDENTIDADE.items()))
+def test_kosovo_e_falkland_islands_ligam_a_linha_propria_e_nao_sao_ignorados(
+    dicionario_real: Dicionario, nome: str, codigo: str
+) -> None:
+    ligacao = dicionario_real.ligar_nome(nome)
+    assert ligacao.codigo == codigo
+    assert not ligacao.ignorado
+    assert not ligacao.desconhecido
 
 
 def test_reino_unido_e_dependencias_da_coroa_ligam_ao_gb(dicionario_real: Dicionario) -> None:

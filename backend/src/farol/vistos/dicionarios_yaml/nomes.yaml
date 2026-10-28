@@ -205,6 +205,7 @@ nomes:
   "Zambia": "ZM"
   "Zimbabwe": "ZW"
   # Países não reconhecidos ou parcialmente reconhecidos
+  "Kosovo": "XK"
   "Palestine": "PS"
   "Taiwan": "TW"
   # Dependências e territórios autônomos
@@ -229,6 +230,7 @@ nomes:
   "Bermuda": "BM"
   "British Virgin Islands": "VG"
   "Cayman Islands": "KY"
+  "Falkland Islands": "FK"
   "Gibraltar": "GI"
   "Montserrat": "MS"
   "Pitcairn Islands": "PN"
@@ -245,8 +247,6 @@ nomes:
 # Nomes lidos e descartados de propósito, cada um com o motivo. Para um nome novo, o dono usa
 # `vistos ignorar-nome "<nome>" --motivo "<texto>"`.
 ignorar:
-  "Kosovo": "Usa a identidade da Sérvia por convenção da 001 (o painel dele é o da Sérvia)"
-  "Falkland Islands": "Usa a identidade da Argentina por convenção da 001 (o painel dele é o da Argentina)"
   "Abkhazia": "Território não reconhecido, sem desenho no mapa"
   "South Ossetia": "Território não reconhecido, sem desenho no mapa"
   "Northern Cyprus": "Território não reconhecido, sem desenho no mapa"

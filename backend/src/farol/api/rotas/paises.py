@@ -1,11 +1,12 @@
-"""GET /paises/{codigo}: o painel de um país ou dependência. A rota só converte e devolve."""
+"""GET /paises/{codigo}: o painel de um país ou dependência, com o visto. Só converte e devolve."""
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy.orm import Session
 
-from farol.api.dependencias import sessao_da_requisicao
+from farol.api.composicao import PainelComVisto, montar_painel_com_visto
+from farol.api.dependencias import relogio_da_requisicao, sessao_da_requisicao
 from farol.api.dtos import (
     AlertaDoPais,
     Erro,
@@ -18,8 +19,10 @@ from farol.api.dtos import (
     Regiao,
     TipoTerritorio,
 )
+from farol.api.rotas.vistos import visto_para_dto
+from farol.infra import Relogio
 from farol.mapa import PostoNoPainel as PostoVisao
-from farol.mapa import TerritorioNaoEncontrado, VisaoDoPainel, montar_painel
+from farol.mapa import TerritorioNaoEncontrado
 
 roteador = APIRouter()
 
@@ -38,7 +41,8 @@ def _posto(p: PostoVisao) -> PostoNoPainel:
     )
 
 
-def _para_dto(visao: VisaoDoPainel) -> Pais:
+def _para_dto(painel_com_visto: PainelComVisto) -> Pais:
+    visao = painel_com_visto.painel
     return Pais(
         codigo=visao.codigo,
         nome=visao.nome,
@@ -78,6 +82,7 @@ def _para_dto(visao: VisaoDoPainel) -> Pais:
             if visao.fonte_postos
             else None
         ),
+        visto=visto_para_dto(painel_com_visto.visto) if painel_com_visto.visto else None,
     )
 
 
@@ -99,8 +104,9 @@ def obter_pais(
         ),
     ],
     sessao: Annotated[Session, Depends(sessao_da_requisicao)],
+    relogio: Annotated[Relogio, Depends(relogio_da_requisicao)],
 ) -> Pais:
     try:
-        return _para_dto(montar_painel(sessao, codigo))
+        return _para_dto(montar_painel_com_visto(sessao, relogio, codigo))
     except TerritorioNaoEncontrado:
         raise HTTPException(status_code=404, detail="Território não encontrado") from None

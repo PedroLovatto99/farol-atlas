@@ -31,7 +31,7 @@ Esperado: as tabelas `coleta_vistos`, `requisito_visto`, `mudanca_retida` e `ite
 docker compose exec worker python -m farol.worker coletar --vistos
 ```
 
-Esperado: "Coleta de vistos VÁLIDA", cerca de 226 países reconhecidos, nomes e rótulos não reconhecidos: **0** (SC-010), e o código de saída 0 (`$LASTEXITCODE`). Se a última edição do artigo for de menos de 24 horas, a rodada é **adiada** (código de saída 1, com o motivo): repita no dia seguinte.
+Esperado: "Coleta de vistos VÁLIDA", cerca de 228 países reconhecidos, nomes e rótulos não reconhecidos: **0** (SC-010), e o código de saída 0 (`$LASTEXITCODE`). Se a última edição do artigo for de menos de 24 horas, a rodada é **adiada** (código de saída 1, com o motivo): repita no dia seguinte.
 
 Depois conferir a cobertura (SC-001), que fica registrada no relatório da execução:
 
@@ -47,7 +47,7 @@ docker compose exec postgres psql -U farol -d farol -c "select categoria, count(
 | 2 | Tocar nos Estados Unidos | "Visto exigido"; sem campo de permanência | FR-002, FR-004 |
 | 3 | Tocar na Tailândia, em Omã e na Austrália | Cada uma na categoria do `research.md` 3.1; Omã mostra o rótulo combinado "Visa not required / eVisa" e a categoria mais exigente; a Austrália ("Online visa required") aparece como **Visto exigido** | FR-007 |
 | 4 | Tocar na Jamaica | Permanência "Varia conforme o motivo (ver observações)" e a nota "Varia conforme o motivo da viagem" | FR-007a |
-| 5 | Tocar em Hong Kong, em Guernsey e em Kosovo | Hong Kong: entrada própria. Guernsey: a do Reino Unido, com a nota de herança. Kosovo: painel da Sérvia, com o visto da Sérvia | FR-013 |
+| 5 | Tocar em Hong Kong, em Guernsey e em Kosovo | Hong Kong: entrada própria. Guernsey: a do Reino Unido, com a nota de herança. Kosovo: painel da Sérvia, com a seção "Visto: Kosovo" da linha própria da fonte. Em seguida, as Malvinas: painel da Argentina, seção "Visto: Ilhas Malvinas" e **sem** a entrada com RG da Argentina | FR-013 |
 | 6 | Tocar no Brasil | Sem seção de visto | FR-014 |
 | 7 | Tocar na Etiópia ("up to 90 days") | Permanência em inglês, "não traduzido" | FR-004a |
 | 8 | Tocar num país com observações, depois de uma coleta sem tradutor (derrube o tradutor) | Observação em inglês, avisando; categoria e prazo intactos | FR-005 |

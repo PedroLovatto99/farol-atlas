@@ -18,6 +18,11 @@ export type Regiao = Esquemas["Regiao"];
 export type Saude = Esquemas["Saude"];
 export type Nivel = Esquemas["Nivel"];
 export type TipoPosto = Esquemas["TipoPosto"];
+export type Fonte = Esquemas["Fonte"];
+export type Visto = Esquemas["Visto"];
+export type Permanencia = Esquemas["Permanencia"];
+export type ObservacaoDeVisto = Esquemas["ObservacaoDeVisto"];
+export type SituacaoDeVisto = Esquemas["SituacaoDeVisto"];
 
 export class ErroDeApi extends Error {
   readonly status: number;
@@ -90,6 +95,16 @@ class Leitor {
     return encontrado ?? this.falhar(campo);
   }
 
+  umOuNulo<T extends string>(campo: string, permitidos: readonly T[]): T | null {
+    return this.origem[campo] === null ? null : this.um(campo, permitidos);
+  }
+
+  objeto<T>(campo: string, ler: (item: Leitor) => T): T {
+    const valor = this.origem[campo];
+    if (!ehObjeto(valor)) return this.falhar(campo);
+    return ler(new Leitor(valor, `${this.caminho}${campo}.`, this.status));
+  }
+
   lista<T>(campo: string, ler: (item: Leitor) => T): T[] {
     const valor = this.origem[campo];
     if (!Array.isArray(valor)) return this.falhar(campo);
@@ -123,6 +138,22 @@ function raiz(dados: unknown, status: number): Leitor {
 const NIVEIS = ["sem_alerta", "evitar", "nao_viajar", "nao_verificado"] as const;
 const NIVEIS_REGIONAIS = ["evitar", "nao_viajar"] as const;
 const TIPOS_DE_TERRITORIO = ["pais", "dependencia"] as const;
+const SITUACOES_DE_VISTO = [
+  "isento",
+  "visto_na_chegada",
+  "autorizacao_eletronica",
+  "visto_exigido",
+  "outra_situacao",
+  "sem_informacao",
+] as const;
+const MOTIVOS_OUTRA_SITUACAO = ["rotulo_conhecido", "rotulo_desconhecido"] as const;
+const ORIGENS_DO_VISTO = ["proprio", "soberano"] as const;
+const TIPOS_DE_PERMANENCIA = [
+  "padronizada",
+  "original",
+  "prazos_divergentes",
+  "varia_conforme_motivo",
+] as const;
 const TIPOS_DE_POSTO = [
   "Embaixada",
   "Consulado-Geral",
@@ -212,14 +243,40 @@ function lerPostoDoPainel(l: Leitor): PostoNoPainel {
   };
 }
 
+function lerFonteDeDados(l: Leitor): Fonte {
+  return { nome: l.texto("nome"), url: l.texto("url"), licenca: l.textoOuNulo("licenca") };
+}
+
+function lerPermanencia(l: Leitor): Permanencia {
+  return { tipo: l.um("tipo", TIPOS_DE_PERMANENCIA), texto: l.textoOuNulo("texto") };
+}
+
+function lerObservacaoDeVisto(l: Leitor): ObservacaoDeVisto {
+  return { texto_original: l.texto("texto_original"), traducao: l.textoOuNulo("traducao") };
+}
+
+function lerVisto(l: Leitor): Visto {
+  return {
+    situacao: l.um("situacao", SITUACOES_DE_VISTO),
+    motivo_outra_situacao: l.umOuNulo("motivo_outra_situacao", MOTIVOS_OUTRA_SITUACAO),
+    rotulo_original: l.textoOuNulo("rotulo_original"),
+    aceita_rg: l.booleano("aceita_rg"),
+    varia_conforme_motivo: l.booleano("varia_conforme_motivo"),
+    permanencia: l.objetoOuNulo("permanencia", lerPermanencia),
+    observacoes: l.lista("observacoes", lerObservacaoDeVisto),
+    origem: l.umOuNulo("origem", ORIGENS_DO_VISTO),
+    soberano_nome: l.textoOuNulo("soberano_nome"),
+    territorio_nome: l.textoOuNulo("territorio_nome"),
+    dado_de: l.textoOuNulo("dado_de"),
+    desatualizado: l.booleano("desatualizado"),
+    fonte: l.objeto("fonte", lerFonteDeDados),
+  };
+}
+
 function lerFonte(l: Leitor): FontePostos {
   return {
     conferido_em: l.texto("conferido_em"),
-    fontes: l.lista("fontes", (f) => ({
-      nome: f.texto("nome"),
-      url: f.texto("url"),
-      licenca: f.textoOuNulo("licenca"),
-    })),
+    fontes: l.lista("fontes", lerFonteDeDados),
   };
 }
 
@@ -244,6 +301,7 @@ export function validarPais(dados: unknown, status = 200): Pais {
     posto_responsavel: l.objetoOuNulo("posto_responsavel", lerPostoDoPainel),
     sem_posto_indicado: l.booleano("sem_posto_indicado"),
     fonte_postos: l.objetoOuNulo("fonte_postos", lerFonte),
+    visto: l.objetoOuNulo("visto", lerVisto),
   };
 }
 

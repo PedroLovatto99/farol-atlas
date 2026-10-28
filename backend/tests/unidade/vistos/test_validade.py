@@ -91,12 +91,12 @@ def test_os_ignorados_nao_contam_como_reconhecidos(
     dicionario_real: Dicionario, linhas_da_fonte: list[LinhaDaFonte]
 ) -> None:
     consolidacao = consolidar(linhas_da_fonte, dicionario_real)
-    assert len(consolidacao.ignoradas) == 21
-    # 249 linhas lidas, 21 ignoradas e 3 linhas de Santa Helena no mesmo código: 226 códigos
+    assert len(consolidacao.ignoradas) == 19
+    # 249 linhas lidas, 19 ignoradas e 3 linhas de Santa Helena no mesmo código: 228 códigos
     assert len(linhas_da_fonte) == 249
-    assert consolidacao.paises_reconhecidos == 226
+    assert consolidacao.paises_reconhecidos == 228
     assert avaliar_validade(
-        consolidacao.paises_reconhecidos, formato_esperado=True, reconhecidos_anteriores=226
+        consolidacao.paises_reconhecidos, formato_esperado=True, reconhecidos_anteriores=228
     ).valida
 
 

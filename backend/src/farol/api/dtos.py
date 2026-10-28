@@ -1,7 +1,7 @@
 """DTOs (Pydantic) de entrada e saída da API. Nenhuma rota devolve objetos do banco.
 
-Os nomes e a forma seguem specs/001-mapa-alertas-viagem/contracts/openapi.yaml; um teste de
-contrato compara o OpenAPI gerado com ele.
+Os nomes e a forma seguem specs/002-visto-brasileiros/contracts/openapi.yaml (a API v1.1, que contém
+a v1.0 da 001 por inteiro); um teste de contrato compara o OpenAPI gerado com ele.
 """
 
 from datetime import date, datetime
@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from farol.dominio import TipoPosto
+from farol.dominio import MotivoOutraSituacao, TipoPosto
 
 __all__ = [
     "AlertaDoPais",
@@ -18,17 +18,27 @@ __all__ = [
     "Fonte",
     "FontePostos",
     "Mapa",
+    "MotivoOutraSituacao",
     "Nivel",
     "NivelRegional",
+    "ObservacaoDeVisto",
+    "OrigemDoVisto",
     "Pais",
     "PaisSemPosto",
+    "Permanencia",
     "PostoNoMapa",
     "PostoNoPainel",
     "Regiao",
     "Saude",
+    "SituacaoDeVisto",
+    "SituacaoNoGlobo",
+    "TerritorioDeVisto",
     "TerritorioNoMapa",
+    "TipoDePermanencia",
     "TipoPosto",
     "TipoTerritorio",
+    "Visto",
+    "VistosDoMapa",
 ]
 
 
@@ -149,6 +159,72 @@ class FontePostos(BaseModel):
     fontes: list[Fonte]
 
 
+# --------------------------------------------------------------------------- visto (feature 002)
+class SituacaoDeVisto(StrEnum):
+    """Situação de visto de um território com painel (FR-002, FR-011)."""
+
+    ISENTO = "isento"
+    VISTO_NA_CHEGADA = "visto_na_chegada"
+    AUTORIZACAO_ELETRONICA = "autorizacao_eletronica"
+    VISTO_EXIGIDO = "visto_exigido"
+    OUTRA_SITUACAO = "outra_situacao"
+    SEM_INFORMACAO = "sem_informacao"
+
+
+class SituacaoNoGlobo(StrEnum):
+    """A situação do painel mais `nao_se_aplica`, só para o Brasil (FR-023)."""
+
+    ISENTO = "isento"
+    VISTO_NA_CHEGADA = "visto_na_chegada"
+    AUTORIZACAO_ELETRONICA = "autorizacao_eletronica"
+    VISTO_EXIGIDO = "visto_exigido"
+    OUTRA_SITUACAO = "outra_situacao"
+    SEM_INFORMACAO = "sem_informacao"
+    NAO_SE_APLICA = "nao_se_aplica"
+
+
+class OrigemDoVisto(StrEnum):
+    """A entrada é a do próprio território ou a do soberano (FR-013)."""
+
+    PROPRIO = "proprio"
+    SOBERANO = "soberano"
+
+
+class TipoDePermanencia(StrEnum):
+    """Como a permanência é mostrada (FR-004a, FR-007, FR-007a)."""
+
+    PADRONIZADA = "padronizada"
+    ORIGINAL = "original"
+    PRAZOS_DIVERGENTES = "prazos_divergentes"
+    VARIA_CONFORME_MOTIVO = "varia_conforme_motivo"
+
+
+class Permanencia(BaseModel):
+    tipo: TipoDePermanencia
+    texto: str | None
+
+
+class ObservacaoDeVisto(BaseModel):
+    texto_original: str
+    traducao: str | None
+
+
+class Visto(BaseModel):
+    situacao: SituacaoDeVisto
+    motivo_outra_situacao: MotivoOutraSituacao | None
+    rotulo_original: str | None
+    aceita_rg: bool
+    varia_conforme_motivo: bool
+    permanencia: Permanencia | None
+    observacoes: list[ObservacaoDeVisto]
+    origem: OrigemDoVisto | None
+    soberano_nome: str | None
+    territorio_nome: str | None
+    dado_de: datetime | None
+    desatualizado: bool
+    fonte: Fonte
+
+
 class Pais(BaseModel):
     codigo: str
     nome: str
@@ -167,3 +243,19 @@ class Pais(BaseModel):
     posto_responsavel: PostoNoPainel | None
     sem_posto_indicado: bool
     fonte_postos: FontePostos | None
+    visto: Visto | None
+
+
+# --------------------------------------------------------------------------- /vistos
+class TerritorioDeVisto(BaseModel):
+    codigo: str
+    situacao: SituacaoNoGlobo
+    aceita_rg: bool
+
+
+class VistosDoMapa(BaseModel):
+    dados_obtidos: bool
+    coletado_em: datetime | None
+    desatualizado: bool
+    fonte: Fonte
+    territorios: list[TerritorioDeVisto]

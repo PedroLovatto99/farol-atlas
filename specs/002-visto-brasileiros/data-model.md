@@ -68,10 +68,10 @@ Regras: `permanencia_tipo in ('padronizada','original')` ⇒ `permanencia_texto`
 ### Como a leitura resolve o visto de um território
 
 1. Território sem painel (neutro): sem visto. Brasil: `visto = nulo`.
-2. `identidade_do_soberano` (Kosovo, Malvinas): usa o registro do **soberano**, e o painel é o dele (sem nota de herança).
+2. `identidade_do_soberano` (Kosovo, Malvinas): o painel tem a identidade do soberano (001), mas a regra de entrada é a da **linha própria** da fonte: só o registro do próprio território vale (`origem = proprio`, sem nota de herança). Sem ele, `sem_informacao`, **nunca** o registro do soberano (a Argentina aceita RG; as Malvinas não). A visão traz `territorio_nome` ("Kosovo", "Ilhas Malvinas"), com ou sem dado, para a seção se intitular "Visto: <nome>".
 3. Há registro com o código do território: usa-o (`origem = proprio`).
-4. Dependência sem registro: usa o do soberano (`origem = soberano`, com o nome do soberano para a nota do painel).
-5. Sem registro em nenhum dos dois, ou nunca houve coleta válida: `situacao = sem_informacao`.
+4. Dependência comum sem registro: usa o do soberano (`origem = soberano`, com o nome do soberano para a nota do painel).
+5. Sem registro, ou nunca houve coleta válida: `situacao = sem_informacao`.
 
 ## mudanca_retida
 

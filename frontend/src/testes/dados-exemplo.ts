@@ -1,5 +1,5 @@
 /** Respostas de exemplo da API, no formato do contrato, para os testes de interface. */
-import type { AlertaDoPais, Mapa, Pais, PostoNoPainel } from "../servicos/api/cliente";
+import type { AlertaDoPais, Mapa, Pais, PostoNoPainel, Visto } from "../servicos/api/cliente";
 
 export const MAPA_EXEMPLO: Mapa = {
   dados_obtidos: true,
@@ -98,6 +98,30 @@ export const POSTO_EXEMPLO: PostoNoPainel = {
   contato_fonte_url: null,
 };
 
+/** O visto de um país com dado (isento, 90 dias), com os campos que o teste quiser trocar. */
+export function criarVisto(sobrescritas: Partial<Visto> = {}): Visto {
+  return {
+    situacao: "isento",
+    motivo_outra_situacao: null,
+    rotulo_original: "Visa not required",
+    aceita_rg: false,
+    varia_conforme_motivo: false,
+    permanencia: { tipo: "padronizada", texto: "90 dias" },
+    observacoes: [],
+    origem: "proprio",
+    soberano_nome: null,
+    territorio_nome: null,
+    dado_de: "2026-10-23T12:00:00Z",
+    desatualizado: false,
+    fonte: {
+      nome: "Wikipédia: Visa requirements for Brazilian citizens",
+      url: "https://en.wikipedia.org/wiki/Visa_requirements_for_Brazilian_citizens",
+      licenca: "CC BY-SA",
+    },
+    ...sobrescritas,
+  };
+}
+
 export const PAIS_EXEMPLO: Pais = {
   codigo: "DK",
   nome: "Dinamarca",
@@ -114,6 +138,7 @@ export const PAIS_EXEMPLO: Pais = {
   postos: [POSTO_EXEMPLO],
   posto_responsavel: null,
   sem_posto_indicado: false,
+  visto: criarVisto(),
   fonte_postos: {
     conferido_em: "2026-10-21",
     fontes: [

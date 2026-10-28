@@ -6,7 +6,7 @@ Nenhum teste acessa a rede nem um modelo de linguagem.
 """
 
 from dataclasses import replace
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -24,7 +24,7 @@ from farol.dominio import (
     TipoDeItemParaRevisao,
     TipoTerritorio,
 )
-from farol.dominio.seed import carregar
+from farol.dominio.seed import carregar, executar
 from farol.vistos import Dicionario, ResumoDaColetaDeVistos, ServicoDeColetaDeVistos, Tradutor
 from farol.vistos.fonte import LinhaDaFonte, extrair_linhas
 
@@ -64,6 +64,17 @@ def semeado(sessao: Session) -> Session:
         for codigo, d in dependencias.items()
     )
     sessao.flush()
+    return sessao
+
+
+@pytest.fixture
+def mapa_completo(sessao: Session) -> Session:
+    """O seed completo do mapa (territórios, postos e jurisdições), como o de produção.
+
+    Serve aos testes que dependem de `identidade_do_soberano` (Kosovo, Malvinas) e do cadastro
+    real das dependências; os demais usam o `semeado`, bem mais leve.
+    """
+    executar(sessao, DADOS, datetime(2026, 10, 23, 12, 0, tzinfo=UTC))
     return sessao
 
 
@@ -193,3 +204,15 @@ def cenario(
     linhas_da_fonte: list[LinhaDaFonte],
 ) -> Cenario:
     return Cenario(semeado, wikipedia, relogio, tradutor_falso, linhas_da_fonte)
+
+
+@pytest.fixture
+def cenario_completo(
+    mapa_completo: Session,
+    wikipedia: "WikipediaFalsa",
+    relogio: "RelogioFalso",
+    tradutor_falso: "TradutorFalso",
+    linhas_da_fonte: list[LinhaDaFonte],
+) -> Cenario:
+    """O mesmo cenário, sobre o seed completo do mapa."""
+    return Cenario(mapa_completo, wikipedia, relogio, tradutor_falso, linhas_da_fonte)

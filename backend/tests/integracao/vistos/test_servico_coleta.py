@@ -41,16 +41,16 @@ def test_primeira_coleta_valida_grava_a_coleta_e_um_requisito_por_codigo(
     assert resumo.resultado is R.VALIDA
     assert resumo.valida is True
     assert resumo.motivo is None
-    assert (resumo.paises_reconhecidos, resumo.minimo) == (226, 150)
-    assert (resumo.aplicadas, resumo.sem_mudanca, resumo.retidas) == (226, 0, ())
+    assert (resumo.paises_reconhecidos, resumo.minimo) == (228, 150)
+    assert (resumo.aplicadas, resumo.sem_mudanca, resumo.retidas) == (228, 0, ())
 
     [coleta] = cenario.coletas()
     assert coleta.id == resumo.coleta_id
     assert coleta.resultado is R.VALIDA
     assert coleta.motivo is None
     assert coleta.linhas_lidas == 249
-    assert coleta.paises_reconhecidos == 226
-    assert (coleta.aplicadas, coleta.retidas) == (226, 0)
+    assert coleta.paises_reconhecidos == 228
+    assert (coleta.aplicadas, coleta.retidas) == (228, 0)
     assert coleta.iniciada_em == cenario.relogio.agora()
     assert coleta.finalizada_em is not None
     assert coleta.ultima_edicao_fonte == cenario.relogio.agora() - timedelta(days=9)
@@ -59,7 +59,7 @@ def test_primeira_coleta_valida_grava_a_coleta_e_um_requisito_por_codigo(
     assert coleta.html_sha256 is not None
     assert len(coleta.html_sha256) == 64
 
-    assert len(cenario.requisitos()) == 226
+    assert len(cenario.requisitos()) == 228
     assert cenario.mudancas() == []
 
 
@@ -102,7 +102,7 @@ def formato_inesperado(cenario: "Cenario") -> None:
 
 
 def poucos_paises(cenario: "Cenario") -> None:
-    # 226 reconhecidos antes; sem 23 deles sobram 203, um a menos que o mínimo (204)
+    # 228 reconhecidos antes; sem 23 deles sobram 205, um a menos que o mínimo (206)
     nomes = [
         linha.nome
         for linha in cenario.linhas
@@ -148,7 +148,7 @@ def robots_proibe(cenario: "Cenario") -> None:
 
 NAO_VALIDAS: list[tuple[str, Callable[["Cenario"], None], ResultadoDaColetaDeVistos, str]] = [
     ("formato", formato_inesperado, R.REJEITADA, "formato inesperado"),
-    ("menos-de-90", poucos_paises, R.REJEITADA, "203"),
+    ("menos-de-90", poucos_paises, R.REJEITADA, "205"),
     ("edicao-recente", edicao_recente, R.ADIADA, "6 h"),
     ("http-5xx", servidor_com_erro, R.FALHOU, "503"),
     ("timeout", sem_conexao, R.FALHOU, "conexão"),
@@ -194,7 +194,7 @@ def test_coleta_que_nao_e_valida_nao_altera_nenhum_dado_e_grava_o_motivo(
     assert ultima.finalizada_em is not None
     assert (ultima.aplicadas, ultima.retidas) == (0, 0)
     # o site continua com os dados da última coleta válida
-    assert len(cenario.requisitos()) == 226
+    assert len(cenario.requisitos()) == 228
 
 
 def test_formato_inesperado_diz_que_o_leitor_da_pagina_precisa_de_manutencao(
@@ -234,13 +234,13 @@ def test_a_coleta_rejeitada_por_poucos_paises_diz_o_minimo_e_a_base(cenario: "Ce
     poucos_paises(cenario)
     resumo = cenario.servico().coletar()
     assert resumo.motivo is not None
-    assert "204" in resumo.motivo
-    assert "226" in resumo.motivo
-    assert (resumo.paises_reconhecidos, resumo.minimo) == (203, 204)
-    assert cenario.coletas()[-1].paises_reconhecidos == 203
+    assert "206" in resumo.motivo
+    assert "228" in resumo.motivo
+    assert (resumo.paises_reconhecidos, resumo.minimo) == (205, 206)
+    assert cenario.coletas()[-1].paises_reconhecidos == 205
 
 
-def test_204_reconhecidos_ainda_e_uma_coleta_valida(cenario: "Cenario") -> None:
+def test_206_reconhecidos_ainda_e_uma_coleta_valida(cenario: "Cenario") -> None:
     cenario.coletar()
     cenario.semana_seguinte()
     nomes = [
@@ -251,24 +251,24 @@ def test_204_reconhecidos_ainda_e_uma_coleta_valida(cenario: "Cenario") -> None:
     cenario.remover(*nomes)
     resumo = cenario.coletar()
     assert resumo.valida is True
-    assert resumo.paises_reconhecidos == 204
+    assert resumo.paises_reconhecidos == 206
 
 
-def test_primeira_coleta_com_166_paises_ja_e_valida(cenario: "Cenario") -> None:
+def test_primeira_coleta_com_168_paises_ja_e_valida(cenario: "Cenario") -> None:
     principais = [linha.nome for linha in cenario.linhas if linha.tabela == "principal"]
-    cenario.remover(*principais[:60])  # 226 - 60 = 166, acima do piso de 150
+    cenario.remover(*principais[:60])  # 228 - 60 = 168, acima do piso de 150
     resumo = cenario.coletar()
     assert resumo.valida
-    assert resumo.paises_reconhecidos == 166
-    assert len(cenario.requisitos()) == 166
+    assert resumo.paises_reconhecidos == 168
+    assert len(cenario.requisitos()) == 168
 
 
 def test_primeira_coleta_rejeitada_por_ficar_abaixo_do_piso_de_150(cenario: "Cenario") -> None:
     principais = [linha.nome for linha in cenario.linhas if linha.tabela == "principal"]
-    cenario.remover(*principais[:80])  # 226 - 80 = 146
+    cenario.remover(*principais[:80])  # 228 - 80 = 148
     resumo = cenario.coletar()
     assert resumo.resultado is R.REJEITADA
-    assert (resumo.paises_reconhecidos, resumo.minimo) == (146, 150)
+    assert (resumo.paises_reconhecidos, resumo.minimo) == (148, 150)
     assert cenario.requisitos() == {}  # nenhum país mostra dado
     assert cenario.mudancas() == []
 
@@ -372,7 +372,7 @@ def test_a_mesma_fonte_confirmada_atualiza_lido_em_e_coleta_id(cenario: "Cenario
     cenario.semana_seguinte()
     segunda = cenario.coletar()
 
-    assert (segunda.aplicadas, segunda.sem_mudanca, segunda.retidas) == (0, 226, ())
+    assert (segunda.aplicadas, segunda.sem_mudanca, segunda.retidas) == (0, 228, ())
     argentina = cenario.requisito("AR")
     assert argentina is not None
     assert argentina.lido_em == cenario.relogio.agora()
@@ -484,7 +484,7 @@ def test_a_coleta_seguinte_tenta_de_novo_a_traducao_que_falhou(cenario: "Cenario
     assert all(o["traducao"] is not None for o in observacoes_gravadas(cenario))
     # a fonte não mudou: o país é só confirmado, e a leitura é a de hoje
     assert resumo.aplicadas == 0
-    assert resumo.sem_mudanca == 226
+    assert resumo.sem_mudanca == 228
 
 
 def test_um_lote_que_falha_traduz_o_resto_e_tenta_o_que_faltou_na_proxima(

@@ -160,14 +160,19 @@ Nas tabelas de territórios **não há coluna de permanência**: o prazo vem den
 
 **Nomes que o pycountry não liga sozinho (18 aliases à mão):** Brunei → BN, Cape Verde → CV, Democratic Republic of the Congo → CD, Micronesia → FM, Russia → RU, Turkey → TR, Vatican City → VA, United Kingdom and Crown dependencies → GB, Palestine → PS, Macau → MO, Saint Martin → MF, Sint Maarten → SX, Pitcairn Islands → PN, Saint Helena / Ascension Island / Tristan da Cunha → SH, Clipperton Island → CLP, U.S. Virgin Islands → VI.
 
-**Ignorados de propósito (21 nomes), cada um com motivo, no arquivo `nomes.yaml`:**
-- por convenção da 001: Kosovo (usa a identidade da Sérvia), Falkland Islands (usa a da Argentina);
+**Ignorados de propósito (19 nomes), cada um com motivo, no arquivo `nomes.yaml`:**
 - território não reconhecido sem desenho no mapa: Abkhazia, South Ossetia, Northern Cyprus, Somaliland, Transnistria;
 - área neutra: Sahrawi Arab Democratic Republic (Saara Ocidental);
 - parte de outro país no mapa: Guadeloupe, Martinique, Mayotte, Réunion (França), Bonaire, Sint Eustatius, Saba (Países Baixos);
 - sem desenho próprio: Tokelau, Jan Mayen, Svalbard, Akrotiri and Dhekelia, British Indian Ocean Territory, South Georgia and the South Sandwich Islands.
 
-**Cobertura projetada (SC-001), só pela ligação de nomes:** os 194 países e as 43 dependências do mapa (sem o Brasil) têm linha própria ou do soberano: **237 de 237**. A conta definitiva depende dos rótulos ficarem fora de "Outra situação por rótulo desconhecido": com o dicionário proposto, **nenhum** rótulo da fixture é desconhecido. **Códigos reconhecidos** (base do FR-010): 226 (193 da tabela principal e 33 dos territórios, sem Kosovo e Malvinas); 90% de 226 é 204, bem acima do piso de 150 da primeira coleta.
+**Cobertura projetada (SC-001), só pela ligação de nomes:** os 194 países e as 43 dependências do mapa (sem o Brasil) têm linha própria ou do soberano: **237 de 237** (Kosovo e Malvinas têm linha própria na fonte; ver 3.4a). A conta definitiva depende dos rótulos ficarem fora de "Outra situação por rótulo desconhecido": com o dicionário proposto, **nenhum** rótulo da fixture é desconhecido. **Códigos reconhecidos** (base do FR-010): 228 (193 da tabela principal e 35 dos territórios, com Kosovo e Malvinas); 90% de 228 é 206 (205,2 arredondado para cima), bem acima do piso de 150 da primeira coleta.
+
+### 3.4a Identidade do painel (001) e regra de entrada (002) são coisas diferentes (esclarecimento de 28/10/2026)
+
+A proposta original ignorava as linhas "Kosovo" e "Falkland Islands" e pintava os dois com o visto do soberano. **Foi revertida.** A 001 diz **quem aparece no painel** (nome, bandeira, nota, alertas e postos da Sérvia e da Argentina), por motivo de política externa brasileira. A 002 diz **o que o viajante precisa para entrar**, e isso segue quem controla a fronteira, não a identidade do painel: o Kosovo tem a entrada dele, e as Malvinas, administradas pelo Reino Unido, têm a delas. Herdar o visto do soberano seria dar informação **falsa** (princípio V): a Argentina aceita o RG pelo acordo do Mercosul, e na fixture as Malvinas ("Visa not required", com licença de visitante emitida na chegada) não aceitam.
+
+Consequências: (1) as duas linhas entram em `nomes` (XK e FK) e saem de `ignorar`; (2) a leitura nunca usa o registro do soberano para quem tem `identidade_do_soberano`: sem linha própria, "sem informação"; (3) a seção de visto traz `territorio_nome` ("Kosovo", "Ilhas Malvinas") e se intitula "Visto: <nome>", para a pessoa não achar que o visto é da Sérvia ou da Argentina; (4) as Malvinas nunca exibem RG, nem no painel nem no globo. A observação do painel (001) continua dizendo que o mapa mostra o Kosovo como parte da Sérvia; só o visto é dele.
 
 ### 3.5 "Varia conforme o motivo" (O4, aprovado com acréscimo)
 
