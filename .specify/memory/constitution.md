@@ -1,8 +1,15 @@
 <!--
 Relatório de Impacto da Sincronização
-- Mudança de versão: 1.0.1 → 1.0.2 (PATCH: esclarecimento sem mudar a intenção do princípio)
-- Princípio VIII: em desenvolvimento, as portas do banco (e, no futuro, do Chroma) podem ligar só em
-  127.0.0.1; em produção, ficam apenas na rede interna do Docker, sem porta publicada.
+- Mudança de versão: 1.0.2 → 1.0.3 (PATCH: esclarecimento sem mudar a intenção do princípio)
+- Princípio III (v1.0.3): o carregamento inicial do mapa continua numa única chamada; dados de um
+  modo opcional do mapa ou de uma funcionalidade acionada pelo usuário (ex.: o modo "Vistos" e, no
+  futuro, o chat) podem ser buscados sob demanda, quando a pessoa a aciona, desde que o
+  carregamento inicial não dependa deles. Nenhum outro princípio muda.
+- Modelos conferidos em .specify/templates (plan-template, spec-template, tasks-template e
+  demais): nenhuma mudança necessária; o "Constitution Check" do plan-template é genérico e não
+  repete o texto do princípio.
+- Princípio VIII (v1.0.2): em desenvolvimento, as portas do banco (e, no futuro, do Chroma) podem
+  ligar só em 127.0.0.1; em produção, ficam apenas na rede interna do Docker, sem porta publicada.
 - Princípio III (v1.0.1), dois esclarecimentos:
   1. a proibição de o backend gerar HTML não se aplica à documentação automática da API em
      desenvolvimento (desligada em produção);
@@ -13,7 +20,9 @@ Relatório de Impacto da Sincronização
 - TODOs pendentes: nenhum
 - Histórico: 1.0.0 (2026-10-22) criou os princípios I a VIII, Idioma e Convenções e Governança;
   tornou os testes obrigatórios no tasks-template; 1.0.1 (2026-10-23) esclareceu o princípio III
-  (documentação automática da API e requisição ao selecionar um país).
+  (documentação automática da API e requisição ao selecionar um país); 1.0.2 (2026-10-23)
+  esclareceu o princípio VIII (portas do banco em desenvolvimento); 1.0.3 (2026-10-28)
+  esclareceu o princípio III (dados de modo opcional buscados sob demanda).
 -->
 # Constituição do Farol Atlas
 
@@ -73,6 +82,10 @@ offline são a única forma de detectar regressões na extração.
 - No carregamento, o mapa MUST receber seus dados numa única chamada e MUST NOT fazer uma
   requisição por país. Uma requisição quando o usuário seleciona um país (ex.: os detalhes do
   painel) é permitida.
+- O carregamento inicial do mapa continua recebendo seus dados numa única chamada. Dados de um
+  modo opcional do mapa ou de uma funcionalidade acionada pelo usuário (ex.: o modo "Vistos" e,
+  no futuro, o chat) podem ser buscados sob demanda, quando a pessoa a aciona, desde que o
+  carregamento inicial não dependa deles.
 - A biblioteca do mapa MUST ficar isolada atrás de uma interface própria; trocá-la não pode exigir
   mudança em outros componentes.
 
@@ -158,4 +171,4 @@ consagrados podem ficar em inglês.
   novo princípio ou ampliação material; PATCH para esclarecimentos e correções de redação.
 - Toda revisão de mudança MUST verificar a conformidade com os princípios acima.
 
-**Versão**: 1.0.2 | **Ratificada em**: 2026-10-22 | **Última emenda**: 2026-10-23
+**Versão**: 1.0.3 | **Ratificada em**: 2026-10-22 | **Última emenda**: 2026-10-28
