@@ -8,6 +8,15 @@
 
 **Input**: User description: "Feature 002 do Farol Atlas: requisitos de visto para brasileiros, por país. O painel de cada país ganha uma seção \"Visto\" e o globo pode ser colorido por visto, a partir do artigo da Wikipédia em inglês \"Visa requirements for Brazilian citizens\" (CC BY-SA), sem mudar as regras de alerta da feature 001."
 
+## Clarifications
+
+### Session 2026-10-27
+
+- Q: Como tratar casos mistos (rótulos combinados) e qual a lista final de categorias? → A: Vale a categoria mais exigente entre as citadas, na ordem isento de visto < visto na chegada < autorização ou visto eletrônico < visto exigido; "Outra situação" fica fora da ordem, e se qualquer parte de um rótulo combinado cair nela (rótulo desconhecido, entrada proibida, regra especial), o país inteiro fica em "Outra situação", com o rótulo original visível. Continuam as cinco categorias. Quando a fonte indicar que a regra varia conforme o motivo da viagem, o painel mostra a nota "Varia conforme o motivo da viagem", além do rótulo original, e o campo de permanência mostra "Varia conforme o motivo (ver observações)" se os prazos diferirem.
+- Q: Quantos países reconhecidos tornam uma coleta de vistos válida? → A: 90% dos países reconhecidos na última coleta válida; na primeira coleta (sem coleta válida anterior), um piso fixo de 150 países reconhecidos.
+- Q: A partir de quantos dias os dados contam como "antigos demais"? → A: Mais de 14 dias desde a última coleta válida.
+- Q: O modo escolhido no globo fica lembrado entre visitas? → A: Não. Toda visita abre em "Alertas".
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Ver o visto no painel do país (Priority: P1)
@@ -38,7 +47,11 @@ Quem viaja com passaporte brasileiro abre o painel de um país, tocando no globo
 9. **Given** uma dependência sem entrada própria na fonte, **When** o usuário abre o painel, **Then** vale a entrada do país soberano, com uma nota no painel dizendo isso.
 10. **Given** o Kosovo ou as Malvinas, **When** o usuário toca neles, **Then** abre o painel da Sérvia ou da Argentina (convenção da feature 001), com o visto do país soberano.
 11. **Given** uma coleta de vistos que falha ou vem inválida, **When** o usuário abre um painel, **Then** os dados da última coleta válida continuam aparecendo, com a data dela.
-12. **Given** dados de visto antigos demais, **When** o usuário abre um painel, **Then** a seção avisa que os dados podem estar desatualizados.
+12. **Given** dados de visto cuja última coleta válida tem mais de 14 dias, **When** o usuário abre um painel, **Then** a seção avisa que os dados podem estar desatualizados.
+13. **Given** um país cuja fonte traz um rótulo combinado, como "eVisa / visto na chegada", **When** o usuário abre o painel, **Then** a categoria é a mais exigente das citadas ("Autorização ou visto eletrônico") e o rótulo original da fonte aparece.
+14. **Given** um país cuja fonte indica que a regra varia conforme o motivo da viagem, **When** o usuário abre o painel, **Then** a seção mostra a nota "Varia conforme o motivo da viagem", além do rótulo original e das observações.
+15. **Given** um rótulo combinado em que uma parte cai em "Outra situação" (por exemplo, "Visa required / Admission refused" ou "Visa not required / <rótulo desconhecido>"), **When** o usuário abre o painel, **Then** o país inteiro fica em "Outra situação", com o rótulo original visível, e nunca em "Visto exigido" nem em "Isento de visto".
+16. **Given** um país cujos prazos de permanência diferem por motivo de viagem, **When** o usuário abre o painel, **Then** o campo de permanência mostra "Varia conforme o motivo (ver observações)" e os prazos aparecem nas observações.
 
 ---
 
@@ -69,7 +82,8 @@ Quem planeja uma viagem alterna o globo entre "Alertas" e "Vistos" para ver, de 
 - **Coleta de vistos falha, vem em formato diferente ou com poucos países reconhecidos**: nada muda; vale a última coleta válida, com a data dela. Ver FR-010.
 - **Nome da fonte que não corresponde a nenhum país do mapa**: fica registrado para revisão e não afeta nenhum país; nunca é descartado em silêncio.
 - **País do mapa sem linha na fonte**: mostra "Sem informação de visto"; o sistema não deduz uma categoria a partir de vizinhos nem de acordos.
-- **Rótulo da fonte combinado ou desconhecido** (ex.: "eVisa / visto na chegada"; "isento / eVisa"): ver FR-007.
+- **Rótulo da fonte combinado** (ex.: "eVisa / visto na chegada"; "isento / eVisa") ou que varia conforme o motivo da viagem: ver FR-007 e FR-007a.
+- **Rótulo da fonte desconhecido**, inteiro ou como parte de um rótulo combinado: a categoria é "Outra situação", com o texto original visível (FR-003 e FR-007), o motivo "rótulo desconhecido" e o rótulo registrado para revisão (FR-012a).
 - **Observação sem mudança desde a coleta anterior**: mantém a tradução já feita, sem traduzir de novo.
 - **Tradução automática indisponível ou falha**: o painel mostra a observação original em inglês, avisando que ainda não foi traduzida; a categoria e os demais campos não dependem da tradução.
 - **Texto da fonte com marcação ou instruções** (por exemplo, HTML ou frases que mandam o sistema fazer algo): é tratado como texto comum, mostrado como está e nunca interpretado.
@@ -90,18 +104,20 @@ Quem planeja uma viagem alterna o globo entre "Alertas" e "Vistos" para ver, de 
 - **FR-004**: A seção MUST mostrar o tempo máximo de permanência quando a fonte o informar, e MUST omitir essa linha quando a fonte não informar (sem inventar "ilimitado" nem "sem prazo").
 - **FR-005**: A seção MUST mostrar as observações em português, identificadas como tradução automática, com acesso ao texto original em inglês. Se a tradução não estiver disponível, MUST mostrar o texto original, avisando que não foi traduzido.
 - **FR-006**: Quando a fonte indicar que basta o documento de identidade (RG), a seção MUST mostrar isso de forma explícita, além da categoria.
-- **FR-007**: Quando a fonte usar um rótulo combinado ou desconhecido (por exemplo, mais de uma situação conforme o motivo da viagem), o sistema MUST NOT escolher a categoria mais favorável. [NEEDS CLARIFICATION: como tratar casos mistos? Opções: (A) usar a categoria mais exigente e mostrar o rótulo original; (B) classificar como "Outra situação" e mostrar o original; (C) ter uma categoria própria "Depende do motivo da viagem". Isso também define a lista final de categorias, hoje com cinco.]
+- **FR-007**: Quando a fonte usar um rótulo combinado (por exemplo, "eVisa / Visa on arrival" ou "Visa not required / eVisa"), o sistema MUST usar a categoria **mais exigente** entre as que o rótulo cita e MUST NOT escolher a mais favorável. A ordem de exigência, da menos para a mais exigente, é: **isento de visto < visto na chegada < autorização ou visto eletrônico < visto exigido**. "Outra situação" fica fora dessa ordem. Se **qualquer parte** de um rótulo combinado cair em "Outra situação" (rótulo desconhecido, entrada proibida, regra especial), o país inteiro MUST ficar em "Outra situação", e nunca na categoria da outra parte: "Visa required / Admission refused" não pode virar "Visto exigido", e "Visa not required / <rótulo desconhecido>" não pode virar "Isento de visto" (princípio V). O painel MUST mostrar o rótulo original da fonte sempre que ele for combinado, e em "Outra situação" o rótulo original MUST estar visível (FR-003). A lista final de categorias é a das cinco do FR-002.
+- **FR-007a**: Quando a fonte indicar que a regra varia conforme o motivo da viagem (por exemplo, turismo e negócios com regras ou prazos diferentes), o painel MUST mostrar a nota "Varia conforme o motivo da viagem", além do rótulo original e das observações. A categoria continua sendo escolhida pelo FR-007. Quando os prazos de permanência diferem por motivo, o painel MUST mostrar o campo de permanência com o texto "Varia conforme o motivo (ver observações)", e os prazos de cada motivo aparecem nas observações; o sistema MUST NOT escolher um dos prazos para o campo.
 - **FR-008**: A seção MUST mostrar a fonte, com link para o artigo da Wikipédia e o crédito da licença CC BY-SA, e a data da última coleta válida, em todo painel que mostre dado de visto.
 - **FR-009**: A seção MUST mostrar o aviso de que a informação não é oficial e deve ser conferida com o consulado ou a embaixada do país antes da viagem, junto com a informação de visto.
 
 **Regras de dados (P1)**
 
-- **FR-010**: Uma coleta de vistos só MUST substituir os dados atuais se for válida: o artigo foi lido inteiro, no formato esperado, e a quantidade de países reconhecidos atinge o mínimo. Uma coleta inválida MUST NOT alterar nenhum dado; vale a última coleta válida, com a data dela. [NEEDS CLARIFICATION: qual a quantidade mínima de países reconhecidos para a coleta ser válida? Opções: (A) 90% das linhas da tabela principal da última coleta válida; (B) um número fixo (ex.: 150 países); (C) 95%, igual à meta de cobertura.]
+- **FR-010**: Uma coleta de vistos só MUST substituir os dados atuais se for válida: o artigo foi lido inteiro, no formato esperado, e a quantidade de países reconhecidos atinge o mínimo. Uma coleta inválida MUST NOT alterar nenhum dado; vale a última coleta válida, com a data dela. A unidade dos dois critérios é a mesma, o número de países reconhecidos: o mínimo é **90% dos países reconhecidos na última coleta válida**. Na primeira coleta, quando ainda não existe coleta válida anterior, o mínimo é um piso fixo de **150 países reconhecidos**.
 - **FR-011**: O sistema MUST NOT mostrar "Isento de visto" nem qualquer outra categoria para um país sem dado. País sem informação MUST mostrar "Sem informação de visto". Enquanto nunca houver coleta válida, todos os países ficam assim.
 - **FR-012**: Cada país da fonte MUST ser ligado ao mesmo país do mapa pelo código ISO. Nomes da fonte que o sistema não reconhece MUST ser registrados para revisão, com o nome e a data, e MUST NOT ser descartados em silêncio.
+- **FR-012a**: Cada rótulo de visto da fonte que o sistema não reconhece (inteiro ou como parte de um rótulo combinado) MUST ser registrado para revisão, com o rótulo, o país onde apareceu e a data, e MUST NOT ser descartado em silêncio. Enquanto não for reconhecido, o país fica em "Outra situação" (FR-007), com o motivo "rótulo desconhecido".
 - **FR-013**: Para territórios e dependências, o sistema MUST usar a entrada própria do território, quando a fonte a tiver (ex.: Hong Kong, Macau, territórios ultramarinos). Sem entrada própria, MUST usar a do país soberano e o painel MUST trazer uma nota dizendo isso. As convenções da feature 001 MUST ser mantidas: Kosovo e Malvinas abrem o painel da Sérvia e da Argentina, com o visto do soberano; Taiwan aparece como "Taiwan (China)"; Porto Rico segue a regra das dependências.
 - **FR-014**: O Brasil MUST NOT ter seção de visto (ou MUST mostrar "não se aplica"). Áreas neutras continuam sem painel.
-- **FR-015**: Se os dados de visto ficarem antigos demais, o painel MUST avisar que podem estar desatualizados. [NEEDS CLARIFICATION: a partir de quantos dias sem coleta válida os dados contam como "antigos demais"? Opções: (A) 14 dias (o dobro do intervalo semanal); (B) 21 dias; (C) 30 dias.]
+- **FR-015**: Se os dados de visto ficarem antigos demais, o painel MUST avisar que podem estar desatualizados. Os dados contam como "antigos demais" quando a última coleta válida tem **mais de 14 dias** (o dobro do intervalo semanal).
 - **FR-016**: Observações cujo texto não mudou desde a última coleta MUST manter a tradução já feita, sem nova tradução. Observações novas ou alteradas MUST ser traduzidas, e a tradução MUST sempre vir marcada como automática.
 - **FR-017**: Textos da fonte (nomes, rótulos, observações) e traduções MUST ser tratados como dados: o site MUST NOT inseri-los como HTML sem sanitizar e MUST NOT seguir instruções contidas neles.
 
@@ -113,7 +129,7 @@ Quem planeja uma viagem alterna o globo entre "Alertas" e "Vistos" para ver, de 
 
 **Colorir o globo por visto (P2)**
 
-- **FR-021**: O site MUST oferecer um seletor "Alertas | Vistos" para alternar o que o globo mostra. O modo padrão MUST ser "Alertas". [NEEDS CLARIFICATION: o modo escolhido fica lembrado entre visitas? Opções: (A) não lembrar: toda visita abre em "Alertas"; (B) lembrar, como a legenda recolhida da feature 001; (C) lembrar só dentro da mesma visita (recarregar volta para "Alertas").]
+- **FR-021**: O site MUST oferecer um seletor "Alertas | Vistos" para alternar o que o globo mostra. O modo padrão MUST ser "Alertas". O modo escolhido MUST NOT ser lembrado entre visitas: toda visita, e todo recarregamento da página, abre em "Alertas".
 - **FR-022**: No modo "Vistos", cada país MUST ser pintado pela sua categoria de visto, com uma paleta própria, claramente diferente da dos alertas. Nenhuma cor de visto MUST se confundir com o verde de "sem alerta" nem com as outras cores de alerta.
 - **FR-023**: No modo "Vistos", países sem dado MUST aparecer em cinza, explicado na legenda. O Brasil e as áreas neutras MUST aparecer em cor neutra, sem categoria.
 - **FR-024**: A legenda MUST mudar junto com o modo, explicar cada categoria com texto e continuar funcionando como filtro (caixa de marcar por categoria; desmarcar esmaece, sem esconder nem pintar de cinza; países esmaecidos continuam tocáveis), como na feature 001. O filtro de cada modo MUST ser independente do filtro do outro.
@@ -124,18 +140,19 @@ Quem planeja uma viagem alterna o globo entre "Alertas" e "Vistos" para ver, de 
 
 ### Key Entities
 
-- **Requisito de visto**: o que a fonte diz sobre a entrada de brasileiros num país ou território. Atributos: país ou território, categoria de visto, rótulo original da fonte, tempo máximo de permanência (quando houver), indicação de que basta o RG, observações (original e tradução), se vale a entrada própria do território ou a do soberano.
-- **Categoria de visto**: uma entre isento de visto, autorização ou visto eletrônico, visto na chegada, visto exigido e outra situação, com texto explicativo e cor própria no globo. Quem não tem dado não tem categoria.
+- **Requisito de visto**: o que a fonte diz sobre a entrada de brasileiros num país ou território. Atributos: país ou território, categoria de visto, rótulo original da fonte, tempo máximo de permanência (quando houver), indicação de que basta o RG, indicação de que a regra varia conforme o motivo da viagem, motivo de "Outra situação" quando for o caso (rótulo conhecido, mapeado de propósito para ela, ou rótulo desconhecido), observações (original e tradução), se vale a entrada própria do território ou a do soberano.
+- **Categoria de visto**: uma entre isento de visto, visto na chegada, autorização ou visto eletrônico e visto exigido (nessa ordem de exigência, da menor para a maior), mais "outra situação", que fica fora da ordem. Cada uma tem texto explicativo e cor própria no globo. Quem não tem dado não tem categoria.
 - **Observação de visto**: texto da fonte em inglês, com a tradução automática em português quando existir; só é traduzida de novo se o texto mudar.
 - **Coleta de vistos**: uma tentativa de ler o artigo, válida ou não. Só a última coleta válida define o que é exibido e a data mostrada.
 - **Nome não reconhecido**: nome da fonte que não corresponde a nenhum país do mapa, guardado para revisão.
+- **Rótulo desconhecido**: rótulo de visto da fonte que o dicionário de rótulos do sistema não cobre, guardado para revisão com o país onde apareceu e a data.
 - **Modo do globo**: "Alertas" ou "Vistos"; define como o globo é pintado e qual legenda aparece.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Após uma coleta válida, pelo menos 95% dos países do mapa (meta de trabalho, a confirmar no clarify) têm uma categoria de visto.
+- **SC-001**: Na primeira coleta válida, pelo menos 95% dos países clicáveis do mapa têm um dado de visto. Contam qualquer das quatro categorias da ordem de exigência e também "Outra situação", mas só quando ela vem de um rótulo conhecido, mapeado de propósito para ela (por exemplo, entrada proibida). País em "Outra situação" por rótulo desconhecido não conta: é lacuna do dicionário de rótulos, não dado. A base de cálculo são os países e territórios que abrem painel, excluindo o Brasil e as áreas neutras sem painel. A meta é fixa em 95%; o resultado da primeira coleta é registrado e, se ficar abaixo, a feature não está pronta.
 - **SC-002**: Nenhum país sem dado aparece como "Isento de visto" ou com qualquer outra categoria, nem no painel nem no globo.
 - **SC-003**: Todo painel que mostra dado de visto mostra a fonte com o crédito CC BY-SA, a data da coleta válida e o aviso de que a informação não é oficial.
 - **SC-004**: A partir do site aberto, o usuário descobre se precisa de visto para qualquer país em até 10 segundos, pelo toque ou pela busca.
@@ -144,6 +161,7 @@ Quem planeja uma viagem alterna o globo entre "Alertas" e "Vistos" para ver, de 
 - **SC-007**: Uma coleta de vistos inválida nunca altera nenhum dado exibido.
 - **SC-008**: Quando a coleta funciona, os dados exibidos têm no máximo 7 dias de atraso em relação ao artigo.
 - **SC-009**: Todo nome da fonte não reconhecido fica registrado: nenhuma linha lida do artigo some sem aparecer em um país ou no registro de nomes para revisão.
+- **SC-010**: Ao concluir a feature, não há nenhum rótulo desconhecido pendente na tabela atual do artigo: o dicionário de rótulos cobre todos os rótulos existentes, e o registro de rótulos para revisão está vazio depois da primeira coleta válida. Rótulos novos que o artigo ganhar depois continuam indo para o registro (FR-012a).
 
 ## Assumptions
 
@@ -152,7 +170,7 @@ Quem planeja uma viagem alterna o globo entre "Alertas" e "Vistos" para ver, de 
 - Os países e territórios do mapa são os mesmos da feature 001 (198 países da lista do Itamaraty, mais dependências), e o código ISO deles é a chave de ligação com a fonte.
 - Entrada só com o RG ("Freedom of Movement") conta na categoria "Isento de visto", com a indicação explícita do RG.
 - O seletor de modo e o filtro da legenda por modo existem só no mapa; a busca por país continua igual.
-- O filtro por categoria de cada modo vale enquanto a página estiver aberta; guardá-lo entre visitas não faz parte desta feature. A escolha de legenda recolhida ou aberta da feature 001 vale para os dois modos.
+- O filtro por categoria de cada modo vale enquanto a página estiver aberta; guardá-lo entre visitas não faz parte desta feature, como também não o modo escolhido (FR-021). A escolha de legenda recolhida ou aberta da feature 001 vale para os dois modos.
 - A tradução das observações usa o mesmo tipo de serviço de modelo de linguagem já configurável do projeto, sem exigir serviço pago.
 - O site continua público, sem login, e todo o conteúdo em português.
 - A atualização semanal é suficiente: as regras de visto mudam pouco, e o aviso de "conferir com o consulado" cobre o intervalo.
