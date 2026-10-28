@@ -91,7 +91,7 @@ backend/
 │   │   ├── fonte.py               # URL, nome, licença; extração da página (tabelas, JSON-LD) → linhas
 │   │   ├── normalizacao.py        # normalização de texto
 │   │   ├── dicionario.py          # carrega e valida rotulos/nomes/regras; classificar_rotulo, ligar_nome
-│   │   ├── dicionario/            # rotulos.yaml, nomes.yaml, regras_por_pais.yaml (com hash_observacao)
+│   │   ├── dicionarios_yaml/      # rotulos.yaml, nomes.yaml, regras_por_pais.yaml (com hash_observacao)
 │   │   ├── permanencia.py         # formatos conhecidos (FR-004a)
 │   │   ├── consolidacao.py        # linhas → candidato por território (combinados, hash)
 │   │   ├── retencao.py            # decidir_retencao (função pura) e estados

@@ -2,7 +2,7 @@
 
 > **Status: formato e regras APROVADOS em 28/10/2026** (levantamento do `research.md`, seção 3, e decisões O1 a O4). Este documento fixa o **formato**, as regras de leitura e os testes. O **conteúdo** dos três arquivos (as entradas) é escrito na implementação, a partir de `research.md` 3.1 a 3.5, e cada entrada leva um teste.
 
-Local: `backend/src/farol/vistos/dicionario/` (dentro do pacote, para ir na imagem do Docker e ser testado com o código). Arquivos YAML em UTF-8, lidos uma vez por execução e validados ao carregar (erro de formato derruba o teste, não a coleta em produção).
+Local: `backend/src/farol/vistos/dicionarios_yaml/` (dentro do pacote, para ir na imagem do Docker e ser testado com o código). Arquivos YAML em UTF-8, lidos uma vez por execução e validados ao carregar (erro de formato derruba o teste, não a coleta em produção).
 
 ## Normalização (antes de qualquer consulta)
 

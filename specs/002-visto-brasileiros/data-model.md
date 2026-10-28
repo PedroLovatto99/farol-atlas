@@ -123,7 +123,7 @@ Depois de cada coleta válida, todo item `pendente` que **não** foi visto naque
 
 ## O que o dicionário guarda (arquivos, não tabelas)
 
-`backend/src/farol/vistos/dicionario/` (formato em `contracts/dicionario-de-rotulos.md`):
+`backend/src/farol/vistos/dicionarios_yaml/` (formato em `contracts/dicionario-de-rotulos.md`):
 
 | Arquivo | Conteúdo |
 |---|---|
