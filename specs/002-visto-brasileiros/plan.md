@@ -1,0 +1,222 @@
+# Implementation Plan: Requisitos de visto para brasileiros, por país
+
+**Branch**: `002-visto-brasileiros` | **Date**: 2026-10-28 | **Spec**: [spec.md](spec.md)
+
+**Input**: Feature specification from `/specs/002-visto-brasileiros/spec.md`
+
+> **Aprovado em 28/10/2026:** o levantamento obrigatório (`research.md`, seção 3) e as decisões O1 a O12 (`research.md`, seção 4). O **conteúdo** dos dicionários de rótulos, de nomes e de regras por país é escrito na implementação, de acordo com o que foi aprovado, e cada entrada leva um teste.
+
+## Summary
+
+O painel de cada país ganha a seção "Visto" e o globo pode ser pintado por visto. Um módulo novo do backend, `vistos`, lê **uma vez por semana** a página do artigo "Visa requirements for Brazilian citizens" da Wikipédia (sem usar a API, que o `robots.txt` proíbe), liga cada linha a um território do mapa por um dicionário de nomes, traduz as observações em lote com um LLM configurável, e **só substitui o que o site mostra se a coleta for válida** (formato esperado e países reconhecidos ≥ 90% da coleta anterior, ou ≥ 150 na primeira). Mudanças para uma categoria **menos exigente** (ou passar a aceitar só o RG) ficam **retidas por país** até o dono confirmar. A `api` junta o painel (do `mapa`) e o visto (do `vistos`), e expõe `GET /vistos` para o globo. O frontend ganha o seletor "Alertas | Vistos" (padrão "Alertas", não lembrado), a paleta e a legenda de vistos com o subitem "Isento, entrada com RG" (listras no MapLibre) e a linha de fonte e data, visível mesmo com a legenda recolhida.
+
+Detalhes: [research.md](research.md) (conferências, levantamento da fixture e decisões), [data-model.md](data-model.md), [contracts/](contracts/) e [quickstart.md](quickstart.md).
+
+## Technical Context
+
+**Language/Version**: Python 3.13 (backend e worker); TypeScript com `strict: true` (frontend). Igual à 001.
+
+**Primary Dependencies**: as da 001. **Nenhuma dependência nova**, no backend nem no frontend: o parser usa BeautifulSoup4 (já em uso), a checagem de `robots.txt` usa protego, a tradução usa LangChain 1.x (`init_chat_model`, `with_structured_output`) e o padrão do globo é uma matriz de pixels gerada no código. `pycountry` e `shapely` continuam só no grupo de desenvolvimento.
+
+**Storage**: PostgreSQL 18, migração Alembic `0003_vistos` (4 tabelas novas; nenhuma da 001 muda). Dicionários em YAML dentro do pacote.
+
+**Testing**: pytest (PostgreSQL de teste; fixture real da Wikipédia; sessão HTTP falsa; tradutor falso) e Vitest + Testing Library (API simulada; mapa substituído por um falso). Mesmas pastas que o CI já roda (`tests/unidade`, `tests/contrato`, `tests/integracao`).
+
+**Target Platform**: Docker Compose, como na 001.
+
+**Project Type**: web-service + web-application, com o worker agendado na mesma imagem.
+
+**Performance Goals**: `GET /vistos` com número fixo de consultas (3); o visto do painel com número fixo (3 a mais que a 001); a coleta tem 2 requisições à Wikipédia por tentativa (a página e o `robots.txt`) e leva segundos, mais ~8 chamadas ao LLM na primeira coleta.
+
+**Constraints**: 360 px de largura; sem requisição por país no carregamento (o `/vistos` é sob demanda, ao entrar no modo "Vistos"); texto da fonte sempre tratado como dado; operação gratuita (Gemini no plano gratuito ou Ollama local; a falha do LLM não impede a coleta).
+
+**Scale/Scope**: cerca de 230 registros de visto, uma coleta por semana, poucos pendentes para o dono.
+
+## Constitution Check
+
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+
+| Princípio | Resultado | Como o plano atende |
+|---|---|---|
+| I. Qualidade por ferramenta | Passa | Ruff, mypy `strict`, ESLint e `tsc` `strict` valem para o código novo; nada de `any`. Tudo precisa passar em `uv run poe verificar` e `npm run verificar`, que o CI da `main` já roda sem segredos. |
+| II. TDD | Passa | Cada regra (normalização, dicionário, rótulos combinados, RG, permanência, validade, estabilidade, retenção, tradução, leitura) tem teste antes do código; as tarefas ficam nessa ordem. Sem rede e sem LLM de verdade (tradutor falso; fixture). Na interface, comportamento, não aparência. |
+| III. Arquitetura | Passa, com **duas leituras aprovadas em 28/10/2026** | `vistos` é módulo novo na camada de `mapa`, `coleta` e `classificacao`, sem importar nem ser importado por eles; o que é comum (cliente HTTP educado, relógio, parâmetros de modelo) sobe para a `infra` (D1). Modelos e repositórios no `dominio`; contratos do import-linter atualizados (8). Rotas só convertem; a junção painel+visto é uma função de composição da `api`, sem regra de negócio. DTOs Pydantic; tipos do frontend gerados do OpenAPI. Sem N+1, com teste de limite de consultas em `/vistos`. Frontend por funcionalidade; mapa atrás de `MapaProps`. **Leituras:** (1) "no carregamento, o mapa MUST receber seus dados numa única chamada": `/mapa` continua sendo essa chamada; `/vistos` só é pedida quando a pessoa escolhe o modo "Vistos", como a requisição ao selecionar um país que a constituição já permite (O10). (2) A rota de país chama dois módulos por intermédio da `api`; isso não cria dependência entre `mapa` e `vistos`. |
+| IV. Coleta responsável | Passa, depois de **um conserto** | `robots.txt` por protego antes da requisição; sem API da Wikipédia; User-Agent no formato da Wikimedia com o repositório como contato; pausa de 2 s; parada em 403, 429 ou verificação humana. **Achado:** o detector de verificação humana da 001 confundiria a página da Wikipédia com um CAPTCHA (a palavra aparece em um `<script>` de configuração) e a coleta pararia; o conserto (ignorar `<script>` e `<style>`) vem com teste que usa a fixture. Regra de estabilidade e limite de tentativas evitam insistir. |
+| V. Informação confiável | Passa | Sem dado ⇒ "Sem informação de visto", nunca uma categoria deduzida; rótulo desconhecido ou parte "Outra situação" ⇒ "Outra situação" com o rótulo à vista, nunca a mais favorável; mudança para menos exigente fica retida; toda informação mostra fonte, data **do dado de cada país** e o aviso de site não oficial, no painel e no mapa (linha de fonte no modo Vistos); tradução marcada como automática e com o original à mão. |
+| VI. Acessível e celular | Passa | Categoria sempre também em texto; o "Isento com RG" se distingue por **listras e por texto** (não só cor); estado misto da legenda por `aria-checked="mixed"` e "(parcial)"; contraste verificado (paleta abaixo); 360 px com a linha de fonte visível; sem animação nova (respeita `prefers-reduced-motion`). |
+| VII. Simples e gratuito | Passa | Nada novo na infraestrutura; LLM configurável por `LLM_TRADUTOR` (Gemini gratuito ou Ollama); sem o LLM a coleta segue e as observações aparecem em inglês. |
+| VIII. Segurança | Passa | Rotas novas só de leitura; nenhuma de escrita (o dono usa comandos dentro do contêiner do worker); texto da Wikipédia e tradução tratados como dados (texto puro no banco e na API, sem HTML; o React escapa; no prompt vão entre delimitadores e a saída é validada pelo Pydantic com tamanho limitado); segredos só em variáveis de ambiente; entradas validadas; `pip-audit` e `npm audit` continuam nos comandos de verificação (sem dependência nova). |
+| Idioma | Passa | Interface, documentação, nomes e comentários em português. |
+
+**Re-checagem após o desenho (Fase 1):** sem violações. Os itens que dependem de leitura da constituição (princípio III) estão listados na tabela abaixo (aprovados em 28/10/2026).
+
+## Project Structure
+
+### Documentation (this feature)
+
+```text
+specs/002-visto-brasileiros/
+├── plan.md              # Este arquivo
+├── research.md          # Fase 0: conferências, levantamento da fixture, decisões e riscos
+├── data-model.md        # Fase 1: tabelas, estados, retenção
+├── quickstart.md        # Fase 1: como validar
+├── contracts/
+│   ├── openapi.yaml             # API v1.1 COMPLETA (substitui o da 001 nos testes de contrato)
+│   ├── dicionario-de-rotulos.md # Formato dos dicionários (conteúdo aprovado no levantamento; escrito na implementação)
+│   ├── comandos-do-dono.md      # Comandos, saídas, códigos de saída, log e agenda
+│   └── mapa-props-vistos.md     # Mudanças em MapaProps, camadas, legenda e estado
+├── checklists/requirements.md
+└── tasks.md             # Fase 2 (/speckit-tasks; não criado aqui)
+```
+
+### Source Code (repository root)
+
+```text
+backend/
+├── alembic/versions/0003_vistos.py                  # novo
+├── src/farol/
+│   ├── infra/
+│   │   ├── cliente_http.py        # novo (movido de coleta): ClienteEducado, Pagina, SessaoHttp, RespostaHttp,
+│   │   │                          #   Baixador, parece_verificacao (ignora <script>/<style>); User-Agent novo
+│   │   ├── modelo.py              # novo: argumentos_do_modelo(nome, configuracoes) (sem importar LangChain)
+│   │   └── config.py              # + llm_tradutor
+│   ├── dominio/
+│   │   ├── enums.py               # + CategoriaDeVisto e demais enums
+│   │   ├── modelos.py             # + ColetaVistos, RequisitoVisto, MudancaRetida, ItemNaoReconhecido
+│   │   ├── constantes.py          # novo: CODIGO_DO_BRASIL (hoje local de mapa/painel.py)
+│   │   └── repositorios/vistos.py # novo: repositórios de vistos
+│   ├── coleta/                    # passa a importar o cliente HTTP da infra
+│   ├── classificacao/cadeia.py    # usa infra.argumentos_do_modelo
+│   ├── vistos/                    # NOVO módulo (interface pública: __init__.py)
+│   │   ├── fonte.py               # URL, nome, licença; extração da página (tabelas, JSON-LD) → linhas
+│   │   ├── normalizacao.py        # normalização de texto
+│   │   ├── dicionario.py          # carrega e valida rotulos/nomes/regras; classificar_rotulo, ligar_nome
+│   │   ├── dicionario/            # rotulos.yaml, nomes.yaml, regras_por_pais.yaml (com hash_observacao)
+│   │   ├── permanencia.py         # formatos conhecidos (FR-004a)
+│   │   ├── consolidacao.py        # linhas → candidato por território (combinados, hash)
+│   │   ├── retencao.py            # decidir_retencao (função pura) e estados
+│   │   ├── validade.py            # critérios da coleta válida
+│   │   ├── estabilidade.py        # adiar se a edição tem menos de 24 h; 3 adiamentos
+│   │   ├── tradutor.py            # Protocol Tradutor + saída estruturada (Pydantic)
+│   │   ├── tradutor_langchain.py  # adaptador (init_chat_model + with_structured_output)
+│   │   ├── servico_coleta.py      # ServicoDeColetaDeVistos
+│   │   ├── servico_dono.py        # listar pendentes, confirmar, rejeitar, ignorar nome
+│   │   ├── leitura.py             # montar_visto_do_pais, montar_vistos_do_mapa
+│   │   └── visoes.py              # dataclasses imutáveis devolvidas à api
+│   ├── mapa/painel.py             # importa CODIGO_DO_BRASIL do dominio
+│   ├── api/
+│   │   ├── composicao.py          # novo: painel + visto
+│   │   ├── dtos.py                # + Visto, VistosDoMapa e apoio
+│   │   ├── rotas/vistos.py        # novo: GET /vistos
+│   │   └── rotas/paises.py        # + visto (composição)
+│   └── worker/
+│       ├── agenda.py              # + job semanal, partida e "amanhã" (vistos)
+│       ├── comando.py             # + coletar --vistos e o grupo "vistos"
+│       └── jobs.py                # + rodada_real_de_vistos
+└── tests/
+    ├── fixtures/wikipedia/        # página real + README.md (feito)
+    ├── unidade/vistos/            # parser, normalização, dicionários, combinados, RG, permanência, validade,
+    │                              #   estabilidade, retenção, tradutor, comandos, agenda
+    ├── unidade/infra/             # cliente HTTP (movido), "captcha" na fixture, User-Agent
+    ├── integracao/vistos/         # repositórios, migração, serviço de coleta (retenção), leitura, comandos
+    ├── integracao/api/            # /vistos e paises.visto
+    └── contrato/                  # aponta para o contrato da 002
+
+frontend/
+├── scripts/gerar-tipos.mjs        # contrato padrão passa a ser o da 002
+└── src/
+    ├── servicos/api/              # esquema.d.ts regerado; cliente: Visto, VistosDoMapa, obterVistos
+    ├── estado/reducer.ts          # + modo, vistosMarcados e ações
+    ├── compartilhado/vistos.ts    # categorias, rótulos, textos, cores, ordem e chaves da legenda
+    └── funcionalidades/
+        ├── vistos/                # SecaoVisto, SeletorDeModo, LegendaDeVistos, LinhaDaFonteDeVistos, useVistos
+        ├── legenda/               # + filtroDeVistos.ts (puro) e troca da legenda por modo
+        ├── mapa/                  # tipos (Preenchimento), cor/feicoes, padroes.ts, adaptador (camada padrao-rg)
+        ├── painel/Painel.tsx      # + SecaoVisto
+        └── aviso/Aviso.tsx        # + aviso de vistos desatualizados no modo Vistos
+
+.env.example                       # + LLM_TRADUTOR; CONTATO_COLETA com o repositório
+```
+
+**Structure Decision**: a mesma aplicação web da 001 (`backend/` e `frontend/`). `vistos` é um módulo de domínio novo no backend, no nível de `mapa`, `coleta` e `classificacao`; o cliente HTTP educado, hoje dentro de `coleta`, sobe para a `infra` porque dois módulos o usam.
+
+### Nomes reais reaproveitados (lidos no código e na configuração, nada inventado)
+
+| O quê | Nome real |
+|---|---|
+| Tarefas do poe | `lint`, `formato`, `tipos`, `arquitetura`, `testes`, `auditoria`, `verificar`, `exportar-openapi` (**nenhuma nova**) |
+| Scripts do npm | `lint`, `formato`, `tipos`, `testes`, `build`, `auditoria`, `verificar`, `gerar-tipos` (**nenhum novo**) |
+| Variáveis de ambiente | `CONTATO_COLETA`, `PAUSA_SEGUNDOS`, `LLM_CLASSIFICADOR`, `GOOGLE_API_KEY`, `OLLAMA_BASE_URL`, `DATABASE_URL`, `DATABASE_URL_TESTE`, `DIRETORIO_DADOS`, `API_DOCS_HABILITADA`, `CORS_ORIGENS`. **Nova:** `LLM_TRADUTOR` |
+| Comandos do worker | `python -m farol.worker`, `coletar --alertas`, `coletar --postos`, `reclassificar <id\|url>`. **Novos:** `coletar --vistos` e `vistos pendentes\|confirmar\|rejeitar\|ignorar-nome` |
+| Serviços do Compose | `postgres`, `postgres-teste` (perfil `teste`), `migracao`, `api`, `worker`, `frontend` |
+| Jobs do APScheduler | `alertas-diarios`, `alertas-na-partida`, `postos-mensais`, `postos-na-partida`. **Novos:** `vistos-semanais`, `vistos-na-partida`, `vistos-amanha` |
+| CI | `ci.yml` roda `uv run poe lint\|formato\|tipos\|arquitetura`, `pytest tests/unidade tests/contrato`, `pytest tests/integracao`; `npm run lint\|formato\|tipos\|testes\|build`. As pastas novas de testes entram sozinhas |
+| Operações no cliente | `User-Agent`: `FarolAtlas/0.1 (<contato>; projeto pessoal) python-requests/<versão>` (novo formato) |
+
+## Paleta do modo "Vistos"
+
+Escolhida e **conferida por script** (contraste WCAG 2.x e distância de cor CIEDE2000, normal e com simulação de protanopia, deuteranopia e tritanopia). Rampa de azul a roxo, **mais escuro = mais exigente**, sem verde, amarelo nem vermelho (que são das cores de alerta). Os tokens entram em `tema.css` (`--color-visto-*`), com o valor em hex repetido em `compartilhado/vistos.ts` (um teste confere que são iguais, como na 001).
+
+| Chave | Cor | Contra branco (legenda) | Contra o oceano `#DCE8F2` | Observação |
+|---|---|---|---|---|
+| Isento de visto | `#00B1DF` | 2,5 | 2,0 | azul-ciano; amostra com borda |
+| Isento, entrada com RG | `#00B1DF` + listras `#0B3A52` | — | — | listras 4,8:1 sobre a base; item próprio |
+| Visto na chegada | `#007FC8` | 4,3 | 3,5 | |
+| Autorização ou visto eletrônico | `#424DA1` | 7,5 | 6,0 | |
+| Visto exigido | `#4D2455` | 12,4 | 9,9 | |
+| Outra situação | `#5E6469` | 6,0 | 4,8 | cinza-ardósia escuro |
+| Sem informação de visto | `#AEABA2` | 2,3 | 1,8 | mais escuro que o cinza dos alertas (`#D3D1C7`) |
+| Brasil (neutro) | `#F1EFE8` | — | — | o neutro já existente |
+
+- **Distinção (CIEDE2000, cada cor de visto contra as outras, contra as 4 cores de alerta, o neutro do Brasil e o oceano):** menor distância **16,6** (visão normal; "sem informação" × Brasil), **14,6** (protanopia), **12,5** (deuteranopia), **13,9** (tritanopia). Critério adotado: **≥ 12** em todas as visões. O Brasil e o "sem informação", que a spec pede "claramente distintos", ficam a 16,6.
+- **Amostras da legenda:** borda de 1 px em `#5F5E5A` (6,5:1 contra o branco; WCAG 1.4.11), porque o "Isento" (2,5) e o "Sem informação" (2,3) ficam abaixo de 3:1 contra o fundo branco. A legenda inclui o texto de cada categoria, então a cor nunca é a única informação.
+- O "sem informação" **muda de tom** entre os modos (no modo Alertas, "não verificado" segue `#D3D1C7`): tem outro significado e precisa se distinguir do neutro do Brasil, que no modo Alertas não existe como estado.
+- Verificação permanente: um teste do frontend recalcula os contrastes de texto (≥ 4,5) e a distância mínima entre as cores (com as matrizes de daltonismo) a partir de `compartilhado/vistos.ts`. A tabela acima é o resultado do script de dimensionamento; os números finais saem do teste.
+
+## Ordem de entrega sugerida (insumo para /speckit-tasks)
+
+As tarefas ficam agrupadas por história. **A P1 inteira (backend + painel) entrega valor e é testável antes de começar a P2.**
+
+0. **Fundamentos (sem mudar comportamento)**, com tudo verde ao fim:
+   - mover `ClienteEducado`/`Pagina`/`SessaoHttp`/`RespostaHttp`/`Baixador`/`parece_verificacao` para a `infra`, com os testes da 001 junto (**só os imports mudam**); corrigir o "captcha" descartando só o texto inline de `<script>`/`<style>` (atributos e texto visível continuam examinados), com dois testes novos: desafio real (iframe e div de captcha visíveis) **continua detectado** e a fixture da Wikipédia **não é** detectada; trocar o User-Agent;
+   - `argumentos_do_modelo` na `infra`; `CODIGO_DO_BRASIL` no `dominio`;
+   - contratos do import-linter para o módulo `vistos` (8 contratos); `.env.example`; `LLM_TRADUTOR`.
+1. **Portão de aprovação: CUMPRIDO em 28/10/2026** (O1 a O4 aprovados). O conteúdo dos três dicionários pode ser escrito conforme `research.md` 3.1 a 3.5. Um ponto segue aberto para conferência, sem bloquear: a parte `online visa` do combinado `Online Visa / Visa on arrival` (Burundi, Nepal) como Autorização ou visto eletrônico (`research.md` 3.1).
+2. **Dados:** enums, modelos ORM, migração `0003`, repositórios, com testes de integração (migração sobe e desce).
+3. **P1, backend:**
+   1. parser da fixture (JSON-LD, tabelas, linhas) e normalização;
+   2. dicionários e ligação de nomes, com um teste por entrada (inclui a regra geral de categoria da O1 e o `hash_observacao` das regras por país, com a lista de revisão);
+   3. consolidação (combinados, duplicatas, hash), permanência, RG;
+   4. validade, estabilidade e **retenção** (funções puras, testadas em tabela);
+   5. tradutor (Protocol, saída estruturada, adaptador, falso) e tradução em lote;
+   6. serviço de coleta (persistência, itens não reconhecidos, resolução automática) e serviço do dono;
+   7. leitura (`montar_visto_do_pais`, `montar_vistos_do_mapa`), dependências, Kosovo e Malvinas, Brasil;
+   8. API: DTOs, `GET /vistos`, `visto` em `Pais`, contrato completo, teste de contrato apontando para a 002, **teste que trava a parte da 001** (`test_contrato_002_preserva_001.py`: falha se rota, parâmetro, resposta, esquema ou propriedade da 001 mudar ou sumir; única adição permitida: `Pais.visto`), teste de limite de consultas;
+   9. worker: comandos, agenda (semanal, partida, amanhã), jobs, log de pendências;
+   10. teste de ponta a ponta com a fixture inteira (no estilo do teste do Líbano da 001): 100% de cobertura de ligação, nenhum rótulo desconhecido, Argentina com RG, Jamaica "varia", Guernsey no Reino Unido, Brasil sem seção.
+4. **P1, frontend:** regenerar os tipos; cliente e validação; `SecaoVisto` (todos os estados da spec); `Painel`; textos fixos (aviso, fonte CC BY-SA); testes de comportamento.
+5. **Ponto de controle da P1:** `uv run poe verificar` e `npm run verificar`; passos 1 a 8 do quickstart; primeira coleta real, registrando o resultado do SC-001 (meta fixa de 95%).
+6. **P2, frontend:**
+   1. **verificação (spike) do `fill-pattern` no globo**, com o Edge sem interface como na 001; se falhar, o plano B do `contracts/mapa-props-vistos.md`;
+   2. estado (`modo`, `vistosMarcados`), `Preenchimento` e funções puras de cor; `padroes.ts`;
+   3. adaptador (camada `padrao-rg`, imagem), `SeletorDeModo`, `useVistos` sob demanda, com os estados carregando, erro (mensagem na legenda e "Tentar de novo", territórios sem preenchimento, **nunca cinza**) e pronto;
+   4. legenda de vistos (subitem, estado misto), `filtroDeVistos`, linha de fonte fora da parte recolhível, aviso de dados antigos;
+   5. paleta e contraste (teste permanente); medição em 360 px e 1280 px.
+7. **Polimento:** `quickstart.md` conferido de ponta a ponta; atualizar `tasks.md`/checklists; relatório da primeira coleta (cobertura e tempo).
+
+## Complexity Tracking
+
+> Nenhuma violação da constituição. Esta tabela registra as **interpretações** e os desvios do pedido, todos aprovados em 28/10/2026.
+
+| Item | Por que ocorre | Alternativa mais simples rejeitada porque |
+|---|---|---|
+| **`/vistos` sob demanda** (princípio III, "numa única chamada no carregamento") — O10 | Pôr os vistos em `/mapa` acoplaria `mapa` a `vistos` (o que o pedido proíbe) e faria todo visitante do modo "Alertas" baixar dados que talvez nunca use. | Compor na rota `/mapa`: quebra a independência dos módulos. Buscar `/vistos` no carregamento: duas chamadas no carregamento, contra a letra da regra. |
+| **Mover o cliente HTTP para a `infra`** (O11) | `vistos` não pode importar `coleta`, e o pedido manda mover o que for compartilhado para a `infra`. | Duplicar o cliente: duas cópias de uma regra de coleta responsável. |
+| **Contrato completo da 002 substitui o da 001 nos testes** (O9) | O teste de contrato exige igualdade total; a 002 acrescenta uma rota e um campo. A parte da 001 fica **intacta**, e um teste dedicado falha se ela mudar. | Editar o arquivo da 001: reescreve o histórico de outra feature. |
+| **Horário 05:13 e não 05:43** (O5) | O job mensal de postos roda no dia 1 às 05:43 e demora ~45 min; o worker tem um fio só. | Manter 05:43: funciona (tolerância de atraso), mas faz a coleta de vistos esperar quando o dia 1 cai numa segunda. |
+| **Limite de 3 falhas técnicas seguidas** (O6) | O pedido diz "nova tentativa no dia seguinte" sem limite; sem limite, um formato quebrado geraria 2 requisições por dia para sempre. | Sem limite: contra o espírito do princípio IV. |
+| **Estado `superada` na retenção** (O7) | A fonte pode mudar de novo antes de o dono decidir; sem fechar o registro antigo, haveria dois pendentes para o mesmo país. | Reaproveitar `revertida`: mistura "voltou ao valor exibido" com "mudou para outro valor". |
+| **Dicionários dentro do pacote** (D5) | A imagem do Docker só copia `src`; as regras são do código e se testam com ele. | `dados/vistos/`: exigiria montar `dados/` também no worker e na imagem. |
+| **Regra geral de categoria** (O1) | Rótulos como "Online visa required" e "e-VOA" misturam canal e exigência. | Decidir rótulo a rótulo sem regra: o próximo rótulo novo reabriria a discussão. |
+| **`hash_observacao` nas regras por país** (O4) | A lista curada de "varia conforme o motivo" pode ficar velha quando a nota da fonte mudar; o hash faz o país voltar para revisão. | Heurística de texto: erraria em silêncio. |
+| **Erro de `/vistos` sem cinza** (O10) | Cinza significa "sem informação de visto"; pintar tudo de cinza por falha de rede afirmaria uma coisa falsa. | Pintar de cinza e avisar: o mapa mentiria enquanto o erro durasse. |
