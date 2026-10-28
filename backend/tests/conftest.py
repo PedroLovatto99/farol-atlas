@@ -166,6 +166,88 @@ def govbr() -> GovBrFalso:
     return GovBrFalso()
 
 
+# --------------------------------------------------------------------------- Wikipédia falsa
+HTML_DA_WIKIPEDIA = (
+    RAIZ_BACKEND
+    / "tests"
+    / "fixtures"
+    / "wikipedia"
+    / "visa_requirements_for_brazilian_citizens.html"
+)
+URL_DO_ARTIGO_FALSO = "https://en.wikipedia.org/wiki/Visa_requirements_for_Brazilian_citizens"
+
+
+@pytest.fixture(scope="session")
+def html_da_wikipedia() -> str:
+    """A página real do artigo (revisão 1380975986), salva em `tests/fixtures/wikipedia/`."""
+    return HTML_DA_WIKIPEDIA.read_text(encoding="utf-8")
+
+
+class WikipediaFalsa:
+    """Wikipédia de mentira: serve o artigo e simula os problemas que a coleta de vistos trata.
+
+    Cumpre o protocolo `Baixador` (`baixar` e `interrompido_por`), como o `ClienteEducado`:
+    bloqueio (403/429) e verificação humana interrompem tudo; o `robots.txt` que proíbe o
+    artigo responde sem baixar a página (o pedido não é registrado). Nenhum teste acessa a internet.
+    """
+
+    def __init__(self, html: str | None = None, url: str = URL_DO_ARTIGO_FALSO) -> None:
+        self.url = url
+        self.paginas: dict[str, Pagina] = {}
+        self.pedidos: list[str] = []
+        self.interrompido_por: str | None = None
+        self._proibidas: set[str] = set()
+        if html is not None:
+            self.publicar(html)
+
+    # ----------------------------------------------------------- montagem
+    def publicar(self, html: str, url: str | None = None) -> None:
+        alvo = url or self.url
+        self.paginas[alvo] = Pagina(alvo, 200, html, None)
+
+    def falhar_com_status(self, status: int, url: str | None = None) -> None:
+        """Erro do servidor (5xx) ou outro status que não seja de bloqueio."""
+        alvo = url or self.url
+        self.paginas[alvo] = Pagina(alvo, status, "", f"HTTP {status}")
+
+    def falhar_com_erro_de_conexao(self, url: str | None = None) -> None:
+        alvo = url or self.url
+        self.paginas[alvo] = Pagina(alvo, None, "", "erro de conexão: Timeout")
+
+    def bloquear(self, status: int = 403, url: str | None = None) -> None:
+        """403 ou 429: a coleta para e não insiste."""
+        alvo = url or self.url
+        self.paginas[alvo] = Pagina(alvo, status, "", f"bloqueado (HTTP {status})")
+
+    def pedir_verificacao_humana(self, url: str | None = None) -> None:
+        alvo = url or self.url
+        self.paginas[alvo] = Pagina(alvo, 200, "", "caiu na verificação humana")
+
+    def proibir_pelo_robots(self, url: str | None = None) -> None:
+        """O `robots.txt` passa a proibir a URL: a página nem é baixada."""
+        self._proibidas.add(url or self.url)
+
+    # ----------------------------------------------------------- cliente
+    def baixar(self, url: str) -> Pagina:
+        if self.interrompido_por is not None:
+            return Pagina(url, None, "", self.interrompido_por)
+        if url in self._proibidas:
+            return Pagina(url, None, "", "proibida pelo robots.txt")
+        self.pedidos.append(url)
+        pagina = self.paginas.get(url, Pagina(url, 404, "", "HTTP 404"))
+        if pagina.motivo and (
+            pagina.motivo.startswith("bloqueado") or "verificação humana" in pagina.motivo
+        ):
+            self.interrompido_por = pagina.motivo
+        return pagina
+
+
+@pytest.fixture
+def wikipedia(html_da_wikipedia: str) -> WikipediaFalsa:
+    """Wikipédia falsa já servindo a página real do artigo."""
+    return WikipediaFalsa(html_da_wikipedia)
+
+
 # --------------------------------------------------------------------------- banco de teste
 def _config_alembic(url: str) -> Config:
     configuracao = Config(str(RAIZ_BACKEND / "alembic.ini"))

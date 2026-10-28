@@ -75,7 +75,7 @@ Sem rede e sem LLM de verdade: sessão HTTP falsa, tradutor falso, fixture real.
 
 As marcas "a confirmar" das versões anteriores deste documento foram resolvidas pelas respostas O1 a O4 (seção 4). Onde a decisão mudou a proposta, a tabela mostra o valor final.
 
-Fixture: `backend/tests/fixtures/wikipedia/visa_requirements_for_brazilian_citizens.html` (revisão 1380975986). Normalização aplicada: remove `<sup>`/marcas `[2]`, troca espaços não separáveis, colapsa espaços, uniformiza a barra (`A/B` → `A / B`) e a diferença entre aspas e apóstrofos. Maiúsculas e minúsculas **não** mudam nenhuma contagem (não há variantes só de caixa).
+Fixture: `backend/tests/fixtures/wikipedia/visa_requirements_for_brazilian_citizens.html` (revisão 1380975986). Normalização aplicada: remove `<sup>`/marcas `[2]`, troca espaços não separáveis, colapsa espaços, uniformiza a diferença entre aspas e apóstrofos e, **só nos rótulos**, a barra (`A/B` → `A / B`); observações, nomes e prazos mantêm a barra da fonte. Maiúsculas e minúsculas **não** mudam nenhuma contagem (não há variantes só de caixa).
 
 ### 3.1 Rótulos da coluna de situação (23 valores distintos, depois de normalizados)
 

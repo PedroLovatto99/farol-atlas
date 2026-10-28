@@ -6,13 +6,18 @@ Local: `backend/src/farol/vistos/dicionarios_yaml/` (dentro do pacote, para ir n
 
 ## Normalização (antes de qualquer consulta)
 
-Aplicada ao texto da fonte e às chaves dos arquivos, pela mesma função (`vistos/normalizacao.py`), com testes próprios:
+Aplicada ao texto da fonte e às chaves dos arquivos, pelas mesmas funções (`vistos/normalizacao.py`), com testes próprios. Valem para **todo** texto (rótulos, nomes, prazos e observações):
 
 1. remove marcas de referência (`[2]`, `[ 374 ]`, `<sup>`);
 2. troca espaços não separáveis por espaço comum e colapsa espaços repetidos;
 3. uniformiza aspas e apóstrofos tipográficos (`’` → `'`);
-4. uniformiza a barra: `A/B`, `A /B` e `A/ B` viram `A / B`;
-5. para **chave de consulta**: caixa baixa (`casefold`). O texto exibido mantém a caixa da fonte.
+4. para **chave de consulta**: caixa baixa (`casefold`). O texto exibido mantém a caixa da fonte.
+
+Vale **só para os rótulos** de situação (`normalizar_rotulo` e `chave_de_rotulo`):
+
+5. uniformiza a barra: `A/B`, `A /B` e `A/ B` viram `A / B`. É o separador das partes de um rótulo combinado, por isso só aqui.
+
+Observações, nomes e prazos **não** têm a barra mexida: ficam como na fonte, só com a limpeza dos itens 1 a 3 (ex.: "15/30 pounds sterling" continua assim).
 
 ## `rotulos.yaml`: rótulos atômicos
 
@@ -92,7 +97,7 @@ ZM:
 
 Lista curada, sem heurística de texto (`research.md` 3.5). Hoje só `JM` e `ZM`; o México, Angola e o Líbano ficam de fora de propósito.
 
-**`hash_observacao`:** SHA-256 (UTF-8, hexadecimal) das **notas normalizadas** (função de normalização acima) das linhas da fonte daquele código, na ordem da fonte, unidas por quebra de linha. A cada coleta válida, o serviço recalcula o hash de cada código da lista:
+**`hash_observacao`:** SHA-256 (UTF-8, hexadecimal) das **notas normalizadas** (função de normalização acima, sem a barra, que só vale nos rótulos) das linhas da fonte daquele código, na ordem da fonte, unidas por quebra de linha. A cada coleta válida, o serviço recalcula o hash de cada código da lista:
 
 - igual ao guardado ⇒ nada a fazer (e fecha o item de revisão aberto, se houver);
 - diferente ⇒ o país entra na **lista de revisão** (`item_para_revisao`, tipo `regra`, valor = código), com o texto novo e o hash novo no contexto, e `vistos pendentes` o mostra. A regra continua valendo enquanto isso (o efeito é só uma nota informativa), e a pendência **não** invalida a coleta;

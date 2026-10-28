@@ -1,0 +1,17 @@
+# Países em que a regra ou o prazo VARIA conforme o motivo da viagem (FR-007a). Lista curada,
+# sem heurística de texto (research.md 3.5; decisão O4). O México, Angola e o Líbano ficam de
+# fora de propósito: a nota só lista ou limita motivos, sem dizer que a regra ou o prazo diferem.
+#
+# hash_observacao: SHA-256 (UTF-8) das notas normalizadas das linhas da fonte do país, na ordem
+# da fonte, unidas por quebra de linha (`calcular_hash_observacao`). Se a nota mudar, o país
+# entra na lista de revisão (`vistos pendentes`); o dono reconfirma colando o hash novo aqui, ou
+# tira o país da lista.
+
+JM:
+  varia_conforme_motivo: true
+  prazos_diferem_por_motivo: true
+  hash_observacao: "ecea1ae454022fcd83b21df49b82aacf3108a0ebb0650a50de8249eb3c93fafa"
+ZM:
+  varia_conforme_motivo: true
+  prazos_diferem_por_motivo: true
+  hash_observacao: "77fbcff0ea52211a4a37c65a657d368ceecb20a9d5a5f5f41e738553e479c33c"
