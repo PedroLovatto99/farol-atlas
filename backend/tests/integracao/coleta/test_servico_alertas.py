@@ -8,8 +8,9 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from farol.coleta import Pagina, ServicoDeColetaDeAlertas, hash_do_alerta
+from farol.coleta import ServicoDeColetaDeAlertas, hash_do_alerta
 from farol.dominio import Alerta, ExecucaoColeta, TipoExecucao
+from farol.infra import Pagina
 
 if TYPE_CHECKING:
     from tests.conftest import GovBrFalso, RelogioFalso

@@ -23,7 +23,7 @@ from sqlalchemy.engine.interfaces import DBAPICursor, ExecutionContext
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from farol.coleta import Pagina
+from farol.infra import Pagina
 
 RAIZ_BACKEND = Path(__file__).resolve().parents[1]
 RAIZ_REPOSITORIO = RAIZ_BACKEND.parent

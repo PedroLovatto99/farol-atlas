@@ -8,18 +8,16 @@ se passar no esquema (`esquema.py`).
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
 
 from farol.classificacao.esquema import Classificacao, RespostaInvalida
-from farol.infra import Configuracoes
+from farol.infra import Configuracoes, argumentos_do_modelo
 
 ABRE = "<<<"
 FECHA = ">>>"
-TEMPO_LIMITE_SEGUNDOS = 90
 
 INSTRUCOES = f"""\
 Você classifica alertas do Portal Consular do Itamaraty para um mapa de alertas de viagem de \
@@ -107,12 +105,4 @@ class ClassificadorDeAlertas:
 def criar_modelo(configuracoes: Configuracoes) -> tuple[BaseChatModel, str]:
     """Modelo escolhido por `LLM_CLASSIFICADOR` ("provedor:modelo"), temperatura 0."""
     nome = configuracoes.llm_classificador
-    provedor = nome.split(":", 1)[0]
-    argumentos: dict[str, Any] = {"temperature": 0}
-    if provedor == "google_genai":
-        argumentos["timeout"] = TEMPO_LIMITE_SEGUNDOS
-        if configuracoes.google_api_key is not None:
-            argumentos["api_key"] = configuracoes.google_api_key.get_secret_value()
-    elif provedor == "ollama":
-        argumentos["base_url"] = configuracoes.ollama_base_url
-    return init_chat_model(nome, **argumentos), nome
+    return init_chat_model(nome, **argumentos_do_modelo(nome, configuracoes)), nome

@@ -85,7 +85,7 @@ Mudança que a fonte trouxe e que ainda não vale no site (FR-010a). O país man
 | `estado` | `enum` | `pendente`, `confirmada`, `rejeitada`, `revertida`, `superada`. |
 | `hash_fonte_lido` | `char(64)` | Hash da fonte no valor retido. A rejeição vale enquanto a fonte mantiver este hash. |
 | `candidato` | `jsonb` | O registro completo que seria aplicado (categoria, motivo, rótulo, linhas, RG, permanência, observações). Confirmar grava este conteúdo em `requisito_visto`. |
-| `categoria_exibida`, `categoria_lida` | `enum` | Para o resumo e o log. |
+| `categoria_exibida`, `categoria_lida` | `enum`, nulo | Para o resumo e o log. **Nulo = "sem informação"**: `categoria_exibida` nula quando o país ainda não tem `requisito_visto` (ausência de requisito); `categoria_lida` nula quando a fonte deixou de trazer linha para o país. |
 | `aceita_rg_exibido`, `aceita_rg_lido` | `bool` | Para reter também o "passar a aceitar só o RG". |
 | `criada_em`, `resolvida_em` | `timestamptz` | |
 

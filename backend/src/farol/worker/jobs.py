@@ -17,13 +17,18 @@ from farol.classificacao import (
     criar_modelo,
 )
 from farol.coleta import (
-    ClienteEducado,
     ResultadoDaColeta,
     ResultadoDaColetaDePostos,
     ServicoDeColetaDeAlertas,
     ServicoDeColetaDePostos,
 )
-from farol.infra import Configuracoes, RelogioDoSistema, abrir_sessao, obter_logger
+from farol.infra import (
+    ClienteEducado,
+    Configuracoes,
+    RelogioDoSistema,
+    abrir_sessao,
+    obter_logger,
+)
 
 _log = obter_logger("farol.worker")
 

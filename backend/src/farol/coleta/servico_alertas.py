@@ -14,11 +14,9 @@ import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
 
 from sqlalchemy.orm import Session
 
-from farol.coleta.cliente_educado import Pagina
 from farol.coleta.extratores import (
     AlertaExtraido,
     ErroDeExtracao,
@@ -33,7 +31,7 @@ from farol.dominio import (
     ExecucaoRepositorio,
     TipoExecucao,
 )
-from farol.infra import FUSO_DE_BRASILIA, Relogio, obter_logger
+from farol.infra import FUSO_DE_BRASILIA, Baixador, Relogio, obter_logger
 
 URL_LISTA_DE_ALERTAS = (
     "https://www.gov.br/mre/pt-br/assuntos/portal-consular/alertas%20e%20noticias/alertas"
@@ -42,14 +40,6 @@ LIMITE_DE_PAGINAS_DA_LISTA = 50  # trava contra um link de próxima página que 
 MINIMO_LIDO = (7, 10)  # 70% das páginas esperadas (FR-040), em conta de inteiros
 
 _log = obter_logger("farol.coleta")
-
-
-class Baixador(Protocol):
-    """O que o serviço precisa do cliente HTTP (`ClienteEducado` ou um falso nos testes)."""
-
-    interrompido_por: str | None
-
-    def baixar(self, url: str) -> Pagina: ...
 
 
 @dataclass(frozen=True)

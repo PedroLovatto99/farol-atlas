@@ -34,3 +34,50 @@ class StatusClassificacao(StrEnum):
 class TipoExecucao(StrEnum):
     ALERTAS = "alertas"
     POSTOS = "postos"
+
+
+class CategoriaDeVisto(StrEnum):
+    """Situação de visto de um território para brasileiros.
+
+    A ordem de exigência é a ordem dos quatro primeiros membros (de `ISENTO` a `VISTO_EXIGIDO`);
+    `OUTRA_SITUACAO` fica fora dela.
+    """
+
+    ISENTO = "isento"
+    VISTO_NA_CHEGADA = "visto_na_chegada"
+    AUTORIZACAO_ELETRONICA = "autorizacao_eletronica"
+    VISTO_EXIGIDO = "visto_exigido"
+    OUTRA_SITUACAO = "outra_situacao"
+
+
+class MotivoOutraSituacao(StrEnum):
+    ROTULO_CONHECIDO = "rotulo_conhecido"  # mapeado de propósito para "Outra situação"
+    ROTULO_DESCONHECIDO = "rotulo_desconhecido"
+
+
+class ResultadoDaColetaDeVistos(StrEnum):
+    VALIDA = "valida"
+    REJEITADA = "rejeitada"  # baixou, mas formato ou países reconhecidos não passaram
+    ADIADA = "adiada"  # edição de menos de 24 horas
+    FALHOU = "falhou"  # erro técnico
+    BLOQUEADA = "bloqueada"  # 403, 429, verificação humana ou robots.txt
+
+
+class EstadoDaRetencao(StrEnum):
+    PENDENTE = "pendente"
+    CONFIRMADA = "confirmada"
+    REJEITADA = "rejeitada"
+    REVERTIDA = "revertida"  # a fonte voltou ao valor exibido
+    SUPERADA = "superada"  # a fonte mudou para outro valor
+
+
+class TipoDeItemParaRevisao(StrEnum):
+    NOME = "nome"
+    ROTULO = "rotulo"
+    REGRA = "regra"  # regra por país a reconfirmar
+
+
+class EstadoDoItem(StrEnum):
+    PENDENTE = "pendente"
+    RESOLVIDO = "resolvido"
+    IGNORADO = "ignorado"
