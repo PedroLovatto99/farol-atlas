@@ -15,6 +15,7 @@ from farol.worker.jobs import (
     rodada_de_alertas,
     rodada_real,
     rodada_real_de_postos,
+    rodada_real_de_vistos,
 )
 
 __all__ = [
@@ -31,4 +32,5 @@ __all__ = [
     "rodada_de_alertas",
     "rodada_real",
     "rodada_real_de_postos",
+    "rodada_real_de_vistos",
 ]

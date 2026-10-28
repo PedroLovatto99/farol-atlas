@@ -83,9 +83,9 @@ Mudança que a fonte trouxe e que ainda não vale no site (FR-010a). O país man
 | `territorio_codigo` | `text` FK | |
 | `coleta_id` | `int` FK | A coleta que leu o valor retido (a mais recente que o viu). |
 | `estado` | `enum` | `pendente`, `confirmada`, `rejeitada`, `revertida`, `superada`. |
-| `hash_fonte_lido` | `char(64)` | Hash da fonte no valor retido. A rejeição vale enquanto a fonte mantiver este hash. |
-| `candidato` | `jsonb` | O registro completo que seria aplicado (categoria, motivo, rótulo, linhas, RG, permanência, observações). Confirmar grava este conteúdo em `requisito_visto`. |
-| `categoria_exibida`, `categoria_lida` | `enum`, nulo | Para o resumo e o log. **Nulo = "sem informação"**: `categoria_exibida` nula quando o país ainda não tem `requisito_visto` (ausência de requisito); `categoria_lida` nula quando a fonte deixou de trazer linha para o país. |
+| `hash_fonte_lido` | `char(64)` | Hash da fonte no valor retido. A rejeição vale enquanto a fonte mantiver este hash. Na retenção da saída da linha (não há fonte para o hash) vale uma constante (`HASH_SEM_LINHA`). |
+| `candidato` | `jsonb` | O registro completo que seria aplicado (categoria, motivo, rótulo, linhas, RG, permanência, observações). Confirmar grava este conteúdo em `requisito_visto`. Na retenção da **saída da linha** (`categoria_lida` nula) vale `{"sem_informacao": true}`, e confirmar apaga o `requisito_visto` do país. |
+| `categoria_exibida`, `categoria_lida` | `enum`, nulo | Para o resumo e o log. **Nulo = "sem informação"**: `categoria_exibida` nula quando o país ainda não tem `requisito_visto` (ausência de requisito); `categoria_lida` nula quando a fonte deixou de trazer linha para o país (essa saída também fica retida: o país mantém o último dado válido até o dono confirmar). |
 | `aceita_rg_exibido`, `aceita_rg_lido` | `bool` | Para reter também o "passar a aceitar só o RG". |
 | `criada_em`, `resolvida_em` | `timestamptz` | |
 
@@ -94,7 +94,7 @@ Mudança que a fonte trouxe e que ainda não vale no site (FR-010a). O país man
 ### Estados e transições
 
 ```text
-             (leitura traz mudança menos exigente / passa a aceitar RG)
+             (leitura traz mudança menos exigente / passa a aceitar RG / a linha sai da fonte)
  [nada] ───────────────────────────────────────────────────────────▶ pendente
  pendente ── dono confirma ───────────────────────────────▶ confirmada (aplica o candidato)
  pendente ── dono rejeita ────────────────────────────────▶ rejeitada

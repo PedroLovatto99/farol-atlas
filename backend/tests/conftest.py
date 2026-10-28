@@ -5,10 +5,12 @@ Testes de unidade não precisam de banco. Os de integração usam o PostgreSQL d
 `DATABASE_URL_TESTE`, lida do ambiente ou do `.env` da raiz.
 """
 
+import html
+import json
 import os
 import re
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
@@ -24,6 +26,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from farol.infra import Pagina
+from farol.vistos.fonte import TABELA_DE_TERRITORIOS, TABELA_NAO_RECONHECIDOS, LinhaDaFonte
 
 RAIZ_BACKEND = Path(__file__).resolve().parents[1]
 RAIZ_REPOSITORIO = RAIZ_BACKEND.parent
@@ -183,6 +186,72 @@ def html_da_wikipedia() -> str:
     return HTML_DA_WIKIPEDIA.read_text(encoding="utf-8")
 
 
+def _html_das_notas(notas: str) -> str:
+    """Notas com várias linhas viram itens separados por `<br>`, como a fonte os entrega."""
+    return "<br>".join(html.escape(linha) for linha in notas.split("\n"))
+
+
+def html_de_vistos(
+    linhas: Sequence[LinhaDaFonte], editada_em: datetime, revisao: int = 1000
+) -> str:
+    """Monta uma página mínima com as três tabelas do artigo, a partir das linhas já normalizadas.
+
+    Serve para os testes alterarem uma linha (rótulo, nota, nome) sem mexer no HTML de 1,5 MB.
+    `extrair_linhas` devolve de volta as mesmas linhas.
+    """
+    cabecalho_principal = (
+        "<tr><th>Country</th><th>Visa requirement</th><th>Allowed stay</th>"
+        "<th>Notes (excluding departure fees)</th><th>Reciprocity</th></tr>"
+    )
+    cabecalho_territorios = "<tr><th>Territory</th><th>Conditions of access</th><th>Notes</th></tr>"
+
+    def tabela(titulo: str, cabecalho: str, corpo: str) -> str:
+        return f'<h2>{titulo}</h2><table class="wikitable">{cabecalho}{corpo}</table>'
+
+    principal = "".join(
+        f"<tr><td>{html.escape(linha.nome)}</td><td>{html.escape(linha.rotulo)}</td>"
+        f"<td>{html.escape(linha.permanencia)}</td><td>{_html_das_notas(linha.notas)}</td>"
+        "<td></td></tr>"
+        for linha in linhas
+        if linha.tabela not in (TABELA_NAO_RECONHECIDOS, TABELA_DE_TERRITORIOS)
+    )
+
+    def corpo_de_territorios(tabela_lida: str) -> str:
+        corpo, grupo_atual = "", None
+        for linha in linhas:
+            if linha.tabela != tabela_lida:
+                continue
+            if linha.grupo is not None and linha.grupo != grupo_atual:
+                corpo += f'<tr><th colspan="3">{html.escape(linha.grupo)}</th></tr>'
+                grupo_atual = linha.grupo
+            corpo += (
+                f"<tr><td>{html.escape(linha.nome)}</td><td>{html.escape(linha.rotulo)}</td>"
+                f"<td>{_html_das_notas(linha.notas)}</td></tr>"
+            )
+        return corpo
+
+    json_ld = json.dumps(
+        {"@type": "Article", "dateModified": editada_em.strftime("%Y-%m-%dT%H:%M:%SZ")}
+    )
+    return (
+        "<html><head>"
+        f'<script type="application/ld+json">{json_ld}</script>'
+        f'<script>RLCONF={{"wgRevisionId":{revisao}}};</script></head><body>'
+        + tabela("Visa requirements", cabecalho_principal, principal)
+        + tabela(
+            "Unrecognized or partially recognized countries",
+            cabecalho_territorios,
+            corpo_de_territorios(TABELA_NAO_RECONHECIDOS),
+        )
+        + tabela(
+            "Dependent and autonomous territories",
+            cabecalho_territorios,
+            corpo_de_territorios(TABELA_DE_TERRITORIOS),
+        )
+        + "</body></html>"
+    )
+
+
 class WikipediaFalsa:
     """Wikipédia de mentira: serve o artigo e simula os problemas que a coleta de vistos trata.
 
@@ -204,6 +273,16 @@ class WikipediaFalsa:
     def publicar(self, html: str, url: str | None = None) -> None:
         alvo = url or self.url
         self.paginas[alvo] = Pagina(alvo, 200, html, None)
+
+    def publicar_linhas(
+        self,
+        linhas: Sequence[LinhaDaFonte],
+        editada_em: datetime,
+        revisao: int = 1000,
+        url: str | None = None,
+    ) -> None:
+        """Serve uma página montada a partir das linhas (veja `html_de_vistos`)."""
+        self.publicar(html_de_vistos(linhas, editada_em, revisao), url)
 
     def falhar_com_status(self, status: int, url: str | None = None) -> None:
         """Erro do servidor (5xx) ou outro status que não seja de bloqueio."""
@@ -246,6 +325,40 @@ class WikipediaFalsa:
 def wikipedia(html_da_wikipedia: str) -> WikipediaFalsa:
     """Wikipédia falsa já servindo a página real do artigo."""
     return WikipediaFalsa(html_da_wikipedia)
+
+
+# --------------------------------------------------------------------------- tradutor falso
+class TradutorFalso:
+    """Tradutor de mentira: cumpre o protocolo `farol.vistos.Tradutor` sem modelo nem rede.
+
+    Registra cada lote recebido em `lotes` e devolve `"[pt] " + texto` (as quebras de linha do
+    texto seguem como estão). `falhar = True` faz toda chamada levantar erro, e `falhar_no_lote`
+    faz falhar só a chamada de número N (a partir de 0).
+    """
+
+    nome_do_modelo = "falso:tradutor"
+
+    def __init__(self) -> None:
+        self.lotes: list[list[str]] = []
+        self.falhar = False
+        self.falhar_no_lote: int | None = None
+
+    @property
+    def textos(self) -> list[str]:
+        """Todos os textos recebidos, na ordem."""
+        return [texto for lote in self.lotes for texto in lote]
+
+    def traduzir(self, textos: Sequence[str]) -> list[str]:
+        numero = len(self.lotes)
+        self.lotes.append(list(textos))
+        if self.falhar or self.falhar_no_lote == numero:
+            raise RuntimeError("tradutor falso: falha pedida pelo teste")
+        return [f"[pt] {texto}" for texto in textos]
+
+
+@pytest.fixture
+def tradutor_falso() -> TradutorFalso:
+    return TradutorFalso()
 
 
 # --------------------------------------------------------------------------- banco de teste

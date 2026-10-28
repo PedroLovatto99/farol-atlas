@@ -496,3 +496,50 @@ def test_so_nome_pendente_pode_ser_ignorado(sessao: Session) -> None:
     with pytest.raises(ValueError, match="pendente"):
         repositorio.ignorar_nome(item, "segundo motivo", horas(1))
     assert item.motivo_ignorar == "primeiro motivo"
+
+
+# --------------------------------------------------------------------------- acréscimos do serviço
+def test_obter_coleta_por_id(sessao: Session) -> None:
+    coleta = nova_coleta(sessao, V.VALIDA, AGORA)
+    repositorio = ColetaVistosRepositorio(sessao)
+    assert repositorio.obter(coleta.id) is coleta
+    assert repositorio.obter(coleta.id + 1000) is None
+
+
+def test_remover_requisito_apaga_so_o_do_codigo(sessao: Session) -> None:
+    territorios(sessao, "AR", "US")
+    coleta = nova_coleta(sessao, V.VALIDA, AGORA)
+    repositorio = RequisitoVistoRepositorio(sessao)
+    for codigo in ("AR", "US"):
+        repositorio.salvar(requisito(coleta.id, codigo))
+    sessao.flush()
+
+    existente = repositorio.obter("AR")
+    assert existente is not None
+    repositorio.remover(existente)
+    sessao.flush()
+
+    assert repositorio.obter("AR") is None
+    assert [r.territorio_codigo for r in repositorio.listar_todos()] == ["US"]
+
+
+def test_listar_rejeitadas_por_territorio(sessao: Session) -> None:
+    territorios(sessao, "AR", "US", "PE")
+    coleta = nova_coleta(sessao, V.VALIDA, AGORA)
+    repositorio = MudancaRetidaRepositorio(sessao)
+    repositorio.adicionar(retida(coleta.id, "US", estado=EstadoDaRetencao.REJEITADA))
+    repositorio.adicionar(retida(coleta.id, "AR", estado=EstadoDaRetencao.REJEITADA))
+    repositorio.adicionar(retida(coleta.id, "PE"))  # pendente: fora da lista
+    sessao.flush()
+    assert [m.territorio_codigo for m in repositorio.listar_rejeitadas()] == ["AR", "US"]
+
+
+def test_adicionar_requisito_novo(sessao: Session) -> None:
+    territorios(sessao, "AR")
+    coleta = nova_coleta(sessao, V.VALIDA, AGORA)
+    repositorio = RequisitoVistoRepositorio(sessao)
+    repositorio.adicionar(requisito(coleta.id, "AR"))
+    sessao.flush()
+    obtido = repositorio.obter("AR")
+    assert obtido is not None
+    assert obtido.coleta_id == coleta.id

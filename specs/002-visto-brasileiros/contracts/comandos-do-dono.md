@@ -68,6 +68,8 @@ Uma linha JSON por evento (o formato da 001), com os números em `dados`:
 | Retidas passam de 10% dos países reconhecidos | `WARNING` | `vistos: possível vandalismo em massa na fonte` | `retidas`, `reconhecidos`, `percentual` |
 | Rodada adiada ou falha técnica | `INFO` / `WARNING` | `vistos: rodada adiada` / `vistos: rodada falhou` | `motivo`, `tentativa`, `proxima_tentativa` |
 | Bloqueio | `WARNING` | `vistos: coleta interrompida` | `motivo` |
+| Formato inesperado (coleta `rejeitada`) | `WARNING` | `vistos: coleta rejeitada por formato inesperado: o leitor da página precisa de manutenção (mudança de estrutura na fonte)` | `motivo` |
+| País com mudança retida (inclusive a saída da linha) | `WARNING` | `vistos: mudança retida` | `codigo`, `exibida`, `lida` (`sem_informacao` quando nula) |
 
 ## Agenda
 

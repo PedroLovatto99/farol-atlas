@@ -27,6 +27,9 @@ class ColetaVistosRepositorio:
     def adicionar(self, coleta: ColetaVistos) -> None:
         self._sessao.add(coleta)
 
+    def obter(self, coleta_id: int) -> ColetaVistos | None:
+        return self._sessao.get(ColetaVistos, coleta_id)
+
     def ultima_valida(self) -> ColetaVistos | None:
         """A última coleta válida: é dela que vêm os vistos exibidos (FR-010)."""
         consulta = (
@@ -91,9 +94,17 @@ class RequisitoVistoRepositorio:
         consulta = select(RequisitoVisto).order_by(RequisitoVisto.territorio_codigo)
         return list(self._sessao.scalars(consulta))
 
+    def adicionar(self, requisito: RequisitoVisto) -> None:
+        """Registra o primeiro visto de um território (ao contrário de `salvar`, sem consultar)."""
+        self._sessao.add(requisito)
+
     def salvar(self, requisito: RequisitoVisto) -> RequisitoVisto:
         """Grava o registro do território, criando ou substituindo o que já existe (upsert)."""
         return self._sessao.merge(requisito)
+
+    def remover(self, requisito: RequisitoVisto) -> None:
+        """Apaga o registro: a fonte deixou de trazer a linha e o território fica sem informação."""
+        self._sessao.delete(requisito)
 
 
 class MudancaRetidaRepositorio:
@@ -110,12 +121,10 @@ class MudancaRetidaRepositorio:
         return self._do_territorio(codigo, EstadoDaRetencao.REJEITADA)
 
     def listar_pendentes(self) -> list[MudancaRetida]:
-        consulta = (
-            select(MudancaRetida)
-            .where(MudancaRetida.estado == EstadoDaRetencao.PENDENTE)
-            .order_by(MudancaRetida.territorio_codigo)
-        )
-        return list(self._sessao.scalars(consulta))
+        return self._listar(EstadoDaRetencao.PENDENTE)
+
+    def listar_rejeitadas(self) -> list[MudancaRetida]:
+        return self._listar(EstadoDaRetencao.REJEITADA)
 
     def atualizar_coleta(self, mudanca: MudancaRetida, coleta_id: int) -> None:
         """A fonte manteve o mesmo valor retido: só aponta para a coleta que o viu por último."""
@@ -142,6 +151,14 @@ class MudancaRetidaRepositorio:
         self._encerrar(mudanca, EstadoDaRetencao.SUPERADA, em)
 
     # ------------------------------------------------------------------ internos
+    def _listar(self, estado: EstadoDaRetencao) -> list[MudancaRetida]:
+        consulta = (
+            select(MudancaRetida)
+            .where(MudancaRetida.estado == estado)
+            .order_by(MudancaRetida.territorio_codigo)
+        )
+        return list(self._sessao.scalars(consulta))
+
     def _do_territorio(self, codigo: str, estado: EstadoDaRetencao) -> MudancaRetida | None:
         consulta = select(MudancaRetida).where(
             MudancaRetida.territorio_codigo == codigo, MudancaRetida.estado == estado
