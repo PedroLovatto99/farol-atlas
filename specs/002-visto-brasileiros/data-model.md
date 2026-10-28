@@ -5,7 +5,7 @@ Banco: o mesmo PostgreSQL 18 da 001, SQLAlchemy 2 (ORM), migração Alembic **`0
 ```text
 territorio 1───0..1 requisito_visto *───1 coleta_vistos
 territorio 1───* mudanca_retida *───1 coleta_vistos
-coleta_vistos 1───* item_nao_reconhecido (primeira e última vez em que foi visto)
+coleta_vistos 1───* item_para_revisao (primeira e última vez em que foi visto)
 ```
 
 A tabela `territorio` **não muda**. Nenhuma tabela da 001 muda.
@@ -18,7 +18,7 @@ A tabela `territorio` **não muda**. Nenhuma tabela da 001 muda.
 | `MotivoOutraSituacao` | `rotulo_conhecido` (mapeado de propósito para "Outra situação"), `rotulo_desconhecido` |
 | `ResultadoDaColetaDeVistos` | `valida`, `rejeitada`, `adiada`, `falhou`, `bloqueada` |
 | `EstadoDaRetencao` | `pendente`, `confirmada`, `rejeitada`, `revertida`, `superada` |
-| `TipoDeItemNaoReconhecido` | `nome`, `rotulo`, `regra` (regra por país a reconfirmar; ver abaixo) |
+| `TipoDeItemParaRevisao` | `nome`, `rotulo`, `regra` (regra por país a reconfirmar; ver abaixo) |
 | `EstadoDoItem` | `pendente`, `resolvido`, `ignorado` |
 
 ## coleta_vistos
@@ -104,9 +104,9 @@ Mudança que a fonte trouxe e que ainda não vale no site (FR-010a). O país man
  pendente ── a fonte mantém o mesmo hash lido ────────────▶ pendente (só atualiza `coleta_id`)
 ```
 
-## item_nao_reconhecido
+## item_para_revisao
 
-Nomes e rótulos que a coleta não reconheceu (FR-012, FR-012a, FR-012b), e a **lista de revisão das regras por país** (tipo `regra`). Nunca descartados em silêncio.
+Tudo o que espera revisão do dono, em uma tabela só: nomes e rótulos que a coleta não reconheceu (tipos `nome` e `rotulo`; FR-012, FR-012a, FR-012b) e regras por país a reconfirmar (tipo `regra`). Nunca descartados em silêncio.
 
 | Coluna | Tipo | Regras |
 |---|---|---|

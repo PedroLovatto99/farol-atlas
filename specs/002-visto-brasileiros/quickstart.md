@@ -14,7 +14,7 @@ Roteiro para conferir a feature de ponta a ponta. Detalhes de tabelas, rotas e c
 docker compose run --rm migracao        # alembic upgrade head (inclui a 0003_vistos) e o seed
 ```
 
-Esperado: as tabelas `coleta_vistos`, `requisito_visto`, `mudanca_retida` e `item_nao_reconhecido` existem, vazias.
+Esperado: as tabelas `coleta_vistos`, `requisito_visto`, `mudanca_retida` e `item_para_revisao` existem, vazias.
 
 ## 2. Antes de qualquer coleta de vistos
 

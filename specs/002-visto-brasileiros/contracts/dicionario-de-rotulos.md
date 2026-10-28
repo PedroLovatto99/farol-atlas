@@ -50,7 +50,7 @@ Regras de leitura de um rótulo `R` da fonte:
 
 1. `R` normalizado está no dicionário ⇒ usa a entrada.
 2. Senão, separa `R` em " / ". Se houver mais de uma parte e **todas** estiverem no dicionário ⇒ combinado: vale a categoria **mais exigente** das partes (isento < visto na chegada < autorização ou visto eletrônico < visto exigido); **qualquer parte** em `outra_situacao` ⇒ o resultado é `outra_situacao` com motivo `rotulo_conhecido`.
-3. Qualquer parte fora do dicionário ⇒ `outra_situacao` com motivo `rotulo_desconhecido`, e o rótulo inteiro vai para `item_nao_reconhecido` (tipo `rotulo`). O país **não** é descartado: aparece em "Outra situação" com o rótulo original visível.
+3. Qualquer parte fora do dicionário ⇒ `outra_situacao` com motivo `rotulo_desconhecido`, e o rótulo inteiro vai para `item_para_revisao` (tipo `rotulo`). O país **não** é descartado: aparece em "Outra situação" com o rótulo original visível.
 4. `aceita_rg` do resultado é verdadeiro só se a entrada tiver `aceita_rg: true` **e** a nota da linha contiver `ID card`; caso contrário falso (e, se faltar a frase, uma linha de aviso no log).
 
 Cada entrada tem um teste (`tests/unidade/vistos/test_dicionario_rotulos.py`, parametrizado pelo arquivo): chave normalizada, categoria esperada. Os combinados da fixture têm testes de ponta a ponta (`test_rotulos_combinados.py`).
@@ -73,7 +73,7 @@ ignorar:
 
 - A chave é o nome normalizado, sem diferenciar maiúsculas. Contém **todos** os nomes da fonte que se ligam a um código (o `pycountry` não vai para produção) e os ignorados de propósito, cada um com motivo.
 - Cada código tem de existir em `territorio` (o teste confere contra o seed) e **não pode** ser de área neutra. Um nome não pode estar nas duas listas.
-- Nome fora das duas listas ⇒ `item_nao_reconhecido` (tipo `nome`); a linha não afeta nenhum território.
+- Nome fora das duas listas ⇒ `item_para_revisao` (tipo `nome`); a linha não afeta nenhum território.
 - Várias linhas da fonte para o mesmo código (Santa Helena, Ascensão e Tristão da Cunha; a linha do Reino Unido e das dependências da Coroa) ⇒ tratadas como partes de um rótulo combinado (FR-007).
 - As convenções de território da 001 **não** são repetidas aqui: o painel de Kosovo e de Malvinas já é o do soberano pelo cadastro (`identidade_do_soberano`), e o `ignorar` apenas evita ler a linha própria deles.
 
@@ -95,7 +95,7 @@ Lista curada, sem heurística de texto (`research.md` 3.5). Hoje só `JM` e `ZM`
 **`hash_observacao`:** SHA-256 (UTF-8, hexadecimal) das **notas normalizadas** (função de normalização acima) das linhas da fonte daquele código, na ordem da fonte, unidas por quebra de linha. A cada coleta válida, o serviço recalcula o hash de cada código da lista:
 
 - igual ao guardado ⇒ nada a fazer (e fecha o item de revisão aberto, se houver);
-- diferente ⇒ o país entra na **lista de revisão** (`item_nao_reconhecido`, tipo `regra`, valor = código), com o texto novo e o hash novo no contexto, e `vistos pendentes` o mostra. A regra continua valendo enquanto isso (o efeito é só uma nota informativa), e a pendência **não** invalida a coleta;
+- diferente ⇒ o país entra na **lista de revisão** (`item_para_revisao`, tipo `regra`, valor = código), com o texto novo e o hash novo no contexto, e `vistos pendentes` o mostra. A regra continua valendo enquanto isso (o efeito é só uma nota informativa), e a pendência **não** invalida a coleta;
 - o dono reconfirma colando o hash novo no arquivo (ou removendo o país); na coleta seguinte o hash bate e o item se resolve sozinho. Regra pendente não pode ser ignorada.
 
 ## Testes obrigatórios do dicionário (sobre a fixture)

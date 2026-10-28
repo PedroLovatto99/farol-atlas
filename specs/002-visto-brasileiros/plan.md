@@ -82,7 +82,7 @@ backend/
 │   │   └── config.py              # + llm_tradutor
 │   ├── dominio/
 │   │   ├── enums.py               # + CategoriaDeVisto e demais enums
-│   │   ├── modelos.py             # + ColetaVistos, RequisitoVisto, MudancaRetida, ItemNaoReconhecido
+│   │   ├── modelos.py             # + ColetaVistos, RequisitoVisto, MudancaRetida, ItemParaRevisao
 │   │   ├── constantes.py          # novo: CODIGO_DO_BRASIL (hoje local de mapa/painel.py)
 │   │   └── repositorios/vistos.py # novo: repositórios de vistos
 │   ├── coleta/                    # passa a importar o cliente HTTP da infra
