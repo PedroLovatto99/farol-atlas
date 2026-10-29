@@ -14,6 +14,16 @@ export const ROTULOS_DE_VISTO: Readonly<Record<SituacaoDeVisto, string>> = {
   sem_informacao: "Sem informação de visto",
 };
 
+/** Versão curta de cada situação, para a barra do painel recolhido caber em uma linha (FR-030). */
+export const ROTULOS_CURTOS_DE_VISTO: Readonly<Record<SituacaoDeVisto, string>> = {
+  isento: "Isento",
+  visto_na_chegada: "Na chegada",
+  autorizacao_eletronica: "Eletrônico",
+  visto_exigido: "Exigido",
+  outra_situacao: "Outra situação",
+  sem_informacao: "Sem informação",
+};
+
 /**
  * Da menos para a mais exigente (FR-007). "Outra situação" e "sem informação" ficam fora da ordem:
  * nunca são tratadas como a categoria mais favorável (princípio V).

@@ -771,9 +771,9 @@ describe("Painel: recolher e expandir (FR-030)", () => {
     const usuario = userEvent.setup();
     const { rerender } = render(<Tela estado={pronto(DOIS)} modoDoGlobo="alertas" />);
     await usuario.click(recolher());
-    expect(within(barra() as HTMLElement).getByText("Sem alerta do Itamaraty")).toBeVisible();
+    expect(within(barra() as HTMLElement).getByText("Sem alerta")).toBeVisible();
     rerender(<Tela estado={pronto(DOIS)} modoDoGlobo="vistos" />);
-    expect(within(barra() as HTMLElement).getByText("Visto exigido")).toBeVisible();
+    expect(within(barra() as HTMLElement).getByText("Exigido")).toBeVisible();
   });
 
   it("'Ver mundo' da barra chama onFechar", async () => {

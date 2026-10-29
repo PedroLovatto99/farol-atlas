@@ -1066,16 +1066,16 @@ describe("App: painel recolhível (FR-030)", () => {
   it("a barra mostra o nível em 'Alertas' e a categoria em 'Vistos', sem expandir nem pedir o país", async () => {
     const api = await abrirDinamarcaERecolher();
     const usuario = userEvent.setup();
-    expect(within(barra() as HTMLElement).getByText(NIVEIS.sem_alerta.rotulo)).toBeVisible();
+    expect(within(barra() as HTMLElement).getByText("Sem alerta")).toBeVisible();
 
     await usuario.click(screen.getByRole("radio", { name: "Vistos" }));
     expect(barra()).toBeVisible();
-    expect(within(barra() as HTMLElement).getByText("Isento de visto")).toBeVisible();
-    expect(within(barra() as HTMLElement).queryByText(NIVEIS.sem_alerta.rotulo)).toBeNull();
+    expect(within(barra() as HTMLElement).getByText("Isento")).toBeVisible();
+    expect(within(barra() as HTMLElement).queryByText("Sem alerta")).toBeNull();
     expect(raiz()).toHaveAttribute("data-painel-recolhido", "true");
 
     await usuario.click(screen.getByRole("radio", { name: "Alertas" }));
-    expect(within(barra() as HTMLElement).getByText(NIVEIS.sem_alerta.rotulo)).toBeVisible();
+    expect(within(barra() as HTMLElement).getByText("Sem alerta")).toBeVisible();
     expect(api.obterPais).toHaveBeenCalledTimes(1);
   });
 

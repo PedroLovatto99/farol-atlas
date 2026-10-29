@@ -55,7 +55,7 @@ describe("BarraDoPainel: conteúdo", () => {
       const { container } = abrir({ posicao });
       expect(container.querySelector(".fi-dk")).not.toBeNull();
       expect(within(barra()).getByText("Dinamarca")).toBeVisible();
-      expect(within(barra()).getByText(NIVEIS.sem_alerta.rotulo)).toBeVisible();
+      expect(within(barra()).getByText("Sem alerta")).toBeVisible();
       for (const el of todosOsElementos()) {
         expect(el.className.toString()).not.toMatch(/vertical|rotate-90/);
         expect((el as HTMLElement).style.writingMode).toBe("");
@@ -84,7 +84,10 @@ describe("BarraDoPainel: conteúdo", () => {
 
   it("no modo Alertas mostra o rótulo do nível", () => {
     abrir({ pais: criarPais({ nivel: "nao_viajar" }) });
-    expect(within(barra()).getByText(NIVEIS.nao_viajar.rotulo)).toBeVisible();
+    expect(within(barra()).getByText("Não viaje")).toBeVisible();
+    cleanup();
+    abrir({ pais: criarPais({ nivel: "evitar" }) });
+    expect(within(barra()).getByText("Evite")).toBeVisible();
     cleanup();
     abrir({ pais: criarPais({ nivel: "nao_verificado" }) });
     expect(within(barra()).getByText("Não verificado")).toBeVisible();
@@ -92,15 +95,15 @@ describe("BarraDoPainel: conteúdo", () => {
 
   it("alerta só regional mostra o rótulo próprio", () => {
     abrir({ pais: criarPais({ nivel: "sem_alerta", regiao_unica_do_alerta: true }) });
-    expect(within(barra()).getByText(ALERTA_SO_REGIONAL.rotulo)).toBeVisible();
+    expect(within(barra()).getByText("Alerta regional")).toBeVisible();
   });
 
   it("no modo Vistos mostra a categoria, ou 'Sem informação de visto'", () => {
     abrir({ pais: criarPais({ visto: VISTO_EXIGIDO }), modoDoGlobo: "vistos" });
-    expect(within(barra()).getByText(ROTULOS_DE_VISTO.visto_exigido)).toBeVisible();
+    expect(within(barra()).getByText("Exigido")).toBeVisible();
     cleanup();
     abrir({ pais: criarPais({ visto: VISTO_SEM_INFORMACAO }), modoDoGlobo: "vistos" });
-    expect(within(barra()).getByText("Sem informação de visto")).toBeVisible();
+    expect(within(barra()).getByText("Sem informação")).toBeVisible();
   });
 
   it("Kosovo e Malvinas mostram a categoria da própria linha, com o nome do território", () => {
@@ -111,7 +114,7 @@ describe("BarraDoPainel: conteúdo", () => {
       }),
       modoDoGlobo: "vistos",
     });
-    expect(within(barra()).getByText(`Kosovo: ${ROTULOS_DE_VISTO.visto_na_chegada}`)).toBeVisible();
+    expect(within(barra()).getByText("Kosovo: Na chegada")).toBeVisible();
     cleanup();
     abrir({
       pais: criarPais({
@@ -120,7 +123,7 @@ describe("BarraDoPainel: conteúdo", () => {
       }),
       modoDoGlobo: "vistos",
     });
-    expect(within(barra()).getByText(`Ilhas Malvinas: ${ROTULOS_DE_VISTO.isento}`)).toBeVisible();
+    expect(within(barra()).getByText("Ilhas Malvinas: Isento")).toBeVisible();
   });
 
   it("o Brasil mostra só bandeira e nome, em qualquer modo", () => {
@@ -173,6 +176,81 @@ describe("BarraDoPainel: interação", () => {
     );
   });
 
+  it("a barra mostra o rótulo curto; o completo, com o prefixo de território, vai no title e no nome acessível", () => {
+    const casos = [
+      { visto: criarVisto({ situacao: "isento" }), curta: "Isento", completa: "Isento de visto" },
+      {
+        visto: criarVisto({ situacao: "visto_na_chegada" }),
+        curta: "Na chegada",
+        completa: "Visto na chegada",
+      },
+      {
+        visto: criarVisto({ situacao: "autorizacao_eletronica" }),
+        curta: "Eletrônico",
+        completa: "Autorização ou visto eletrônico",
+      },
+      { visto: VISTO_EXIGIDO, curta: "Exigido", completa: "Visto exigido" },
+      {
+        visto: criarVisto({ situacao: "outra_situacao" }),
+        curta: "Outra situação",
+        completa: "Outra situação",
+      },
+      { visto: VISTO_SEM_INFORMACAO, curta: "Sem informação", completa: "Sem informação de visto" },
+      {
+        visto: criarVisto({
+          situacao: "autorizacao_eletronica",
+          territorio_nome: "Ilhas Malvinas",
+        }),
+        curta: "Ilhas Malvinas: Eletrônico",
+        completa: "Ilhas Malvinas: Autorização ou visto eletrônico",
+      },
+      {
+        visto: criarVisto({ situacao: "isento", territorio_nome: "Kosovo" }),
+        curta: "Kosovo: Isento",
+        completa: "Kosovo: Isento de visto",
+      },
+    ];
+    for (const { visto, curta, completa } of casos) {
+      abrir({ pais: criarPais({ visto }), modoDoGlobo: "vistos" });
+      const situacao = within(barra()).getByText(curta);
+      expect(situacao).toHaveAttribute("title", completa);
+      expect(expandir()).toHaveAccessibleName(`Expandir painel: Dinamarca, ${completa}`);
+      cleanup();
+    }
+  });
+
+  it("nos alertas, o rótulo curto também tem o completo no title e no nome acessível", () => {
+    const casos = [
+      {
+        pais: criarPais({ nivel: "sem_alerta" }),
+        curta: "Sem alerta",
+        completa: NIVEIS.sem_alerta.rotulo,
+      },
+      { pais: criarPais({ nivel: "evitar" }), curta: "Evite", completa: NIVEIS.evitar.rotulo },
+      {
+        pais: criarPais({ nivel: "nao_viajar" }),
+        curta: "Não viaje",
+        completa: NIVEIS.nao_viajar.rotulo,
+      },
+      {
+        pais: criarPais({ nivel: "nao_verificado" }),
+        curta: "Não verificado",
+        completa: NIVEIS.nao_verificado.rotulo,
+      },
+      {
+        pais: criarPais({ nivel: "sem_alerta", regiao_unica_do_alerta: true }),
+        curta: "Alerta regional",
+        completa: ALERTA_SO_REGIONAL.rotulo,
+      },
+    ];
+    for (const { pais, curta, completa } of casos) {
+      abrir({ pais });
+      expect(within(barra()).getByText(curta)).toHaveAttribute("title", completa);
+      expect(expandir()).toHaveAccessibleName(`Expandir painel: Dinamarca, ${completa}`);
+      cleanup();
+    }
+  });
+
   it("clique, Enter e Espaço expandem", async () => {
     const usuario = userEvent.setup();
     const { onAlternar } = abrir();
@@ -223,11 +301,11 @@ describe("BarraDoPainel: medidas e movimento", () => {
     expect(expandir()).toHaveAccessibleName(expect.stringContaining(longo));
   });
 
-  it("a situação nunca é cortada", () => {
+  it("a situação fica sempre em uma linha: rótulo curto e, se ainda assim não couber, reticências", () => {
     abrir();
-    const situacao = screen.getByText(NIVEIS.sem_alerta.rotulo);
-    expect(situacao.className).toMatch(/break-words/);
-    expect(situacao.className).not.toMatch(/truncate|line-clamp|overflow-hidden/);
+    const situacao = screen.getByText("Sem alerta");
+    expect(situacao.className.split(" ")).toContain("truncate");
+    expect(situacao.className).not.toMatch(/line-clamp|break-words/);
   });
 
   it("nenhuma transição ou animação fora de motion-reduce", () => {
