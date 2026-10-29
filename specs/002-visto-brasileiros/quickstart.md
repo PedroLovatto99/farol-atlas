@@ -50,7 +50,7 @@ docker compose exec postgres psql -U farol -d farol -c "select categoria, count(
 | 5 | Tocar em Hong Kong, em Guernsey e em Kosovo | Hong Kong: entrada própria. Guernsey: a do Reino Unido, com a nota de herança. Kosovo: painel da Sérvia, com a seção "Visto: Kosovo" da linha própria da fonte. Em seguida, as Malvinas: painel da Argentina, seção "Visto: Ilhas Malvinas" e **sem** a entrada com RG da Argentina | FR-013 |
 | 6 | Tocar no Brasil | Sem seção de visto | FR-014 |
 | 7 | Tocar na Etiópia ("up to 90 days") | Permanência em inglês, "não traduzido" | FR-004a |
-| 8 | Tocar num país com observações, depois de uma coleta sem tradutor (derrube o tradutor) | Observação em inglês, avisando; categoria e prazo intactos | FR-005 |
+| 8 | Tocar num país com observações, depois de uma coleta sem tradutor (derrube o tradutor) | Observação em inglês, avisando; categoria e prazo intactos *Coberto pelos testes automatizados (`test_servico_coleta.py`, `SecaoVisto.test.tsx`); execução manual dispensada em 29/10/2026 para não gerar uma coleta real extra.* | FR-005 |
 | 9 | Alternar para "Vistos" | Cores de visto, legenda de visto, sem bordas regionais, linha "Vistos: Wikipédia (CC BY-SA), fonte não oficial, coletados em …" | P2, FR-021 a FR-025, FR-029 |
 | 10 | Recarregar a página depois de escolher "Vistos" | Volta a "Alertas" (o modo não é lembrado) | FR-021 |
 | 11 | No celular (360 px), com a legenda recolhida, em "Vistos" | A linha de fonte e data continua visível, sem cobrir o mapa, o aviso nem o "Sobre" | FR-029 |
@@ -78,6 +78,8 @@ docker compose exec worker python -m farol.worker vistos confirmar AR     # o pa
 ```
 
 Para ver a rejeição, repita o `update` e rode `vistos rejeitar AR`: uma nova coleta com o mesmo valor da fonte **não** reabre a retenção.
+
+> **Nota (29/10/2026):** esta seção foi coberta pelos testes automatizados (`test_servico_coleta_retencao.py` e `test_servico_dono.py`) e a execução manual foi dispensada para não gerar coletas reais extras.
 
 ## 6. Verificações (rodam localmente e no CI, sem segredos)
 
