@@ -23,6 +23,7 @@ import urlDoWorker from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { planejarCamera, type ContextoDaCamera } from "./camera";
+import { contornoDosPaises } from "./contorno";
 import { duracaoDoMovimento } from "./enquadramento";
 import { montarFeicoes } from "./feicoes";
 import { Marcador } from "./Marcador";
@@ -278,6 +279,14 @@ export function MapaMapLibre({
     const dados = montarFeicoes(geometria.geometria, territorios, modo);
     fonte?.setData(dados as unknown as Parameters<GeoJSONSource["setData"]>[0]);
   }, [mapa, geometria, territorios, modo]);
+
+  // Contorno dos países: branco nos alertas, escuro nos vistos
+  useEffect(() => {
+    if (mapa === null) return;
+    const { cor, largura } = contornoDosPaises(modo);
+    mapa.setPaintProperty("fronteiras", "line-color", cor);
+    mapa.setPaintProperty("fronteiras", "line-width", largura);
+  }, [mapa, modo]);
 
   // Contorno da seleção. Kosovo e Malvinas contornam o grupo do soberano (propriedade `zoom`).
   useEffect(() => {

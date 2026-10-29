@@ -67,6 +67,8 @@ export const COR_DO_BRASIL_NO_MODO_VISTOS = "#F1EFE8";
 export const COR_DAS_LISTRAS = "#1F2A44";
 /** Borda das amostras da legenda: "Isento" e "sem informação" ficam abaixo de 3:1 contra o branco. */
 export const COR_DA_BORDA_DA_AMOSTRA = "#5F5E5A";
+/** Contorno dos países no modo "Vistos": escuro e opaco, para o contraste de objeto gráfico (1.4.11). */
+export const COR_DO_CONTORNO_NO_MODO_VISTOS = "#1F2A44";
 /** O oceano do mapa, contra o qual as cores de visto também precisam se distinguir. */
 export const COR_DO_OCEANO = "#DCE8F2";
 

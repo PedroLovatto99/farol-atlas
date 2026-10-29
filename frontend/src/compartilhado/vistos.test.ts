@@ -11,6 +11,7 @@ import {
   COR_DA_BORDA_DA_AMOSTRA,
   COR_DAS_LISTRAS,
   COR_DO_BRASIL_NO_MODO_VISTOS,
+  COR_DO_CONTORNO_NO_MODO_VISTOS,
   COR_DO_OCEANO,
   CORES_DE_VISTO,
   ROTULOS_DA_LEGENDA_DE_VISTOS,
@@ -102,6 +103,7 @@ describe("paleta do modo 'Vistos' (plan.md)", () => {
       "--color-visto-sem-informacao": CORES_DE_VISTO.sem_informacao,
       "--color-visto-brasil": COR_DO_BRASIL_NO_MODO_VISTOS,
       "--color-visto-borda-da-amostra": COR_DA_BORDA_DA_AMOSTRA,
+      "--color-visto-contorno": COR_DO_CONTORNO_NO_MODO_VISTOS,
     };
     for (const [token, cor] of Object.entries(tokens)) {
       const encontrado = new RegExp(`${token}:\\s*(#[0-9a-fA-F]{6})`).exec(tema);

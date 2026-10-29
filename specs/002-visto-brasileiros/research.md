@@ -201,6 +201,10 @@ Numeração: a resposta do usuário chamou de "O8" a condição sobre o contrato
 | O11 | Cliente HTTP na `infra`, "captcha", User-Agent | Aprovado. A correção do "captcha" não pode enfraquecer a detecção da 001 (seção 1); os testes da 001 do cliente passam mudando só os imports |
 | O12 | Paleta (inclui o "Sem informação" mais escuro que o dos alertas) | Aprovada |
 
+### 4.1 D8 · Paleta do modo "Vistos" e as exceções entre modos (29/10/2026)
+
+O responsável escolheu a paleta amarelo → roxo (mais escuro = mais exigente). Medida por CIEDE2000 nas quatro visões, ela tem duas famílias de pares abaixo de 12, **ambas entre cores de modos diferentes**: o amarelo do "Isento" contra o âmbar de "evite" (e, na protanopia, contra o verde de "sem alerta"), e o cinza de "sem informação" contra o de "não verificado". Ajustando só a luminosidade, com o matiz mantido, não há valor que leve o amarelo a 12 contra o âmbar sem bater em outra cor da paleta ou no Brasil. **Decisão:** manter o matiz e aceitar as exceções, com limite de 5,5 e os valores medidos no FR-022, porque (1) os modos nunca aparecem juntos no globo, (2) a legenda sempre traz o texto da categoria e (3) o seletor mantém o modo ativo visível. Alternativa descartada: mudar o matiz do amarelo (dourado ou amarelo-esverdeado), que quebraria a rampa escolhida.
+
 ## 5. Riscos que o plano aceita
 
 - **O artigo muda de forma** (cabeçalhos, tabelas, ordem das seções): a coleta é rejeitada como "formato inesperado" e o site segue com a última coleta válida. A fixture detecta quebras só na hora de atualizá-la; a coleta real detecta na semana seguinte.
