@@ -114,7 +114,7 @@ vistos: { estado: "nao_pedido" | "carregando" | "erro" | "pronto"; dados?: Visto
 
 Ações novas: `trocar-modo`, `alternar-visto`, `marcar-todos-vistos`, `vistos-carregando`, `vistos-carregados`, `vistos-falhou`. Trocar de modo não mexe na seleção, no painel aberto, nos postos expandidos nem na câmera.
 
-**Painel recolhível (FR-030):** `painelRecolhido: boolean` (padrão `false`, nunca guardado) e as ações `recolher-painel` e `expandir-painel`. `selecionar`, `tocar-icone`, `expandir-posto` e `limpar-selecao` voltam o campo a `false`; recolher e expandir não mexem em `selecionado`, `postosExpandidos`, `grupoEmDestaque`, `modo` nem nos filtros, e **não pedem câmera**. O `MapaProps` não muda.
+**Painel recolhível (FR-030):** `painelRecolhido: boolean` (padrão `false`, nunca guardado) e as ações `recolher-painel` e `expandir-painel`. `selecionar`, `tocar-icone`, `expandir-posto` e `limpar-selecao` voltam o campo a `false`; recolher e expandir não mexem em `selecionado`, `postosExpandidos`, `grupoEmDestaque`, `modo` nem nos filtros. No computador **não pedem câmera**; no celular a tela pede `{ tipo: "centralizar", latitude, longitude, margem }` (o centro do país, sem mudar o zoom; ver o `plan.md`). `PedidoDeCamera` ganha só essa variante (a prop `camera` do `MapaProps` mantém o tipo).
 
 ## Resultado da verificação (T098, 29/10/2026; refeita na paleta nova)
 

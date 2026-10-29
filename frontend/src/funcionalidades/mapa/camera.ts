@@ -72,6 +72,8 @@ export function planejarCamera(
     case "mundo":
     case "enquadrar":
       return pedido;
+    case "centralizar":
+      return pedido;
     case "manter":
       return { tipo: "nenhum" };
     case "garantir-visivel": {

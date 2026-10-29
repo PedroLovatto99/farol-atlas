@@ -73,6 +73,11 @@ export type PedidoDeCamera =
   | { tipo: "enquadrar"; caixa: Caixa; margem: Margem; zoomMaximo: number }
   /** FR-018c: só desloca o centro, sem mudar o zoom. A margem é a área coberta pelo painel. */
   | { tipo: "garantir-visivel"; latitude: number; longitude: number; margem: Margem }
+  /**
+   * FR-030: no celular, recolher ou expandir o painel leva o país selecionado ao centro da área que
+   * sobrou visível (a margem), sempre, sem mudar o zoom.
+   */
+  | { tipo: "centralizar"; latitude: number; longitude: number; margem: Margem }
   /** FR-018g: tocar num ícone não reenquadra o mapa. */
   | { tipo: "manter" };
 

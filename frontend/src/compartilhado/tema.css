@@ -137,7 +137,7 @@ body {
 /* Com o painel aberto, os controles de zoom do mapa saem de baixo dele (lateral: 340 px + margens;
    gaveta: 55% da altura). Recolhido, o painel vira uma barra (FR-030): no computador ela fica no
    canto superior direito e nada se desloca; no celular ela ocupa o rodapé, e os controles de zoom e
-   a legenda (com a linha de fonte) sobem para acima dela. Sem animação. */
+   a legenda (com a linha de fonte) e o crédito das fronteiras sobem para acima dela. Sem animação. */
 :root {
   --rodape-ocupado: 5.5rem;
 }
@@ -151,6 +151,10 @@ body {
 }
 [data-painel-recolhido="true"][data-modo-do-painel="gaveta"] .maplibregl-ctrl-bottom-right {
   bottom: var(--rodape-ocupado);
+}
+/* O crédito das fronteiras sobe junto: fica entre a legenda e a barra, não por baixo dela */
+[data-painel-recolhido="true"][data-modo-do-painel="gaveta"] .maplibregl-ctrl-bottom-left {
+  bottom: calc(var(--rodape-ocupado) - 1.75rem);
 }
 [data-painel-recolhido="true"][data-modo-do-painel="gaveta"] .legenda-flutuante {
   bottom: calc(var(--rodape-ocupado) + 0.5rem);

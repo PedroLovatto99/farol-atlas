@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { NIVEL_PADRAO, type NivelId } from "./compartilhado/niveis";
 import type { ChaveDeVisto } from "./compartilhado/vistos";
 import { useMovimentoReduzido } from "./compartilhado/useMovimentoReduzido";
@@ -19,7 +19,12 @@ import {
   preenchimentoDeAlerta,
   preenchimentoDeVisto,
 } from "./funcionalidades/mapa/cor";
-import { calcularEnquadramento, margemDoLayout } from "./funcionalidades/mapa/enquadramento";
+import {
+  calcularEnquadramento,
+  centroDoEnquadramento,
+  margemDaAreaLivre,
+  margemDoLayout,
+} from "./funcionalidades/mapa/enquadramento";
 import { agruparPostos, paisesSemPostoDesenhados } from "./funcionalidades/mapa/marcadores";
 import { responsavelDe } from "./funcionalidades/mapa/responsavel";
 import type {
@@ -138,6 +143,7 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
   // O pedido fica no estado: cada toque cria um objeto novo e o mapa o executa de novo, mesmo que
   // a pessoa tenha movido o mapa e toque no mesmo país outra vez.
   const [camera, setCamera] = useState<PedidoDeCamera>(CAMERA_INICIAL);
+  const cabecalho = useRef<HTMLElement>(null);
 
   const mapa = estado.situacao === "pronto" ? estado.mapa : null;
   const niveisMarcados = selecao.niveisMarcados;
@@ -218,11 +224,33 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
     [mapa, selecao.postosExpandidos, selecao.grupoEmDestaque, celular, despachar],
   );
 
-  /** Recolhe ou expande o painel do país; a seleção e a câmera ficam como estão (FR-030). */
-  const alternarRecolhimento = useCallback(
-    () => despachar({ tipo: selecao.painelRecolhido ? "expandir-painel" : "recolher-painel" }),
-    [selecao.painelRecolhido, despachar],
-  );
+  /**
+   * Recolhe ou expande o painel do país; a seleção fica como está (FR-030). No computador a câmera
+   * também não se move. No celular o país vai ao centro da área que sobra visível (entre os
+   * controles do topo e a barra ou a gaveta), sem mudar o zoom.
+   */
+  const alternarRecolhimento = useCallback(() => {
+    const recolher = !selecao.painelRecolhido;
+    despachar({ tipo: recolher ? "recolher-painel" : "expandir-painel" });
+    if (!celular || mapa === null || selecao.selecionado === null) return;
+    if (geometria.situacao !== "pronto") return;
+    const enquadramento = calcularEnquadramento({
+      geometria: geometria.geometria,
+      codigo: selecao.selecionado,
+      responsavel: responsavelDe(mapa, selecao.selecionado),
+      margem: margemDoLayout(true, window.innerHeight),
+    });
+    if (enquadramento === null) return;
+    setCamera({
+      tipo: "centralizar",
+      ...centroDoEnquadramento(enquadramento),
+      margem: margemDaAreaLivre({
+        alturaDaJanela: window.innerHeight,
+        fimDoCabecalho: cabecalho.current?.getBoundingClientRect().bottom ?? 0,
+        painelRecolhido: recolher,
+      }),
+    });
+  }, [selecao.painelRecolhido, selecao.selecionado, celular, mapa, geometria, despachar]);
 
   /** "Ver mundo" e Esc: fecha o painel e devolve a câmera ao mundo. */
   const verMundo = useCallback(() => {
@@ -274,7 +302,10 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
         camera={camera}
       />
 
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-2 sm:flex-row sm:items-start sm:justify-between">
+      <header
+        ref={cabecalho}
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-2 sm:flex-row sm:items-start sm:justify-between"
+      >
         <div className="pointer-events-auto flex max-w-xl flex-col gap-1">
           <h1 className="w-fit rounded-lg bg-ceu/90 px-2 py-0.5 text-base font-semibold text-white">
             Farol Atlas

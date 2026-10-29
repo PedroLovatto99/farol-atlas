@@ -74,6 +74,18 @@ describe("planejarCamera", () => {
     expect(plano).not.toHaveProperty("zoomMaximo");
   });
 
+  it("centralizar (painel recolhido ou expandido, FR-030) sempre desloca o centro, sem consultar o mapa nem mudar o zoom", () => {
+    let consultas = 0;
+    const pedido = { tipo: "centralizar", latitude: -34, longitude: -64, margem: MARGEM } as const;
+    const plano = planejarCamera(pedido, () => {
+      consultas += 1;
+      return contexto();
+    });
+    expect(plano).toEqual(pedido);
+    expect(plano).not.toHaveProperty("zoom");
+    expect(consultas).toBe(0);
+  });
+
   it("manter não reenquadra nem consulta o mapa", () => {
     let consultas = 0;
     const plano = planejarCamera({ tipo: "manter" }, () => {

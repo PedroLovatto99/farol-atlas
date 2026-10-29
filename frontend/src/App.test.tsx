@@ -1202,6 +1202,58 @@ describe("App: painel recolhível (FR-030)", () => {
       expect(legenda).toHaveClass("legenda-flutuante");
       expect(legenda).toContainElement(screen.getByText(/^Vistos:/));
     });
+
+    it("recolher e expandir levam o país ao centro da área visível, sem mudar o zoom (FR-030)", async () => {
+      const usuario = userEvent.setup();
+      await abrirRecolhivel();
+      await tocar("DK");
+      await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+      expect(propsDoMapa().camera.tipo).toBe("enquadrar");
+
+      await usuario.click(botaoDeRecolher());
+
+      const recolhido = propsDoMapa().camera;
+      expect(recolhido.tipo).toBe("centralizar");
+      expect(recolhido).toMatchObject({
+        margem: { esquerda: 20, direita: 20, baixo: 80 },
+      });
+      expect(recolhido).not.toHaveProperty("zoom");
+      expect(recolhido).not.toHaveProperty("zoomMaximo");
+      expect(propsDoMapa().selecionado).toBe("DK");
+
+      await usuario.click(botaoDeExpandir());
+
+      const expandido = propsDoMapa().camera;
+      expect(expandido).not.toBe(recolhido);
+      expect(expandido).toMatchObject({
+        tipo: "centralizar",
+        margem: { baixo: Math.round(window.innerHeight * 0.55) },
+      });
+      // o mesmo ponto nos dois pedidos: o centro do país
+      expect(expandido).toMatchObject({
+        latitude: (recolhido as { latitude: number }).latitude,
+        longitude: (recolhido as { longitude: number }).longitude,
+      });
+    });
+
+    it("selecionar outro país com a barra aberta enquadra como sempre, sem o pedido de centralizar", async () => {
+      const usuario = userEvent.setup();
+      await abrirDinamarcaERecolher();
+      expect(propsDoMapa().camera.tipo).toBe("centralizar");
+
+      await tocar("US");
+      await screen.findByRole("heading", { level: 2, name: "Estados Unidos" });
+      expect(propsDoMapa().camera.tipo).toBe("enquadrar");
+      await usuario.click(botaoDeRecolher());
+      expect(propsDoMapa().camera.tipo).toBe("centralizar");
+    });
+
+    it("o pedido de centralizar leva a preferência por movimento reduzido (sem animação)", async () => {
+      media.definir("(prefers-reduced-motion: reduce)", true);
+      await abrirDinamarcaERecolher();
+      expect(propsDoMapa().camera.tipo).toBe("centralizar");
+      expect(propsDoMapa().reduzirMovimento).toBe(true);
+    });
   });
 
   describe("no computador", () => {
@@ -1211,6 +1263,18 @@ describe("App: painel recolhível (FR-030)", () => {
       await abrirDinamarcaERecolher();
       expect(raiz()).toHaveAttribute("data-modo-do-painel", "lateral");
       expect(barra()).toHaveAttribute("data-modo", "lateral");
+    });
+
+    it("no computador recolher e expandir não pedem câmera nenhuma", async () => {
+      const usuario = userEvent.setup();
+      await abrirRecolhivel();
+      await tocar("DK");
+      await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+      const camera = propsDoMapa().camera;
+      await usuario.click(botaoDeRecolher());
+      expect(propsDoMapa().camera).toBe(camera);
+      await usuario.click(botaoDeExpandir());
+      expect(propsDoMapa().camera).toBe(camera);
     });
   });
 });
