@@ -8,6 +8,7 @@ import type { FontePostos, Pais, PostoNoPainel } from "../../servicos/api/client
 import { URL_DO_PORTAL_CONSULAR } from "../aviso/Aviso";
 import { SobreFronteiras } from "../legenda/SobreFronteiras";
 import { COR_DA_BORDA_REGIONAL } from "../mapa/cor";
+import { SecaoVisto } from "../vistos/SecaoVisto";
 import { AlertasDoPais } from "./AlertasDoPais";
 import { Posto } from "./Posto";
 import type { EstadoDoPais } from "./usePais";
@@ -216,6 +217,7 @@ function Conteudo({ pais, controle }: { pais: Pais; controle: ControleDosPostos 
         <Observacao texto={pais.observacao} />
       )}
       <AlertasDoPais alertas={pais.alertas} />
+      {pais.visto !== null && <SecaoVisto visto={pais.visto} />}
       <Postos pais={pais} controle={controle} />
     </>
   );

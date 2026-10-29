@@ -122,6 +122,49 @@ export function criarVisto(sobrescritas: Partial<Visto> = {}): Visto {
   };
 }
 
+/** Argentina: isento, e basta o RG. */
+export const VISTO_ISENTO_COM_RG: Visto = criarVisto({
+  aceita_rg: true,
+  rotulo_original: "Visa not required",
+  permanencia: { tipo: "padronizada", texto: "90 dias" },
+});
+
+/** Estados Unidos: visto exigido, e a fonte não informa permanência. */
+export const VISTO_EXIGIDO: Visto = criarVisto({
+  situacao: "visto_exigido",
+  rotulo_original: "Visa required",
+  permanencia: null,
+});
+
+/** Rótulo que o sistema não classifica: "Outra situação", com o rótulo da fonte à vista. */
+export const VISTO_OUTRA_SITUACAO: Visto = criarVisto({
+  situacao: "outra_situacao",
+  motivo_outra_situacao: "rotulo_desconhecido",
+  rotulo_original: "Special permit required",
+  permanencia: null,
+});
+
+/** País sem dado: nenhuma categoria, nenhuma data, nenhuma permanência. */
+export const VISTO_SEM_INFORMACAO: Visto = criarVisto({
+  situacao: "sem_informacao",
+  rotulo_original: null,
+  permanencia: null,
+  origem: null,
+  dado_de: null,
+});
+
+/** Guernsey: sem linha própria na fonte, vale a entrada do Reino Unido. */
+export const VISTO_HERDADO: Visto = criarVisto({
+  origem: "soberano",
+  soberano_nome: "Reino Unido",
+});
+
+/** Dado lido há mais de 14 dias (FR-015). */
+export const VISTO_DESATUALIZADO: Visto = criarVisto({
+  dado_de: "2026-09-01T12:00:00Z",
+  desatualizado: true,
+});
+
 export const PAIS_EXEMPLO: Pais = {
   codigo: "DK",
   nome: "Dinamarca",
@@ -388,6 +431,7 @@ export const PAIS_COM_DOIS_POSTOS: Pais = criarPais({
   codigo: "US",
   nome: "Estados Unidos",
   bandeira: "US",
+  visto: VISTO_EXIGIDO,
   postos: [
     { ...POSTO_WASHINGTON, id: 89, tipo: "Embaixada" },
     { ...POSTO_WASHINGTON, id: 90, tipo: "Consulado-Geral" },
@@ -401,6 +445,13 @@ export const PAIS_SEM_POSTO: Pais = criarPais({
   bandeira: "PR",
   tipo: "dependencia",
   soberano: "US",
+  visto: criarVisto({
+    situacao: "visto_exigido",
+    rotulo_original: "Visa required",
+    permanencia: null,
+    origem: "soberano",
+    soberano_nome: "Estados Unidos",
+  }),
   postos: [],
   posto_responsavel: {
     ...POSTO_EXEMPLO,

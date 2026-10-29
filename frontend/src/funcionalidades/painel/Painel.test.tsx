@@ -2,7 +2,19 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Pais } from "../../servicos/api/cliente";
-import { ALERTA_EXEMPLO, criarPais, criarPosto, PAIS_EXEMPLO } from "../../testes/dados-exemplo";
+import {
+  ALERTA_EXEMPLO,
+  criarPais,
+  criarPosto,
+  criarVisto,
+  PAIS_EXEMPLO,
+  VISTO_DESATUALIZADO,
+  VISTO_EXIGIDO,
+  VISTO_HERDADO,
+  VISTO_ISENTO_COM_RG,
+  VISTO_OUTRA_SITUACAO,
+  VISTO_SEM_INFORMACAO,
+} from "../../testes/dados-exemplo";
 import { Painel } from "./Painel";
 import type { EstadoDoPais } from "./usePais";
 
@@ -463,6 +475,128 @@ describe("Painel: carregando e erro", () => {
     );
     await userEvent.setup().click(screen.getByRole("button", { name: "Ver mundo" }));
     expect(onFechar).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Painel: seção de visto", () => {
+  it("aparece abaixo dos alertas", () => {
+    abrir(LIBANO);
+    const alertas = within(painel()).getByRole("region", { name: "Alertas do Itamaraty" });
+    const visto = within(painel()).getByRole("region", { name: "Visto" });
+    expect(alertas.compareDocumentPosition(visto) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("mostra a categoria do país e o aviso de fonte não oficial", () => {
+    abrir(PAIS_EXEMPLO);
+    const visto = within(painel()).getByRole("region", { name: "Visto" });
+    expect(within(visto).getByText("Isento de visto")).toBeVisible();
+    expect(within(visto).getByText(/consulado ou embaixada/)).toBeVisible();
+  });
+
+  it("Kosovo mantém a identidade da Sérvia no painel e intitula a seção 'Visto: Kosovo'", () => {
+    const { container } = abrir(
+      criarPais({
+        codigo: "XK",
+        nome: "Sérvia",
+        bandeira: "RS",
+        tipo: "dependencia",
+        soberano: "RS",
+        identidade_do_soberano: true,
+        visto: criarVisto({ territorio_nome: "Kosovo", situacao: "visto_exigido" }),
+      }),
+    );
+    expect(screen.getByRole("heading", { level: 2, name: "Sérvia" })).toBeVisible();
+    expect(bandeiras(container)).toEqual([expect.stringContaining("fi-rs")]);
+    expect(screen.getByRole("region", { name: "Visto: Kosovo" })).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Visto" })).not.toBeInTheDocument();
+  });
+
+  it("Malvinas mantêm a identidade da Argentina e nunca mostram a entrada com RG", () => {
+    abrir(
+      criarPais({
+        codigo: "FK",
+        nome: "Argentina",
+        bandeira: "AR",
+        tipo: "dependencia",
+        soberano: "AR",
+        identidade_do_soberano: true,
+        visto: criarVisto({ territorio_nome: "Ilhas Malvinas", aceita_rg: false }),
+      }),
+    );
+    expect(screen.getByRole("heading", { level: 2, name: "Argentina" })).toBeVisible();
+    const visto = screen.getByRole("region", { name: "Visto: Ilhas Malvinas" });
+    expect(within(visto).queryByText("Entrada com o RG")).not.toBeInTheDocument();
+  });
+
+  it("país sem informação mostra o estado 'Sem informação de visto', nunca a seção ausente", () => {
+    abrir(criarPais({ visto: VISTO_SEM_INFORMACAO }));
+    const visto = within(painel()).getByRole("region", { name: "Visto" });
+    expect(within(visto).getByText("Sem informação de visto")).toBeVisible();
+    expect(within(visto).queryByText("Isento de visto")).not.toBeInTheDocument();
+  });
+
+  describe("Brasil", () => {
+    function abrirBrasil() {
+      return abrir(
+        criarPais({
+          codigo: "BR",
+          nome: "Brasil",
+          bandeira: "BR",
+          eh_brasil: true,
+          postos: [],
+          fonte_postos: null,
+          visto: null,
+        }),
+      );
+    }
+
+    it("não tem a seção: nem título, nem fonte, nem aviso", () => {
+      abrirBrasil();
+      expect(screen.queryByRole("region", { name: /^Visto/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /visto/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Visa requirements/ })).not.toBeInTheDocument();
+      expect(screen.queryByText(/CC BY-SA/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/consulado ou embaixada/)).not.toBeInTheDocument();
+    });
+
+    it("não diz 'não se aplica' nem 'sem informação de visto'", () => {
+      abrirBrasil();
+      expect(screen.queryByText(/não se aplica/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/sem informação de visto/i)).not.toBeInTheDocument();
+    });
+
+    it("a ausência da seção segue o visto nulo, e só ele", () => {
+      abrir(criarPais({ visto: null }));
+      expect(screen.queryByRole("region", { name: /^Visto/ })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("o resto do painel é igual com a seção em qualquer estado", () => {
+    /** O painel inteiro, menos a seção de visto (e os ids que o React gera a cada render). */
+    function semAsecaoDeVisto(): string {
+      const copia = painel().cloneNode(true) as HTMLElement;
+      for (const secao of copia.querySelectorAll("section[aria-labelledby]")) {
+        if (secao.querySelector("h3")?.textContent?.startsWith("Visto")) secao.remove();
+      }
+      return copia.innerHTML.replace(/ (id|aria-labelledby)="[^"]*"/g, "");
+    }
+
+    const ESTADOS = {
+      "isento com RG": VISTO_ISENTO_COM_RG,
+      "visto exigido": VISTO_EXIGIDO,
+      "outra situação": VISTO_OUTRA_SITUACAO,
+      "sem informação": VISTO_SEM_INFORMACAO,
+      "herdado do soberano": VISTO_HERDADO,
+      desatualizado: VISTO_DESATUALIZADO,
+    };
+
+    it.each(Object.entries(ESTADOS))("%s", (_nome, visto) => {
+      abrir(PAIS_EXEMPLO);
+      const base = semAsecaoDeVisto();
+      cleanup();
+      abrir(criarPais({ visto }));
+      expect(semAsecaoDeVisto()).toBe(base);
+    });
   });
 });
 
