@@ -8,7 +8,7 @@
 
 ## Summary
 
-O painel de cada país ganha a seção "Visto" e o globo pode ser pintado por visto. Um módulo novo do backend, `vistos`, lê **uma vez por semana** a página do artigo "Visa requirements for Brazilian citizens" da Wikipédia (sem usar a API, que o `robots.txt` proíbe), liga cada linha a um território do mapa por um dicionário de nomes, traduz as observações em lote com um LLM configurável, e **só substitui o que o site mostra se a coleta for válida** (formato esperado e países reconhecidos ≥ 90% da coleta anterior, ou ≥ 150 na primeira). Mudanças para uma categoria **menos exigente** (ou passar a aceitar só o RG) ficam **retidas por país** até o dono confirmar. A `api` junta o painel (do `mapa`) e o visto (do `vistos`), e expõe `GET /vistos` para o globo. O frontend ganha o seletor "Alertas | Vistos" (padrão "Alertas", não lembrado), a paleta e a legenda de vistos com o subitem "Isento, entrada com RG" (listras no MapLibre) e a linha de fonte e data, visível mesmo com a legenda recolhida.
+O painel de cada país ganha a seção "Visto" e o globo pode ser pintado por visto. Um módulo novo do backend, `vistos`, lê **uma vez por semana** a página do artigo "Visa requirements for Brazilian citizens" da Wikipédia (sem usar a API, que o `robots.txt` proíbe), liga cada linha a um território do mapa por um dicionário de nomes, traduz as observações em lote com um LLM configurável, e **só substitui o que o site mostra se a coleta for válida** (formato esperado e países reconhecidos ≥ 90% da coleta anterior, ou ≥ 150 na primeira). Mudanças para uma categoria **menos exigente** (ou passar a aceitar só o RG) ficam **retidas por país** até o dono confirmar. A `api` junta o painel (do `mapa`) e o visto (do `vistos`), e expõe `GET /vistos` para o globo. O frontend ganha o seletor "Alertas | Vistos" (padrão "Alertas", não lembrado), a paleta e a legenda de vistos com o subitem "Isento, entrada com RG" (listras no MapLibre) e a linha de fonte e data, visível mesmo com a legenda recolhida. O painel do país ganha o botão **recolher** (FR-030), para o globo ficar visível com um país selecionado: aba estreita na borda no computador, barra no rodapé no celular.
 
 Detalhes: [research.md](research.md) (conferências, levantamento da fixture e decisões), [data-model.md](data-model.md), [contracts/](contracts/) e [quickstart.md](quickstart.md).
 
@@ -127,13 +127,14 @@ frontend/
 ├── scripts/gerar-tipos.mjs        # contrato padrão passa a ser o da 002
 └── src/
     ├── servicos/api/              # esquema.d.ts regerado; cliente: Visto, VistosDoMapa, obterVistos
-    ├── estado/reducer.ts          # + modo, vistosMarcados e ações
+    ├── estado/reducer.ts          # + modo, vistosMarcados, painelRecolhido e ações
     ├── compartilhado/vistos.ts    # categorias, rótulos, textos, cores, ordem e chaves da legenda
     └── funcionalidades/
         ├── vistos/                # SecaoVisto, SeletorDeModo, LegendaDeVistos, LinhaDaFonteDeVistos, useVistos
         ├── legenda/               # + filtroDeVistos.ts (puro) e troca da legenda por modo
         ├── mapa/                  # tipos (Preenchimento), cor/feicoes, padroes.ts, adaptador (camada padrao-rg)
-        ├── painel/Painel.tsx      # + SecaoVisto
+        ├── painel/Painel.tsx      # + SecaoVisto; + botão "Recolher painel" (FR-030)
+        ├── painel/BarraDoPainel.tsx # novo: o painel recolhido (aba lateral / barra no rodapé)
         └── aviso/Aviso.tsx        # + aviso de vistos desatualizados no modo Vistos
 
 .env.example                       # + LLM_TRADUTOR; CONTATO_COLETA com o repositório
@@ -174,6 +175,40 @@ Escolhida e **conferida por script** (contraste WCAG 2.x e distância de cor CIE
 - O "sem informação" **muda de tom** entre os modos (no modo Alertas, "não verificado" segue `#D3D1C7`): tem outro significado e precisa se distinguir do neutro do Brasil, que no modo Alertas não existe como estado.
 - Verificação permanente: um teste do frontend recalcula os contrastes de texto (≥ 4,5) e a distância mínima entre as cores (com as matrizes de daltonismo) a partir de `compartilhado/vistos.ts`. A tabela acima é o resultado do script de dimensionamento; os números finais saem do teste.
 
+## Painel recolhível (FR-030)
+
+Pedido de 29/10/2026: o modo "Vistos" precisa do mapa visível com um país selecionado. Só frontend; nenhuma dependência nova, nenhuma rota nova.
+
+**Como o "Ver mundo" funciona hoje (001).** O botão está no cabeçalho do painel (`Painel.tsx`) e chama `verMundo` em `App.tsx`: despacha `limpar-selecao` (zera `selecionado`, `postosExpandidos` e `grupoEmDestaque`) e pede a câmera `{ tipo: "mundo" }`. Sem `selecionado`, o `usePais` volta a `ocioso` e o painel **sai da tela**. Esc faz o mesmo (se não houver diálogo aberto), e o toque no oceano também limpa a seleção, mas sem mexer na câmera. Ou seja, "Ver mundo" **fecha** e **desseleciona**; o recolher é outra coisa.
+
+**Como os dois convivem.**
+
+| | Recolher | Ver mundo |
+|---|---|---|
+| País selecionado | continua | deixa de estar |
+| Câmera | não muda | volta ao mundo |
+| Postos expandidos e destaque | ficam | são zerados |
+| Painel | vira barra | sai da tela |
+| Volta | tocar na barra | selecionar de novo (abre expandido) |
+
+A barra recolhida **também tem o "Ver mundo"** (segundo botão, só ícone com nome acessível), para o painel nunca ficar sem saída enquanto o país está selecionado; Esc continua valendo. Fechar zera o recolhido (não há `selecionado`).
+
+**Estado.** `painelRecolhido: boolean` no `reducer.ts`, padrão `false`, nunca gravado (nem `localStorage`). Ações `recolher-painel` e `expandir-painel`. `selecionar`, `tocar-icone` e `limpar-selecao` voltam a `false`; `expandir-posto` também (um posto expandido precisa do painel aberto). Trocar o modo e mexer na legenda não mudam o campo. O botão só existe com o país carregado (`pronto`); em "carregando" e "erro" o painel fica expandido.
+
+**Componentes.**
+- `Painel.tsx` recebe `recolhido` e `onAlternarRecolhimento`; no cabeçalho, ao lado do "Ver mundo", o botão "Recolher painel" (`aria-expanded="true"`, ícone de seta). Recolhido, o `Painel` renderiza a `BarraDoPainel` no lugar do `aside` expandido (o conteúdo sai do DOM; os postos abertos são do reducer e voltam sozinhos).
+- `BarraDoPainel.tsx` (novo): um `<aside aria-label="Detalhes do país (recolhido)">` com um botão principal que ocupa a barra (bandeira, nome, situação; nome acessível "Expandir painel: <nome>, <situação>"; `aria-expanded="false"`) e o "Ver mundo". **Computador**: aba de 56 px de largura na borda direita, altura limitada, texto na vertical (`writing-mode: vertical-rl`) com a bandeira em cima. **Celular**: barra de 56 px de altura no rodapé, em linha, nome com `truncate` e a situação sempre visível.
+- A situação principal vem de dados que o painel já carregou: `NIVEIS[pais.nivel].rotulo` (ou `ALERTA_SO_REGIONAL.rotulo`, como o `NivelDoPais`) no modo "Alertas"; `ROTULOS_DE_VISTO[pais.visto.situacao]` no modo "Vistos" (Kosovo e Malvinas: "Kosovo: Isento de visto", com `territorio_nome`). **Não depende** de `GET /vistos`. Brasil: `visto = null` e nenhuma situação, só bandeira e nome.
+- O foco vai, depois da troca, ao botão que passa a valer (`Expandir painel` na barra; `Recolher painel` no cabeçalho), com o mesmo cuidado do foco já existente no `Painel`.
+
+**Layout e câmera.**
+- A câmera **não se move** ao recolher ou expandir. O enquadramento continua sendo feito ao selecionar, com `margemDoLayout` do painel expandido; recolhido, o país fica descentrado dentro de uma área visível maior, o que é aceitável e evita animação inesperada. Se isso incomodar na medição (T126), um pedido `garantir-visivel` ao recolher é o ajuste, mas **não** entra por padrão.
+- `App.tsx` passa `data-painel-recolhido` junto de `data-painel-aberto` e `data-modo-do-painel`. O CSS de `tema.css` (que hoje afasta os controles de zoom do painel: 352 px à direita no lateral, 55dvh embaixo na gaveta) ganha o caso recolhido: ~64 px à direita e ~64 px embaixo.
+- **Celular: legenda e linha de fonte** ficam em `bottom-10` e hoje são cobertas pela gaveta de 55dvh. Com a barra de 56 px no rodapé elas **não podem ficar por baixo dela**: com `data-painel-recolhido="true"` no celular, sobem para acima da barra (variável CSS `--rodape-ocupado`). Isso entra nos testes do `App` e na medição em 360 px.
+- Transição: nenhuma animação nova por padrão; se houver (fade curto da barra), fica dentro de `prefers-reduced-motion` (`motion-reduce:transition-none`), como o resto, com teste.
+
+**Constituição.** VI (acessível e celular): botão com nome e `aria-expanded`, teclado, 360 px, alvo ≥ 44 px, sem gesto de arrastar, sem animação obrigatória. III: só estado de interface no reducer; nada no `mapa`. Nenhum princípio muda.
+
 ## Ordem de entrega sugerida (insumo para /speckit-tasks)
 
 As tarefas ficam agrupadas por história. **A P1 inteira (backend + painel) entrega valor e é testável antes de começar a P2.**
@@ -202,7 +237,8 @@ As tarefas ficam agrupadas por história. **A P1 inteira (backend + painel) entr
    2. estado (`modo`, `vistosMarcados`), `Preenchimento` e funções puras de cor; `padroes.ts`;
    3. adaptador (camada `padrao-rg`, imagem), `SeletorDeModo`, `useVistos` sob demanda, com os estados carregando, erro (mensagem na legenda e "Tentar de novo", territórios sem preenchimento, **nunca cinza**) e pronto;
    4. legenda de vistos (subitem, estado misto), `filtroDeVistos`, linha de fonte fora da parte recolhível, aviso de dados antigos;
-   5. paleta e contraste (teste permanente); medição em 360 px e 1280 px.
+   5. paleta e contraste (teste permanente); medição em 360 px e 1280 px;
+   6. **painel recolhível** (FR-030), depois do estado (item 2) e do modo na tela: reducer, `BarraDoPainel`, `Painel`, ligação no `App` e o CSS de posição (seção "Painel recolhível", abaixo).
 7. **Polimento:** `quickstart.md` conferido de ponta a ponta; atualizar `tasks.md`/checklists; relatório da primeira coleta (cobertura e tempo).
 
 ## Complexity Tracking

@@ -112,3 +112,5 @@ vistos: { estado: "nao_pedido" | "carregando" | "erro" | "pronto"; dados?: Visto
 ```
 
 Ações novas: `trocar-modo`, `alternar-visto`, `marcar-todos-vistos`, `vistos-carregando`, `vistos-carregados`, `vistos-falhou`. Trocar de modo não mexe na seleção, no painel aberto, nos postos expandidos nem na câmera.
+
+**Painel recolhível (FR-030):** `painelRecolhido: boolean` (padrão `false`, nunca guardado) e as ações `recolher-painel` e `expandir-painel`. `selecionar`, `tocar-icone`, `expandir-posto` e `limpar-selecao` voltam o campo a `false`; recolher e expandir não mexem em `selecionado`, `postosExpandidos`, `grupoEmDestaque`, `modo` nem nos filtros, e **não pedem câmera**. O `MapaProps` não muda.
