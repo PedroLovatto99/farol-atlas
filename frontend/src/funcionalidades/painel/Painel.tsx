@@ -1,4 +1,4 @@
-import { IconWorld } from "@tabler/icons-react";
+import { IconChevronDown, IconWorld } from "@tabler/icons-react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Bandeira } from "../../compartilhado/Bandeira";
 import { formatarData } from "../../compartilhado/datas";
@@ -8,8 +8,10 @@ import type { FontePostos, Pais, PostoNoPainel } from "../../servicos/api/client
 import { URL_DO_PORTAL_CONSULAR } from "../aviso/Aviso";
 import { SobreFronteiras } from "../legenda/SobreFronteiras";
 import { COR_DA_BORDA_REGIONAL } from "../mapa/cor";
+import type { ModoDoGlobo } from "../mapa/tipos";
 import { SecaoVisto } from "../vistos/SecaoVisto";
 import { AlertasDoPais } from "./AlertasDoPais";
+import { BarraDoPainel } from "./BarraDoPainel";
 import { Posto } from "./Posto";
 import type { EstadoDoPais } from "./usePais";
 
@@ -24,6 +26,12 @@ interface Props {
   postosExpandidos?: readonly number[];
   /** A pessoa expandiu ou recolheu um posto (inclusive o responsável). */
   onAlternarPosto?(posto: PostoNoPainel, aberto: boolean): void;
+  /** O painel está recolhido na barra (FR-030); a tela decide, o país continua selecionado. */
+  recolhido?: boolean;
+  /** Recolhe ou expande o painel; sem ele o botão "Recolher painel" não aparece. */
+  onAlternarRecolhimento?(): void;
+  /** O que o globo mostra: a situação da barra recolhida segue o mesmo modo. */
+  modoDoGlobo?: ModoDoGlobo;
 }
 
 interface ControleDosPostos {
@@ -234,9 +242,14 @@ export function Painel({
   modo = "lateral",
   postosExpandidos,
   onAlternarPosto,
+  recolhido = false,
+  onAlternarRecolhimento,
+  modoDoGlobo = "alertas",
 }: Props) {
   const pais = estado.situacao === "pronto" ? estado.pais : null;
   const raiz = useRef<HTMLElement>(null);
+  const botaoDeRecolher = useRef<HTMLButtonElement>(null);
+  const jaEstevaRecolhido = useRef(recolhido);
 
   // O painel abre por uma ação da pessoa (toque, busca): leva o foco para ele, para o leitor de
   // tela anunciá-lo, e devolve o foco a quem o tinha quando o painel fecha.
@@ -249,6 +262,26 @@ export function Painel({
     };
   }, []);
 
+  // Ao expandir, o foco volta para o botão que recolhe (a barra, que o tinha, saiu da tela)
+  useEffect(() => {
+    if (jaEstevaRecolhido.current && !recolhido) {
+      botaoDeRecolher.current?.focus({ preventScroll: true });
+    }
+    jaEstevaRecolhido.current = recolhido;
+  }, [recolhido]);
+
+  if (recolhido && pais !== null && onAlternarRecolhimento !== undefined) {
+    return (
+      <BarraDoPainel
+        pais={pais}
+        modoDoGlobo={modoDoGlobo}
+        modo={modo}
+        onAlternar={onAlternarRecolhimento}
+        onFechar={onFechar}
+      />
+    );
+  }
+
   return (
     <aside
       ref={raiz}
@@ -257,23 +290,40 @@ export function Painel({
       data-modo={modo}
       className={`${CLASSES_DO_MODO[modo]} flex flex-col overflow-hidden border border-linha bg-white shadow-lg outline-none`}
     >
-      <header className="flex items-start gap-2 border-b border-linha p-3">
+      <header className="flex flex-wrap items-start gap-2 border-b border-linha p-3">
         {pais !== null ? (
-          <>
+          <div className="flex min-w-0 flex-1 basis-40 items-start gap-2">
             <Bandeira codigo={pais.bandeira} />
-            <h2 className="min-w-0 flex-1 text-lg font-semibold leading-snug">{pais.nome}</h2>
-          </>
+            <h2 className="min-w-0 flex-1 break-words text-lg font-semibold leading-snug">
+              {pais.nome}
+            </h2>
+          </div>
         ) : (
           <span className="flex-1" />
         )}
-        <button
-          type="button"
-          onClick={onFechar}
-          className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-linha px-3 text-sm font-semibold"
-        >
-          <IconWorld aria-hidden size={18} />
-          Ver mundo
-        </button>
+        {/* com dois botões, a linha quebra: no celular e nos 340 px do painel lateral eles vão para baixo do nome */}
+        <div className="ml-auto flex shrink-0 gap-2">
+          {pais !== null && onAlternarRecolhimento !== undefined && (
+            <button
+              ref={botaoDeRecolher}
+              type="button"
+              aria-expanded="true"
+              onClick={onAlternarRecolhimento}
+              className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-linha px-3 text-sm font-semibold"
+            >
+              <IconChevronDown aria-hidden size={18} />
+              Recolher painel
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onFechar}
+            className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-linha px-3 text-sm font-semibold"
+          >
+            <IconWorld aria-hidden size={18} />
+            Ver mundo
+          </button>
+        </div>
       </header>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">

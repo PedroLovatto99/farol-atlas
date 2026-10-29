@@ -135,12 +135,25 @@ body {
 }
 
 /* Com o painel aberto, os controles de zoom do mapa saem de baixo dele (lateral: 340 px + margens;
-   gaveta: 55% da altura). */
-[data-painel-aberto="true"][data-modo-do-painel="lateral"] .maplibregl-ctrl-bottom-right {
+   gaveta: 55% da altura). Recolhido, o painel vira uma barra (FR-030): no computador ela fica no
+   canto superior direito e nada se desloca; no celular ela ocupa o rodapé, e os controles de zoom e
+   a legenda (com a linha de fonte) sobem para acima dela. Sem animação. */
+:root {
+  --rodape-ocupado: 5.5rem;
+}
+[data-painel-aberto="true"]:not([data-painel-recolhido="true"])[data-modo-do-painel="lateral"]
+  .maplibregl-ctrl-bottom-right {
   right: 352px;
 }
-[data-painel-aberto="true"][data-modo-do-painel="gaveta"] .maplibregl-ctrl-bottom-right {
+[data-painel-aberto="true"]:not([data-painel-recolhido="true"])[data-modo-do-painel="gaveta"]
+  .maplibregl-ctrl-bottom-right {
   bottom: 55dvh;
+}
+[data-painel-recolhido="true"][data-modo-do-painel="gaveta"] .maplibregl-ctrl-bottom-right {
+  bottom: var(--rodape-ocupado);
+}
+[data-painel-recolhido="true"][data-modo-do-painel="gaveta"] .legenda-flutuante {
+  bottom: calc(var(--rodape-ocupado) + 0.5rem);
 }
 
 @media (prefers-reduced-motion: reduce) {

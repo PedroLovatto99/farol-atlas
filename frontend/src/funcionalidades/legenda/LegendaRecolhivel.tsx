@@ -51,7 +51,7 @@ export function LegendaRecolhivel({
 
   // coluna invertida: a legenda abre para cima e o botão não sai do lugar
   return (
-    <div className="absolute bottom-10 left-2 z-10 flex max-w-[calc(100%-1rem)] flex-col-reverse items-start gap-2 sm:max-w-xs">
+    <div className="legenda-flutuante absolute bottom-10 left-2 z-10 flex max-w-[calc(100%-1rem)] flex-col-reverse items-start gap-2 sm:max-w-xs">
       <button
         type="button"
         aria-expanded={aberta}

@@ -218,6 +218,12 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
     [mapa, selecao.postosExpandidos, selecao.grupoEmDestaque, celular, despachar],
   );
 
+  /** Recolhe ou expande o painel do país; a seleção e a câmera ficam como estão (FR-030). */
+  const alternarRecolhimento = useCallback(
+    () => despachar({ tipo: selecao.painelRecolhido ? "expandir-painel" : "recolher-painel" }),
+    [selecao.painelRecolhido, despachar],
+  );
+
   /** "Ver mundo" e Esc: fecha o painel e devolve a câmera ao mundo. */
   const verMundo = useCallback(() => {
     despachar({ tipo: "limpar-selecao" });
@@ -249,6 +255,7 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
     <div
       className="relative h-dvh w-full overflow-hidden bg-ceu text-texto"
       data-painel-aberto={painelAberto}
+      data-painel-recolhido={painelAberto && selecao.painelRecolhido}
       data-modo-do-painel={modoDoPainel}
     >
       <CeuEstrelado />
@@ -313,6 +320,9 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
           modo={modoDoPainel}
           postosExpandidos={selecao.postosExpandidos}
           onAlternarPosto={alternarPosto}
+          recolhido={selecao.painelRecolhido}
+          onAlternarRecolhimento={alternarRecolhimento}
+          modoDoGlobo={modo}
         />
       )}
 

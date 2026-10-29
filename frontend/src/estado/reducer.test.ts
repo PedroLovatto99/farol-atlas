@@ -301,3 +301,62 @@ describe("estado: modo do globo e vistos (feature 002)", () => {
     expect(window.sessionStorage.length).toBe(0);
   });
 });
+
+describe("estado: painel recolhível (FR-030)", () => {
+  const aberto = {
+    ...ESTADO_INICIAL,
+    selecionado: "DK",
+    postosExpandidos: [1, 2],
+    grupoEmDestaque: "55.6761,12.5683",
+    modo: "vistos" as const,
+    niveisMarcados: ["nao_viajar" as const],
+    vistosMarcados: ["isento" as const],
+  };
+  const recolhido = reducer(aberto, { tipo: "recolher-painel" });
+
+  it("começa expandido", () => {
+    expect(ESTADO_INICIAL.painelRecolhido).toBe(false);
+  });
+
+  it("recolher e expandir alternam só esse campo", () => {
+    expect(recolhido).toEqual({ ...aberto, painelRecolhido: true });
+    expect(reducer(recolhido, { tipo: "expandir-painel" })).toEqual({
+      ...aberto,
+      painelRecolhido: false,
+    });
+  });
+
+  it("recolher de novo ou expandir já expandido não muda nada", () => {
+    expect(reducer(recolhido, { tipo: "recolher-painel" })).toBe(recolhido);
+    expect(reducer(aberto, { tipo: "expandir-painel" })).toBe(aberto);
+  });
+
+  it.each([
+    { tipo: "selecionar", codigo: "PT" },
+    { tipo: "tocar-icone", territorio: "DK", grupo: "g", ids: [1, 2] },
+    { tipo: "expandir-posto", id: 1, grupo: "55.6761,12.5683" },
+    { tipo: "limpar-selecao" },
+  ] as const)("'$tipo' devolve o painel ao estado expandido", (acao) => {
+    expect(reducer(recolhido, acao).painelRecolhido).toBe(false);
+  });
+
+  it.each([
+    { tipo: "alternar-nivel", nivel: "evitar" },
+    { tipo: "trocar-modo", modo: "alertas" },
+    { tipo: "alternar-visto", chave: "visto_exigido" },
+    { tipo: "marcar-todos-niveis" },
+    { tipo: "vistos-carregando" },
+  ] as const)("'$tipo' não altera o recolhimento", (acao) => {
+    expect(reducer(recolhido, acao).painelRecolhido).toBe(true);
+    expect(reducer(aberto, acao).painelRecolhido).toBe(false);
+  });
+
+  it("nada do recolhimento é gravado no navegador", () => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    const estado = reducer(recolhido, { tipo: "expandir-painel" });
+    reducer(estado, { tipo: "recolher-painel" });
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
+  });
+});

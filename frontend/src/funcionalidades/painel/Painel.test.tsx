@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Pais } from "../../servicos/api/cliente";
 import {
@@ -15,6 +16,7 @@ import {
   VISTO_OUTRA_SITUACAO,
   VISTO_SEM_INFORMACAO,
 } from "../../testes/dados-exemplo";
+import type { ModoDoGlobo } from "../mapa/tipos";
 import { Painel } from "./Painel";
 import type { EstadoDoPais } from "./usePais";
 
@@ -667,5 +669,134 @@ describe("Painel: postos abertos e fechados pelo estado da tela", () => {
     await waitFor(() =>
       expect(aoAlternar).toHaveBeenCalledWith(expect.objectContaining({ id: 91 }), true),
     );
+  });
+});
+
+describe("Painel: recolher e expandir (FR-030)", () => {
+  const DOIS = criarPais({
+    alertas: [ALERTA_EXEMPLO],
+    visto: VISTO_EXIGIDO,
+    postos: [
+      criarPosto({ id: 1, tipo: "Embaixada", cidade: "Copenhague" }),
+      criarPosto({ id: 2, tipo: "Consulado", cidade: "Aarhus", grupo: "56.1,10.2" }),
+    ],
+  });
+
+  /** A tela guarda o recolhimento; o painel só o mostra. */
+  function Tela({
+    estado,
+    modoDoGlobo = "alertas",
+    onFechar = vi.fn(),
+  }: {
+    estado: Exclude<EstadoDoPais, { situacao: "ocioso" }>;
+    modoDoGlobo?: ModoDoGlobo;
+    onFechar?: () => void;
+  }) {
+    const [recolhido, definir] = useState(false);
+    return (
+      <Painel
+        estado={estado}
+        onFechar={onFechar}
+        onTentarDeNovo={vi.fn()}
+        recolhido={recolhido}
+        onAlternarRecolhimento={() => definir((r) => !r)}
+        modoDoGlobo={modoDoGlobo}
+        postosExpandidos={[2]}
+        onAlternarPosto={vi.fn()}
+      />
+    );
+  }
+
+  const pronto = (pais: Pais) => ({ situacao: "pronto", pais }) as const;
+  const recolher = () => screen.getByRole("button", { name: "Recolher painel" });
+  const barra = () => screen.queryByRole("complementary", { name: "Detalhes do país (recolhido)" });
+
+  it("com o país carregado o cabeçalho tem 'Recolher painel' ao lado de 'Ver mundo'", () => {
+    render(<Tela estado={pronto(DOIS)} />);
+    expect(recolher()).toHaveAttribute("aria-expanded", "true");
+    const cabecalho = within(painel()).getByRole("banner");
+    expect(within(cabecalho).getByRole("button", { name: "Ver mundo" })).toBeVisible();
+    expect(within(cabecalho).getByRole("button", { name: "Recolher painel" })).toBeVisible();
+  });
+
+  it("carregando e erro não têm o botão", () => {
+    const { rerender } = render(<Tela estado={{ situacao: "carregando" }} />);
+    expect(screen.queryByRole("button", { name: "Recolher painel" })).toBeNull();
+    rerender(<Tela estado={{ situacao: "erro", mensagem: "caiu" }} />);
+    expect(screen.queryByRole("button", { name: "Recolher painel" })).toBeNull();
+  });
+
+  it("sem a ligação da tela o botão não existe (painel da 001, sem mudança)", () => {
+    abrir(DOIS);
+    expect(screen.queryByRole("button", { name: "Recolher painel" })).toBeNull();
+  });
+
+  it("recolhido mostra a barra e não mostra as seções", async () => {
+    render(<Tela estado={pronto(DOIS)} />);
+    expect(screen.getByRole("region", { name: "Visto" })).toBeVisible();
+    await userEvent.setup().click(recolher());
+
+    expect(barra()).toBeVisible();
+    expect(screen.queryByRole("complementary", { name: "Detalhes do país" })).toBeNull();
+    expect(screen.queryByRole("region")).toBeNull();
+    expect(screen.queryByText("Representação brasileira")).toBeNull();
+    expect(screen.queryByText("Copenhague")).toBeNull();
+  });
+
+  it("expandir devolve o conteúdo igual, com os postos que estavam abertos", async () => {
+    const usuario = userEvent.setup();
+    render(<Tela estado={pronto(DOIS)} />);
+    const antes = painel().innerHTML.replace(/ (id|aria-labelledby)="[^"]*"/g, "");
+    const abertos = () => Array.from(document.querySelectorAll("details")).map((d) => d.open);
+    expect(abertos()).toEqual([false, true]);
+
+    await usuario.click(recolher());
+    await usuario.click(screen.getByRole("button", { name: /^Expandir painel/ }));
+
+    expect(barra()).toBeNull();
+    expect(painel().innerHTML.replace(/ (id|aria-labelledby)="[^"]*"/g, "")).toBe(antes);
+    expect(abertos()).toEqual([false, true]);
+  });
+
+  it("o foco vai para 'Expandir painel' ao recolher e para 'Recolher painel' ao expandir", async () => {
+    const usuario = userEvent.setup();
+    render(<Tela estado={pronto(DOIS)} />);
+    await usuario.click(recolher());
+    expect(screen.getByRole("button", { name: /^Expandir painel/ })).toHaveFocus();
+    await usuario.keyboard("{Enter}");
+    expect(recolher()).toHaveFocus();
+  });
+
+  it("a barra mostra a situação do modo do globo", async () => {
+    const usuario = userEvent.setup();
+    const { rerender } = render(<Tela estado={pronto(DOIS)} modoDoGlobo="alertas" />);
+    await usuario.click(recolher());
+    expect(within(barra() as HTMLElement).getByText("Sem alerta do Itamaraty")).toBeVisible();
+    rerender(<Tela estado={pronto(DOIS)} modoDoGlobo="vistos" />);
+    expect(within(barra() as HTMLElement).getByText("Visto exigido")).toBeVisible();
+  });
+
+  it("'Ver mundo' da barra chama onFechar", async () => {
+    const onFechar = vi.fn();
+    render(<Tela estado={pronto(DOIS)} onFechar={onFechar} />);
+    const usuario = userEvent.setup();
+    await usuario.click(recolher());
+    await usuario.click(screen.getByRole("button", { name: "Ver mundo" }));
+    expect(onFechar).toHaveBeenCalledTimes(1);
+  });
+
+  it("o Brasil também recolhe", async () => {
+    const brasil = criarPais({
+      codigo: "BR",
+      nome: "Brasil",
+      bandeira: "BR",
+      eh_brasil: true,
+      visto: null,
+    });
+    render(<Tela estado={pronto(brasil)} />);
+    await userEvent.setup().click(recolher());
+    expect(
+      within(barra() as HTMLElement).getByRole("button", { name: "Expandir painel: Brasil" }),
+    ).toBeVisible();
   });
 });

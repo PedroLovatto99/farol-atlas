@@ -27,6 +27,8 @@ export interface Estado {
   /** Chaves marcadas na legenda de vistos; todas ao abrir; independente de `niveisMarcados`. */
   vistosMarcados: readonly ChaveDeVisto[];
   vistos: EstadoDosVistos;
+  /** O painel do país virou uma barra (FR-030); o país continua selecionado. Nunca guardado entre visitas. */
+  painelRecolhido: boolean;
 }
 
 export type Acao =
@@ -49,7 +51,10 @@ export type Acao =
   | { tipo: "marcar-todos-vistos" }
   | { tipo: "vistos-carregando" }
   | { tipo: "vistos-carregados"; dados: VistosDoMapa }
-  | { tipo: "vistos-falhou"; mensagem: string };
+  | { tipo: "vistos-falhou"; mensagem: string }
+  /** O painel vira a barra; não mexe em seleção, postos, câmera, modo nem filtros. */
+  | { tipo: "recolher-painel" }
+  | { tipo: "expandir-painel" };
 
 export const ESTADO_INICIAL: Estado = {
   selecionado: null,
@@ -59,21 +64,39 @@ export const ESTADO_INICIAL: Estado = {
   modo: "alertas",
   vistosMarcados: TODAS_AS_CHAVES_DE_VISTO,
   vistos: { situacao: "nao_pedido" },
+  painelRecolhido: false,
 };
 
 export function reducer(estado: Estado, acao: Acao): Estado {
   switch (acao.tipo) {
     case "selecionar":
-      return { ...estado, selecionado: acao.codigo, postosExpandidos: [], grupoEmDestaque: null };
+      return {
+        ...estado,
+        selecionado: acao.codigo,
+        postosExpandidos: [],
+        grupoEmDestaque: null,
+        painelRecolhido: false,
+      };
     case "limpar-selecao":
-      return { ...estado, selecionado: null, postosExpandidos: [], grupoEmDestaque: null };
+      return {
+        ...estado,
+        selecionado: null,
+        postosExpandidos: [],
+        grupoEmDestaque: null,
+        painelRecolhido: false,
+      };
     case "expandir-posto":
       // O navegador repete o evento ao abrir por código: nada a mudar, nem uma renderização
-      if (estado.postosExpandidos.includes(acao.id) && estado.grupoEmDestaque === acao.grupo) {
+      if (
+        estado.postosExpandidos.includes(acao.id) &&
+        estado.grupoEmDestaque === acao.grupo &&
+        !estado.painelRecolhido
+      ) {
         return estado;
       }
       return {
         ...estado,
+        painelRecolhido: false,
         postosExpandidos: estado.postosExpandidos.includes(acao.id)
           ? estado.postosExpandidos
           : [...estado.postosExpandidos, acao.id],
@@ -95,6 +118,7 @@ export function reducer(estado: Estado, acao: Acao): Estado {
         selecionado: acao.territorio,
         postosExpandidos: acao.ids,
         grupoEmDestaque: acao.grupo,
+        painelRecolhido: false,
       };
     case "alternar-nivel":
       return { ...estado, niveisMarcados: alternarNivel(estado.niveisMarcados, acao.nivel) };
@@ -114,5 +138,9 @@ export function reducer(estado: Estado, acao: Acao): Estado {
       return { ...estado, vistos: { situacao: "pronto", dados: acao.dados } };
     case "vistos-falhou":
       return { ...estado, vistos: { situacao: "erro", mensagem: acao.mensagem } };
+    case "recolher-painel":
+      return estado.painelRecolhido ? estado : { ...estado, painelRecolhido: true };
+    case "expandir-painel":
+      return estado.painelRecolhido ? { ...estado, painelRecolhido: false } : estado;
   }
 }

@@ -1009,3 +1009,208 @@ describe("App: modo Vistos (feature 002)", () => {
     await waitFor(() => expect(cor("US")).toBe(COR.visto_exigido));
   });
 });
+
+describe("App: painel recolhível (FR-030)", () => {
+  const PAISES = { DK: PAIS_EXEMPLO, US: PAIS_COM_DOIS_POSTOS, PR: PAIS_SEM_POSTO };
+  const WASHINGTON = "38.9,-77";
+
+  async function abrirRecolhivel() {
+    const api = criarApiSimulada({ mapa: MAPA_COM_POSTOS, paises: PAISES, vistos: VISTOS_EXEMPLO });
+    render(<App cliente={api.cliente} Mapa={MapaEspiao} buscar={buscarGeometria} />);
+    await waitFor(() => expect(desenhado("DK")).toBeInTheDocument());
+    return api;
+  }
+
+  const raiz = () => document.querySelector<HTMLElement>("[data-painel-aberto]") as HTMLElement;
+  const barra = () => screen.queryByRole("complementary", { name: "Detalhes do país (recolhido)" });
+  const botaoDeRecolher = () => screen.getByRole("button", { name: "Recolher painel" });
+  const botaoDeExpandir = () => screen.getByRole("button", { name: /^Expandir painel/ });
+  const semIds = (html: string | undefined) => html?.replace(/ (id|aria-labelledby)="[^"]*"/g, "");
+
+  async function abrirDinamarcaERecolher() {
+    const api = await abrirRecolhivel();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    await userEvent.setup().click(botaoDeRecolher());
+    return api;
+  }
+
+  it("recolher mantém o país selecionado e não muda a câmera", async () => {
+    await abrirRecolhivel();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    const camera = propsDoMapa().camera;
+
+    await userEvent.setup().click(botaoDeRecolher());
+
+    expect(barra()).toBeVisible();
+    expect(painel()).not.toBeInTheDocument();
+    expect(propsDoMapa().selecionado).toBe("DK");
+    expect(propsDoMapa().camera).toBe(camera);
+  });
+
+  it("data-painel-recolhido acompanha o estado", async () => {
+    await abrirRecolhivel();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+    const usuario = userEvent.setup();
+    await usuario.click(botaoDeRecolher());
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "true");
+    expect(raiz()).toHaveAttribute("data-painel-aberto", "true");
+    await usuario.click(botaoDeExpandir());
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+  });
+
+  it("a barra mostra o nível em 'Alertas' e a categoria em 'Vistos', sem expandir nem pedir o país", async () => {
+    const api = await abrirDinamarcaERecolher();
+    const usuario = userEvent.setup();
+    expect(within(barra() as HTMLElement).getByText(NIVEIS.sem_alerta.rotulo)).toBeVisible();
+
+    await usuario.click(screen.getByRole("radio", { name: "Vistos" }));
+    expect(barra()).toBeVisible();
+    expect(within(barra() as HTMLElement).getByText("Isento de visto")).toBeVisible();
+    expect(within(barra() as HTMLElement).queryByText(NIVEIS.sem_alerta.rotulo)).toBeNull();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "true");
+
+    await usuario.click(screen.getByRole("radio", { name: "Alertas" }));
+    expect(within(barra() as HTMLElement).getByText(NIVEIS.sem_alerta.rotulo)).toBeVisible();
+    expect(api.obterPais).toHaveBeenCalledTimes(1);
+  });
+
+  it("tocar na barra expande o mesmo país com os mesmos postos abertos", async () => {
+    const api = await abrirRecolhivel();
+    const usuario = userEvent.setup();
+    await usuario.click(screen.getByRole("button", { name: `tocar ícone ${WASHINGTON}` }));
+    await screen.findByRole("heading", { level: 2, name: "Estados Unidos" });
+    const abertos = () => Array.from(document.querySelectorAll("details")).map((d) => d.open);
+    expect(abertos()).toEqual([true, true]);
+
+    await usuario.click(botaoDeRecolher());
+    expect(document.querySelector("details")).toBeNull();
+    await usuario.click(botaoDeExpandir());
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Estados Unidos" })).toBeVisible();
+    expect(abertos()).toEqual([true, true]);
+    expect(api.obterPais).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("mapa-grupo-em-destaque")).toHaveTextContent(WASHINGTON);
+  });
+
+  it("escolher outro território abre expandido (toque, ícone de posto e busca)", async () => {
+    const usuario = userEvent.setup();
+    await abrirDinamarcaERecolher();
+    await tocar("US");
+    expect(await screen.findByRole("heading", { level: 2, name: "Estados Unidos" })).toBeVisible();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+    expect(barra()).toBeNull();
+
+    await usuario.click(botaoDeRecolher());
+    await usuario.click(screen.getByRole("button", { name: `tocar ícone ${WASHINGTON}` }));
+    expect(await screen.findByRole("heading", { level: 2, name: "Estados Unidos" })).toBeVisible();
+    expect(barra()).toBeNull();
+
+    await usuario.click(botaoDeRecolher());
+    await usuario.type(screen.getByRole("combobox"), "Dinamarca");
+    await usuario.click(
+      (await screen.findAllByRole("option", { name: /Dinamarca/ }))[0] as HTMLElement,
+    );
+    expect(await screen.findByRole("heading", { level: 2, name: "Dinamarca" })).toBeVisible();
+    expect(barra()).toBeNull();
+  });
+
+  it("'Ver mundo' na barra fecha, leva a câmera ao mundo e a próxima seleção abre expandida", async () => {
+    const usuario = userEvent.setup();
+    await abrirDinamarcaERecolher();
+    await usuario.click(within(barra() as HTMLElement).getByRole("button", { name: "Ver mundo" }));
+
+    expect(barra()).toBeNull();
+    expect(painel()).not.toBeInTheDocument();
+    expect(propsDoMapa().camera.tipo).toBe("mundo");
+    expect(screen.getByTestId("mapa-selecionado")).toBeEmptyDOMElement();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+
+    await tocar("DK");
+    expect(await screen.findByRole("heading", { level: 2, name: "Dinamarca" })).toBeVisible();
+  });
+
+  it("Esc com a barra fecha e leva a câmera ao mundo", async () => {
+    await abrirDinamarcaERecolher();
+    await userEvent.setup().keyboard("{Escape}");
+    expect(barra()).toBeNull();
+    expect(propsDoMapa().camera.tipo).toBe("mundo");
+    expect(screen.getByTestId("mapa-selecionado")).toBeEmptyDOMElement();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+  });
+
+  it("o toque no oceano também fecha a barra", async () => {
+    await abrirDinamarcaERecolher();
+    await userEvent.setup().click(screen.getByRole("button", { name: "tocar no oceano" }));
+    expect(barra()).toBeNull();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+  });
+
+  it("recarregar abre sem painel, e nada do recolhido vai ao navegador", async () => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    await abrirDinamarcaERecolher();
+    expect(JSON.stringify({ ...window.localStorage })).not.toMatch(/recolhid|painel/i);
+    expect(window.sessionStorage.length).toBe(0);
+
+    cleanup(); // "recarregar": uma tela nova
+    await abrirRecolhivel();
+    expect(barra()).toBeNull();
+    expect(painel()).not.toBeInTheDocument();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+  });
+
+  it("o filtro de cada modo e o painel dos dois modos não mudam ao recolher e expandir", async () => {
+    const usuario = userEvent.setup();
+    await abrirRecolhivel();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    await usuario.click(screen.getByRole("checkbox", { name: "Não viaje" }));
+    const painelAntes = semIds(painel()?.innerHTML);
+
+    await usuario.click(botaoDeRecolher());
+    await usuario.click(botaoDeExpandir());
+
+    expect(screen.getByRole("checkbox", { name: "Não viaje" })).not.toBeChecked();
+    expect(semIds(painel()?.innerHTML)).toBe(painelAntes);
+    await usuario.click(screen.getByRole("radio", { name: "Vistos" }));
+    expect(within(painel() as HTMLElement).getByRole("region", { name: "Visto" })).toBeVisible();
+  });
+
+  describe("no celular", () => {
+    beforeEach(() => media.definir(CELULAR, true));
+
+    it("a barra fica no rodapé e a legenda, com a linha de fonte, é a que o CSS sobe", async () => {
+      const usuario = userEvent.setup();
+      await abrirRecolhivel();
+      await usuario.click(screen.getByRole("radio", { name: "Vistos" }));
+      await tocar("DK");
+      await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+      expect(raiz()).toHaveAttribute("data-modo-do-painel", "gaveta");
+      expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+
+      await usuario.click(botaoDeRecolher());
+
+      expect(raiz()).toHaveAttribute("data-modo-do-painel", "gaveta");
+      expect(raiz()).toHaveAttribute("data-painel-recolhido", "true");
+      expect(barra()).toHaveAttribute("data-modo", "gaveta");
+      const legenda = screen.getByRole("button", { name: "Legenda das cores" }).parentElement;
+      expect(legenda).toHaveClass("legenda-flutuante");
+      expect(legenda).toContainElement(screen.getByText(/^Vistos:/));
+    });
+  });
+
+  describe("no computador", () => {
+    beforeEach(() => media.definir(CELULAR, false));
+
+    it("a barra flutua no canto do painel", async () => {
+      await abrirDinamarcaERecolher();
+      expect(raiz()).toHaveAttribute("data-modo-do-painel", "lateral");
+      expect(barra()).toHaveAttribute("data-modo", "lateral");
+    });
+  });
+});
