@@ -1,5 +1,9 @@
 """Base dos testes de contrato: o OpenAPI desenhado em specs/ e o gerado pelo FastAPI.
 
+O contrato é o COMPLETO da API v1.1 (feature 002), que contém o da 001 por inteiro mais a rota
+`/vistos` e o campo `Pais.visto`. O arquivo da 001 fica como histórico da v1.0, e o teste
+`test_contrato_002_preserva_001.py` falha se a parte da 001 mudar.
+
 A comparação ignora o que não é contrato (títulos, descrições, exemplos) e escreve os dois lados
 na mesma forma: tipos, anulabilidade, formatos, enums, propriedades, obrigatórios e referências.
 Os testes não formam um pacote importável (`--import-mode=importlib`), então o que é comum chega
@@ -18,7 +22,7 @@ from farol.api.exportar_openapi import gerar_openapi
 CONTRATO = (
     Path(__file__).resolve().parents[3]
     / "specs"
-    / "001-mapa-alertas-viagem"
+    / "002-visto-brasileiros"
     / "contracts"
     / "openapi.yaml"
 )

@@ -1,5 +1,5 @@
 /** Respostas de exemplo da API, no formato do contrato, para os testes de interface. */
-import type { AlertaDoPais, Mapa, Pais, PostoNoPainel } from "../servicos/api/cliente";
+import type { AlertaDoPais, Mapa, Pais, PostoNoPainel, Visto } from "../servicos/api/cliente";
 
 export const MAPA_EXEMPLO: Mapa = {
   dados_obtidos: true,
@@ -98,6 +98,73 @@ export const POSTO_EXEMPLO: PostoNoPainel = {
   contato_fonte_url: null,
 };
 
+/** O visto de um país com dado (isento, 90 dias), com os campos que o teste quiser trocar. */
+export function criarVisto(sobrescritas: Partial<Visto> = {}): Visto {
+  return {
+    situacao: "isento",
+    motivo_outra_situacao: null,
+    rotulo_original: "Visa not required",
+    aceita_rg: false,
+    varia_conforme_motivo: false,
+    permanencia: { tipo: "padronizada", texto: "90 dias" },
+    observacoes: [],
+    origem: "proprio",
+    soberano_nome: null,
+    territorio_nome: null,
+    dado_de: "2026-10-23T12:00:00Z",
+    desatualizado: false,
+    fonte: {
+      nome: "Wikipédia: Visa requirements for Brazilian citizens",
+      url: "https://en.wikipedia.org/wiki/Visa_requirements_for_Brazilian_citizens",
+      licenca: "CC BY-SA",
+    },
+    ...sobrescritas,
+  };
+}
+
+/** Argentina: isento, e basta o RG. */
+export const VISTO_ISENTO_COM_RG: Visto = criarVisto({
+  aceita_rg: true,
+  rotulo_original: "Visa not required",
+  permanencia: { tipo: "padronizada", texto: "90 dias" },
+});
+
+/** Estados Unidos: visto exigido, e a fonte não informa permanência. */
+export const VISTO_EXIGIDO: Visto = criarVisto({
+  situacao: "visto_exigido",
+  rotulo_original: "Visa required",
+  permanencia: null,
+});
+
+/** Rótulo que o sistema não classifica: "Outra situação", com o rótulo da fonte à vista. */
+export const VISTO_OUTRA_SITUACAO: Visto = criarVisto({
+  situacao: "outra_situacao",
+  motivo_outra_situacao: "rotulo_desconhecido",
+  rotulo_original: "Special permit required",
+  permanencia: null,
+});
+
+/** País sem dado: nenhuma categoria, nenhuma data, nenhuma permanência. */
+export const VISTO_SEM_INFORMACAO: Visto = criarVisto({
+  situacao: "sem_informacao",
+  rotulo_original: null,
+  permanencia: null,
+  origem: null,
+  dado_de: null,
+});
+
+/** Guernsey: sem linha própria na fonte, vale a entrada do Reino Unido. */
+export const VISTO_HERDADO: Visto = criarVisto({
+  origem: "soberano",
+  soberano_nome: "Reino Unido",
+});
+
+/** Dado lido há mais de 14 dias (FR-015). */
+export const VISTO_DESATUALIZADO: Visto = criarVisto({
+  dado_de: "2026-09-01T12:00:00Z",
+  desatualizado: true,
+});
+
 export const PAIS_EXEMPLO: Pais = {
   codigo: "DK",
   nome: "Dinamarca",
@@ -114,6 +181,7 @@ export const PAIS_EXEMPLO: Pais = {
   postos: [POSTO_EXEMPLO],
   posto_responsavel: null,
   sem_posto_indicado: false,
+  visto: criarVisto(),
   fonte_postos: {
     conferido_em: "2026-10-21",
     fontes: [
@@ -363,6 +431,7 @@ export const PAIS_COM_DOIS_POSTOS: Pais = criarPais({
   codigo: "US",
   nome: "Estados Unidos",
   bandeira: "US",
+  visto: VISTO_EXIGIDO,
   postos: [
     { ...POSTO_WASHINGTON, id: 89, tipo: "Embaixada" },
     { ...POSTO_WASHINGTON, id: 90, tipo: "Consulado-Geral" },
@@ -376,6 +445,13 @@ export const PAIS_SEM_POSTO: Pais = criarPais({
   bandeira: "PR",
   tipo: "dependencia",
   soberano: "US",
+  visto: criarVisto({
+    situacao: "visto_exigido",
+    rotulo_original: "Visa required",
+    permanencia: null,
+    origem: "soberano",
+    soberano_nome: "Estados Unidos",
+  }),
   postos: [],
   posto_responsavel: {
     ...POSTO_EXEMPLO,

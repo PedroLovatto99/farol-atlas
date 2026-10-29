@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 import pytest
 import requests
 
-from farol.coleta import ClienteEducado
+from farol.infra import ClienteEducado
 
 ROBOTS_LIBERADO = "User-agent: *\nDisallow:\n"
 ROBOTS_BLOQUEIA_ALERTAS = "User-agent: *\nDisallow: /privado/\n"
@@ -57,6 +57,10 @@ def test_user_agent_identifica_o_projeto_e_o_contato() -> None:
     cliente, sessao, _ = criar({})
     assert "FarolAtlas" in cliente.user_agent
     assert "https://github.com/exemplo" in cliente.user_agent
+    assert cliente.user_agent == (
+        f"FarolAtlas/0.1 (https://github.com/exemplo; projeto pessoal) "
+        f"python-requests/{requests.__version__}"
+    )
     assert sessao.headers["User-Agent"] == cliente.user_agent
 
 

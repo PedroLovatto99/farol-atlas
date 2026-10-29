@@ -14,8 +14,9 @@ import requests
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from farol.coleta import ClienteEducado, Pagina, ServicoDeColetaDePostos
+from farol.coleta import ServicoDeColetaDePostos
 from farol.dominio import ExecucaoColeta, Posto, Territorio, TipoExecucao, TipoPosto, TipoTerritorio
+from farol.infra import ClienteEducado, Pagina
 
 if TYPE_CHECKING:
     from tests.conftest import GovBrFalso, RelogioFalso

@@ -93,7 +93,7 @@ name = "Camadas do backend"
 type = "layers"
 layers = [
     "farol.api | farol.worker",
-    "farol.mapa | farol.coleta | farol.classificacao",
+    "farol.mapa | farol.coleta | farol.classificacao | farol.vistos",
     "farol.dominio",
     "farol.infra",
 ]
@@ -101,7 +101,7 @@ layers = [
 [[tool.importlinter.contracts]]
 name = "Casos de uso independentes entre si"
 type = "independence"
-modules = ["farol.mapa", "farol.coleta", "farol.classificacao"]
+modules = ["farol.mapa", "farol.coleta", "farol.classificacao", "farol.vistos"]
 
 [[tool.importlinter.contracts]]
 name = "So a interface publica de dominio"
@@ -112,6 +112,7 @@ source_modules = [
     "farol.mapa",
     "farol.coleta",
     "farol.classificacao",
+    "farol.vistos",
     "farol.infra",
 ]
 forbidden_modules = ["farol.dominio.*"]
@@ -126,6 +127,7 @@ source_modules = [
     "farol.mapa",
     "farol.coleta",
     "farol.classificacao",
+    "farol.vistos",
     "farol.dominio",
 ]
 forbidden_modules = ["farol.infra.*"]
@@ -139,6 +141,7 @@ source_modules = [
     "farol.worker",
     "farol.mapa",
     "farol.classificacao",
+    "farol.vistos",
     "farol.dominio",
     "farol.infra",
 ]
@@ -153,6 +156,7 @@ source_modules = [
     "farol.worker",
     "farol.mapa",
     "farol.coleta",
+    "farol.vistos",
     "farol.dominio",
     "farol.infra",
 ]
@@ -167,10 +171,26 @@ source_modules = [
     "farol.worker",
     "farol.coleta",
     "farol.classificacao",
+    "farol.vistos",
     "farol.dominio",
     "farol.infra",
 ]
 forbidden_modules = ["farol.mapa.*"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "So a interface publica de vistos"
+type = "forbidden"
+source_modules = [
+    "farol.api",
+    "farol.worker",
+    "farol.mapa",
+    "farol.coleta",
+    "farol.classificacao",
+    "farol.dominio",
+    "farol.infra",
+]
+forbidden_modules = ["farol.vistos.*"]
 allow_indirect_imports = true
 
 # --------------------------------------------------------------------------- tarefas (poe)

@@ -22,14 +22,13 @@ from urllib.parse import urlsplit
 
 from sqlalchemy.orm import Session
 
-from farol.coleta.cliente_educado import Pagina
 from farol.coleta.extratores import (
     LinhaDeReparticao,
     extrair_contato,
     extrair_reparticoes,
     links_de_contato,
 )
-from farol.coleta.servico_alertas import MINIMO_LIDO, Baixador
+from farol.coleta.servico_alertas import MINIMO_LIDO
 from farol.coleta.texto import chave_de_comparacao
 from farol.dominio import (
     ExecucaoColeta,
@@ -40,7 +39,7 @@ from farol.dominio import (
     TipoExecucao,
     TipoPosto,
 )
-from farol.infra import Relogio, obter_logger
+from farol.infra import Baixador, Pagina, Relogio, obter_logger
 
 URL_REPARTICOES = (
     "https://www.gov.br/mre/pt-br/assuntos/portal-consular/reparticoes-consulares-do-brasil"

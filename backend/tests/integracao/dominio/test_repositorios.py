@@ -232,3 +232,32 @@ def test_codigos_permitidos_para_o_classificador(sessao: Session) -> None:
     sessao.flush()
 
     assert TerritorioRepositorio(sessao).codigos_com_nivel() == {"PT", "GL"}
+
+
+def test_territorio_e_soberano_vem_numa_consulta_so(
+    sessao: Session, contar_consultas: "ContadorDeConsultas"
+) -> None:
+    sessao.add_all(
+        [
+            Territorio(codigo="PT", nome_pt="Portugal", tipo=TipoTerritorio.PAIS),
+            Territorio(codigo="ES", nome_pt="Espanha", tipo=TipoTerritorio.PAIS),
+            Territorio(
+                codigo="GL",
+                nome_pt="Groenlândia (Dinamarca)",
+                tipo=TipoTerritorio.DEPENDENCIA,
+                soberano_codigo="PT",
+            ),
+        ]
+    )
+    sessao.flush()
+    repositorio = TerritorioRepositorio(sessao)
+
+    with contar_consultas as contador:
+        dependencia = repositorio.obter_com_soberano("GL")
+        pais = repositorio.obter_com_soberano("ES")
+        desconhecido = repositorio.obter_com_soberano("ZZ")
+
+    assert [t.codigo for t in dependencia] == ["GL", "PT"]  # o território e o soberano dele
+    assert [t.codigo for t in pais] == ["ES"]  # sem soberano: só ele
+    assert desconhecido == []
+    assert contador.total == 3

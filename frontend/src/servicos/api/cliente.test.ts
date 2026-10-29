@@ -41,6 +41,37 @@ const PAIS_VALIDO = {
   posto_responsavel: null,
   sem_posto_indicado: false,
   fonte_postos: null,
+  visto: null,
+};
+
+const VISTO_VALIDO = {
+  situacao: "isento",
+  motivo_outra_situacao: null,
+  rotulo_original: "Visa not required",
+  aceita_rg: false,
+  varia_conforme_motivo: false,
+  permanencia: { tipo: "padronizada", texto: "90 dias" },
+  observacoes: [{ texto_original: "Passport required.", traducao: "Passaporte necessário." }],
+  origem: "proprio",
+  soberano_nome: null,
+  territorio_nome: null,
+  dado_de: "2026-10-23T12:00:00Z",
+  desatualizado: false,
+  fonte: {
+    nome: "Wikipédia: Visa requirements for Brazilian citizens",
+    url: "https://en.wikipedia.org/wiki/Visa_requirements_for_Brazilian_citizens",
+    licenca: "CC BY-SA",
+  },
+};
+
+const VISTO_SEM_INFORMACAO = {
+  ...VISTO_VALIDO,
+  situacao: "sem_informacao",
+  rotulo_original: null,
+  permanencia: null,
+  observacoes: [],
+  origem: null,
+  dado_de: null,
 };
 
 function respostaJson(corpo: unknown, status = 200): Response {
@@ -133,5 +164,69 @@ describe("cliente da API", () => {
   it("resposta que não é um objeto não passa", async () => {
     const { cliente } = clienteCom(respostaJson([1, 2, 3]));
     await expect(cliente.obterPais("DK")).rejects.toThrow(/inválida/i);
+  });
+  describe("visto do país (feature 002)", () => {
+    async function lerPais(corpo: unknown) {
+      const { cliente } = clienteCom(respostaJson(corpo));
+      return cliente.obterPais("DK");
+    }
+
+    it("aceita o visto como objeto, com permanência e observações", async () => {
+      const pais = await lerPais({ ...PAIS_VALIDO, visto: VISTO_VALIDO });
+      expect(pais.visto?.situacao).toBe("isento");
+      expect(pais.visto?.permanencia).toEqual({ tipo: "padronizada", texto: "90 dias" });
+      expect(pais.visto?.observacoes[0]?.traducao).toBe("Passaporte necessário.");
+      expect(pais.visto?.fonte.licenca).toBe("CC BY-SA");
+    });
+
+    it("aceita o visto nulo (o Brasil)", async () => {
+      expect((await lerPais({ ...PAIS_VALIDO, visto: null })).visto).toBeNull();
+    });
+
+    it("aceita o estado explícito de sem informação", async () => {
+      const pais = await lerPais({ ...PAIS_VALIDO, visto: VISTO_SEM_INFORMACAO });
+      expect(pais.visto?.situacao).toBe("sem_informacao");
+      expect(pais.visto?.dado_de).toBeNull();
+    });
+
+    it("aceita a entrada herdada do soberano", async () => {
+      const herdado = { ...VISTO_VALIDO, origem: "soberano", soberano_nome: "Reino Unido" };
+      const pais = await lerPais({ ...PAIS_VALIDO, visto: herdado });
+      expect(pais.visto?.soberano_nome).toBe("Reino Unido");
+    });
+
+    it("aceita o nome do território a que o visto se refere (Kosovo, Ilhas Malvinas)", async () => {
+      const malvinas = { ...VISTO_VALIDO, territorio_nome: "Ilhas Malvinas" };
+      const pais = await lerPais({ ...PAIS_VALIDO, visto: malvinas });
+      expect(pais.visto?.territorio_nome).toBe("Ilhas Malvinas");
+      expect(pais.visto?.aceita_rg).toBe(false);
+    });
+
+    it("sem territorio_nome (nulo é diferente de ausente) a resposta não passa", async () => {
+      const { territorio_nome: _removido, ...semNome } = VISTO_VALIDO;
+      await expect(lerPais({ ...PAIS_VALIDO, visto: semNome })).rejects.toThrow(/territorio_nome/);
+    });
+
+    it("sem o campo visto a resposta não passa (nulo é diferente de ausente)", async () => {
+      const { visto: _removido, ...semVisto } = PAIS_VALIDO;
+      await expect(lerPais(semVisto)).rejects.toThrow(/visto/);
+    });
+
+    it("situação fora do contrato não passa", async () => {
+      const visto = { ...VISTO_VALIDO, situacao: "talvez" };
+      await expect(lerPais({ ...PAIS_VALIDO, visto })).rejects.toThrow(/visto\.situacao/);
+    });
+
+    it("campo de tipo errado ou ausente dentro do visto não passa", async () => {
+      const errado = { ...VISTO_VALIDO, aceita_rg: "sim" };
+      await expect(lerPais({ ...PAIS_VALIDO, visto: errado })).rejects.toThrow(/aceita_rg/);
+      const { fonte: _removida, ...semFonte } = VISTO_VALIDO;
+      await expect(lerPais({ ...PAIS_VALIDO, visto: semFonte })).rejects.toThrow(/fonte/);
+    });
+
+    it("permanência com tipo desconhecido não passa", async () => {
+      const visto = { ...VISTO_VALIDO, permanencia: { tipo: "infinita", texto: null } };
+      await expect(lerPais({ ...PAIS_VALIDO, visto })).rejects.toThrow(/permanencia/);
+    });
   });
 });

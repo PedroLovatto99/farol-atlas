@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from farol.api.dependencias import sessao_da_requisicao
-from farol.api.rotas import mapa, paises, saude
+from farol.api.rotas import mapa, paises, saude, vistos
 from farol.infra import Configuracoes, configurar_logs, obter_configuracoes, obter_logger
 
 PREFIXO = "/api/v1"
@@ -29,8 +29,11 @@ def criar_app(configuracoes: Configuracoes | None = None) -> FastAPI:
     docs = config.api_docs_habilitada
     app = FastAPI(
         title="Farol Atlas API",
-        version="1.0.0",
-        description="Mapa de alertas de viagem do Itamaraty para brasileiros. Serviço não oficial.",
+        version="1.1.0",
+        description=(
+            "Mapa de alertas de viagem do Itamaraty e requisitos de visto para brasileiros."
+            " Serviço não oficial."
+        ),
         docs_url="/docs" if docs else None,
         redoc_url="/redoc" if docs else None,
         openapi_url=f"{PREFIXO}/openapi.json",
@@ -65,5 +68,6 @@ def criar_app(configuracoes: Configuracoes | None = None) -> FastAPI:
 
     app.include_router(mapa.roteador, prefix=PREFIXO)
     app.include_router(paises.roteador, prefix=PREFIXO)
+    app.include_router(vistos.roteador, prefix=PREFIXO)
     app.include_router(saude.roteador, prefix=PREFIXO)
     return app

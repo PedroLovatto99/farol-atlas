@@ -12,6 +12,7 @@ topo (FR-030, FR-034); isso já vem de `identidade_do_soberano` no cadastro do t
 from sqlalchemy.orm import Session
 
 from farol.dominio import (
+    CODIGO_DO_BRASIL,
     Alerta,
     AlertaRepositorio,
     ExecucaoRepositorio,
@@ -42,7 +43,6 @@ from farol.mapa.visoes import (
 )
 
 CHAVE_FONTE_DOS_POSTOS = "postos"
-CODIGO_DO_BRASIL = "BR"
 
 
 class TerritorioNaoEncontrado(Exception):

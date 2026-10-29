@@ -7,9 +7,9 @@ frontend (constituição, princípio VIII). Por isso os segredos são `SecretStr
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import SecretStr, field_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -33,6 +33,8 @@ class Configuracoes(BaseSettings):
 
     # Classificador de alertas (LLM)
     llm_classificador: str = "google_genai:gemini-3.6-flash"
+    # Tradutor das observações de visto; vazio = o mesmo modelo do classificador
+    llm_tradutor: str = ""
     google_api_key: SecretStr | None = None
     ollama_base_url: str = "http://host.docker.internal:11434"
 
@@ -45,6 +47,11 @@ class Configuracoes(BaseSettings):
         if isinstance(valor, str):
             return [origem.strip() for origem in valor.split(",") if origem.strip()]
         return valor
+
+    @model_validator(mode="after")
+    def _tradutor_padrao(self) -> Self:
+        self.llm_tradutor = self.llm_tradutor.strip() or self.llm_classificador
+        return self
 
 
 @lru_cache

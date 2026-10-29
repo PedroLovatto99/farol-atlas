@@ -17,13 +17,24 @@ from farol.classificacao import (
     criar_modelo,
 )
 from farol.coleta import (
-    ClienteEducado,
     ResultadoDaColeta,
     ResultadoDaColetaDePostos,
     ServicoDeColetaDeAlertas,
     ServicoDeColetaDePostos,
 )
-from farol.infra import Configuracoes, RelogioDoSistema, abrir_sessao, obter_logger
+from farol.infra import (
+    ClienteEducado,
+    Configuracoes,
+    RelogioDoSistema,
+    abrir_sessao,
+    obter_logger,
+)
+from farol.vistos import (
+    ResumoDaColetaDeVistos,
+    ServicoDeColetaDeVistos,
+    Tradutor,
+    criar_tradutor,
+)
 
 _log = obter_logger("farol.worker")
 
@@ -69,6 +80,30 @@ def rodada_real_de_postos(configuracoes: Configuracoes) -> ResultadoDaColetaDePo
     cliente = _cliente_educado(configuracoes)
     with abrir_sessao() as sessao:
         return ServicoDeColetaDePostos(sessao, cliente, RelogioDoSistema()).coletar()
+
+
+def _tradutor_de_vistos(configuracoes: Configuracoes) -> Tradutor | None:
+    """O tradutor de `LLM_TRADUTOR`; sem chave ou sem modelo a coleta segue sem traduzir."""
+    try:
+        return criar_tradutor(configuracoes)
+    except Exception:
+        _log.exception("tradutor indisponível; as observações de visto ficam em inglês")
+        return None
+
+
+def rodada_real_de_vistos(
+    configuracoes: Configuracoes, *, agendada: bool = False
+) -> ResumoDaColetaDeVistos:
+    """Coleta de vistos de verdade: Wikipédia, banco e o modelo de LLM_TRADUTOR (opcional).
+
+    `agendada` liga o aviso de pendências no registro operacional (FR-012b); o comando manual
+    `coletar --vistos` não o liga, porque o dono já vê o resumo.
+    """
+    cliente = _cliente_educado(configuracoes)
+    tradutor = _tradutor_de_vistos(configuracoes)
+    with abrir_sessao() as sessao:
+        servico = ServicoDeColetaDeVistos(sessao, cliente, RelogioDoSistema(), tradutor)
+        return servico.coletar(agendada=agendada)
 
 
 def reclassificar_real(configuracoes: Configuracoes, referencia: str) -> ResultadoDaReclassificacao:

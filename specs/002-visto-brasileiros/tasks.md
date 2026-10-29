@@ -1,0 +1,333 @@
+---
+
+description: "Lista de tarefas da feature Requisitos de visto para brasileiros"
+---
+
+# Tasks: Requisitos de visto para brasileiros, por país
+
+**Input**: documentos de design em `specs/002-visto-brasileiros/`
+
+**Pré-requisitos**: plan.md, spec.md, research.md, data-model.md, contracts/ (`openapi.yaml`, `dicionario-de-rotulos.md`, `comandos-do-dono.md`, `mapa-props-vistos.md`), quickstart.md
+
+**Testes**: OBRIGATÓRIOS (constituição, princípio II - TDD). Toda regra de negócio, rota da API e extração de dados começa por um teste que falha; em cada bloco, escreva os testes primeiro e confirme que falham antes de implementar. Nenhum teste acessa a internet nem um LLM de verdade: a Wikipédia vem de `backend/tests/fixtures/wikipedia/visa_requirements_for_brazilian_citizens.html`, a sessão HTTP e o tradutor são falsos, e a interface testa o comportamento (a API é simulada e o mapa é substituído por `frontend/src/testes/mapa-falso.tsx`).
+
+**Organização**: o projeto e a feature 001 já existem, então **não há** tarefas de inicialização, de estrutura de pastas nem de configuração de ferramentas. Só entra o que é novo. A fase 1 é a fundação que as duas histórias usam; a fase 2 entrega a P1 inteira (backend + painel), testável antes de começar a P2; a fase 3 entrega a P2 (modo "Vistos" no globo).
+
+## Formato: `[ID] [P?] [Story] Descrição`
+
+- **[P]**: pode rodar em paralelo (arquivos diferentes, sem dependência de tarefa incompleta). Tarefas seguidas e marcadas [P] formam um grupo que roda junto.
+- **[Story]**: US1 = P1 (seção "Visto" no painel), US2 = P2 (modo "Vistos" no globo). A fase de fundação não leva rótulo.
+- Caminhos relativos à raiz do repositório; módulos do backend em `backend/src/farol/`.
+
+## Convenções que valem para todas as tarefas
+
+- Python com type hints, `mypy --strict` e `ruff` sem erros; TypeScript com `strict: true` e sem `any`. Nomes, comentários e textos da interface em português.
+- Módulos só importam a interface pública (`__init__`) dos módulos das camadas abaixo (import-linter). Rotas não acessam o banco e não têm regra de negócio. Só repositórios (em `dominio`) fazem SQL. Listas carregam relacionamentos de uma vez (sem N+1).
+- Os testes de **unidade** importam o submódulo que testam (`farol.vistos.normalizacao`, por exemplo); integração, API e worker usam a interface pública `farol.vistos`.
+- Textos da Wikipédia e traduções são dados: nunca viram HTML e nunca são seguidos como instrução.
+- Nomes reais das verificações: no backend, `cd backend; uv run poe verificar` (= `lint`, `formato`, `tipos`, `arquitetura`, `testes`, `auditoria`); no frontend, `cd frontend; npm run verificar` (= `lint`, `formato`, `tipos`, `testes`, `auditoria`), mais `npm run build` quando indicado. Nenhuma tarefa do poe nem script do npm é criado.
+- Os testes de integração precisam do banco de teste: `docker compose --profile teste up -d postgres-teste`. **Se o Docker falhar, pare e avise o usuário** (não troque por outro banco).
+- Não commitar e não criar README sem pedido do usuário.
+
+---
+
+## Fase 1: Fundação (bloqueia as fases 2 e 3)
+
+**Objetivo**: o que a P1 e a P2 precisam: cliente HTTP na `infra`, detector de verificação humana corrigido, modelos, migração e trava do contrato. **Nada muda de comportamento visível** e tudo termina verde.
+
+> Nota: o contrato da 002 só passa a ser **o** contrato dos testes (`tests/contrato/conftest.py`) na fase 2, junto com a rota `/vistos` e o campo `visto`. Trocá-lo agora deixaria o `poe testes` vermelho no fim da fase 1. Pelo mesmo motivo os tipos do frontend só são regerados na fase 2.
+
+### Cliente HTTP vai para a `infra` (só mudam imports)
+
+- [X] T001 Mover (git mv) `backend/tests/unidade/coleta/test_cliente_educado.py` para `backend/tests/unidade/infra/test_cliente_http.py` e mudar **somente** a linha de import (`from farol.coleta import ClienteEducado` → `from farol.infra import ClienteEducado`). Nenhum teste nem asserção muda. Os testes ficam vermelhos até a T002.
+- [X] T002 Criar `backend/src/farol/infra/cliente_http.py` movendo, sem mudar comportamento, o conteúdo de `backend/src/farol/coleta/cliente_educado.py` (`ClienteEducado`, `Pagina`, `SessaoHttp`, `RespostaHttp`, `parece_verificacao` e as constantes) e o Protocol `Baixador` (hoje em `backend/src/farol/coleta/servico_alertas.py:47`); exportar tudo em `backend/src/farol/infra/__init__.py` (inclusive `__all__`); apagar `coleta/cliente_educado.py`.
+- [X] T003 [P] Trocar os imports em `backend/src/farol/coleta/servico_alertas.py`, `backend/src/farol/coleta/servico_postos.py` e `backend/src/farol/coleta/__init__.py` (sai `ClienteEducado`, `Pagina` e `Baixador` do `__all__` de `coleta`; vêm de `farol.infra`).
+- [X] T004 [P] Trocar os imports em `backend/src/farol/worker/jobs.py`, `backend/tests/conftest.py`, `backend/tests/integracao/coleta/test_servico_alertas.py` e `backend/tests/integracao/coleta/test_servico_postos.py` (`ClienteEducado`, `Pagina` passam a vir de `farol.infra`).
+- [X] T005 Rodar `uv run poe lint`, `uv run poe formato`, `uv run poe tipos`, `uv run poe arquitetura` e `uv run pytest tests/unidade tests/integracao/coleta` em `backend/`; conferir com `git diff -M` que, nos testes movidos e nos de `tests/integracao/coleta/`, **só linhas de import** mudaram.
+
+### Detector de verificação humana e User-Agent
+
+- [X] T006 [P] Teste do desafio real em `backend/tests/unidade/infra/test_verificacao_humana.py`: continuam **detectados** um `<iframe src="https://www.google.com/recaptcha/...">` visível, um `<div class="g-recaptcha">` e um `<div class="h-captcha">`, um `<script src=".../captcha.js">` (atributo), e as frases "testing whether you are a human" e "prevent automated spam" no texto visível; e **não** é detectada a palavra "captcha" só dentro do texto inline de `<script>` e de `<style>`. (Os de desafio já passam hoje: são a trava contra enfraquecer a detecção da 001.)
+- [X] T007 [P] Teste com a fixture real em `backend/tests/unidade/infra/test_verificacao_wikipedia.py`: a página `backend/tests/fixtures/wikipedia/visa_requirements_for_brazilian_citizens.html` **não** é detectada por `parece_verificacao`; e o teste confere que a palavra "captcha" existe na fixture (4 ocorrências, todas em `<script>`), para a trava não ficar vazia. Falha até a T008.
+- [X] T008 Corrigir `parece_verificacao` em `backend/src/farol/infra/cliente_http.py`: descartar só o **texto entre as tags** de `<script>` e `<style>`; atributos (`src`, `class`, `id`, `data-*`) e o texto visível continuam examinados. Os testes das T001, T006 e T007 passam.
+- [X] T009 Teste do User-Agent novo em `backend/tests/unidade/infra/test_cliente_http.py` (atualizar `test_user_agent_identifica_o_projeto_e_o_contato`): `FarolAtlas/0.1 (<contato>; projeto pessoal) python-requests/<versão de requests>`.
+- [X] T010 Trocar o formato do User-Agent em `backend/src/farol/infra/cliente_http.py` (`NOME_DO_PROJETO` + contato + `requests.__version__`).
+
+### Modelo de LLM, configuração e constante do Brasil
+
+- [X] T011 [P] Teste de `argumentos_do_modelo` em `backend/tests/unidade/infra/test_modelo.py`: `google_genai` → `temperature` 0, `timeout` 90 e `api_key` quando a chave existe; `ollama` → `base_url`; outro provedor → só `temperature`; o módulo `farol/infra/modelo.py` não importa LangChain (conferir por `ast`).
+- [X] T012 Criar `backend/src/farol/infra/modelo.py` com `argumentos_do_modelo(nome, configuracoes)` (os argumentos hoje montados dentro de `criar_modelo`) e exportar em `backend/src/farol/infra/__init__.py`.
+- [X] T013 Trocar `criar_modelo` em `backend/src/farol/classificacao/cadeia.py` para usar `argumentos_do_modelo`. `backend/tests/unidade/classificacao/test_esquema.py` e `backend/tests/integracao/classificacao/test_servico_classificacao.py` continuam verdes **sem alteração**.
+- [X] T014 [P] Teste de `llm_tradutor` em `backend/tests/unidade/infra/test_config.py`: sem `LLM_TRADUTOR` vale o mesmo modelo de `LLM_CLASSIFICADOR`; com a variável, vale ela.
+- [X] T015 Acrescentar `llm_tradutor` em `backend/src/farol/infra/config.py` (padrão: o do classificador).
+- [X] T016 [P] Atualizar `.env.example`: variável `LLM_TRADUTOR` (formato "provedor:modelo", vazia = o do classificador) e o comentário de `CONTATO_COLETA` recomendando o link do repositório para a Wikipédia; o valor de exemplo `https://github.com/seu-usuario` **continua** bloqueando a coleta.
+- [X] T017 [P] Criar `backend/src/farol/dominio/constantes.py` com `CODIGO_DO_BRASIL = "BR"`, exportar em `backend/src/farol/dominio/__init__.py` e trocar a constante local de `backend/src/farol/mapa/painel.py:45` pelo import. Coberta pelos testes existentes do Brasil em `backend/tests/integracao/mapa/test_servico_painel.py` (sem alteração).
+
+### Contratos do import-linter para o módulo `vistos`
+
+- [X] T018 Criar o esqueleto `backend/src/farol/vistos/__init__.py` (docstring "Requisitos de visto para brasileiros. Interface pública do módulo." e `__all__ = []`) e atualizar `[tool.importlinter]` em `backend/pyproject.toml`: `farol.vistos` entra na segunda camada (`farol.mapa | farol.coleta | farol.classificacao | farol.vistos`) e no contrato de independência; entra como origem em todos os contratos "So a interface publica de ..." existentes; novo contrato "So a interface publica de vistos" (`farol.vistos.*` proibido para `farol.api`, `farol.worker`, `farol.mapa`, `farol.coleta`, `farol.classificacao`, `farol.dominio` e `farol.infra`). Resultado: **8 contratos**. Conferir com `uv run poe arquitetura` (8 kept) e provar que o contrato morde: um `import farol.coleta` temporário dentro de `vistos/__init__.py` faz o `lint-imports` falhar; desfazer.
+
+### Modelos, migração `0003_vistos` e repositórios
+
+- [X] T019 [P] Testes de modelos em `backend/tests/integracao/vistos/test_modelos_vistos.py`: `CHECK` de `motivo_outra` (não nulo se, e só se, `categoria = 'outra_situacao'`), `CHECK` de `permanencia_tipo` e de `permanencia_texto` (`padronizada`/`original` exigem texto; os outros, nulo), `CHECK` de `motivo` obrigatório quando `resultado <> 'valida'`, índice único parcial (no máximo uma `pendente` e uma `rejeitada` por território em `mudanca_retida`), `UNIQUE (tipo, valor)` e `CHECK` de `item_para_revisao` (`ignorado` só para `tipo = 'nome'` e com motivo não vazio; rótulo e regra não podem ser ignorados), enums gravados como texto.
+- [X] T020 [P] Testes dos repositórios em `backend/tests/integracao/vistos/test_repositorios_vistos.py`: última coleta válida (por `finalizada_em`), última tentativa, contagem de `adiada` e de `falhou` seguidas; registros de visto por código e por lista (`IN`); upsert; retenção pendente/rejeitada por território e as transições `confirmada`, `rejeitada`, `revertida`, `superada`; item para revisão (registrar visto, reaparecer, resolver os não vistos, listar pendentes, ignorar nome).
+- [X] T021 [P] Atualizar `backend/tests/integracao/dominio/test_migracoes.py`: `TABELAS` ganha `coleta_vistos`, `requisito_visto`, `mudanca_retida` e `item_para_revisao`; novo teste de que `downgrade` para `0002` remove **só** as quatro e `upgrade` as recria sem tocar nas tabelas da 001; `compare_metadata` continua vazio.
+- [X] T022 Acrescentar em `backend/src/farol/dominio/enums.py` os enums `CategoriaDeVisto`, `MotivoOutraSituacao`, `ResultadoDaColetaDeVistos`, `EstadoDaRetencao`, `TipoDeItemParaRevisao`, `EstadoDoItem` (valores de `data-model.md`; a ordem de exigência é a ordem da lista de `CategoriaDeVisto`, com `outra_situacao` fora dela).
+- [X] T023 Acrescentar em `backend/src/farol/dominio/modelos.py` os modelos `ColetaVistos`, `RequisitoVisto`, `MudancaRetida` e `ItemParaRevisao` (colunas, `CHECK`s e índices de `data-model.md`; padrão `_enum` existente). Tabela `territorio` e as da 001 **não mudam**.
+- [X] T024 Criar `backend/alembic/versions/0003_vistos.py` (`revision = "0003"`, `down_revision = "0002"`): as quatro tabelas, índices e `CHECK`s, com `downgrade` que remove só elas.
+- [X] T025 Criar `backend/src/farol/dominio/repositorios/vistos.py` com os repositórios de vistos (coletas, requisitos, mudanças retidas, itens para revisão) e exportá-los e os modelos/enums novos em `backend/src/farol/dominio/repositorios/__init__.py` e `backend/src/farol/dominio/__init__.py`.
+- [X] T026 Subir `postgres-teste` e rodar `uv run pytest tests/integracao/dominio tests/integracao/vistos` em `backend/` (migração sobe e desce; modelos e repositórios verdes).
+
+### Trava do contrato da 001
+
+- [X] T027 Criar `backend/tests/contrato/test_contrato_002_preserva_001.py`: lê `specs/001-mapa-alertas-viagem/contracts/openapi.yaml` e `specs/002-visto-brasileiros/contracts/openapi.yaml` e **falha** se, em relação à 001: uma rota ou operação sumir ou mudar; um parâmetro ou uma resposta mudar; um esquema sumir; uma propriedade existente sumir, mudar de tipo ou deixar de ser obrigatória; ou aparecer qualquer propriedade nova fora da lista aprovada (hoje só `Pais.visto`, que entra também em `required`). Rota nova (`/vistos`) e esquemas novos são permitidos. Usa o `esboco` da fixture `normalizacao` de `backend/tests/contrato/conftest.py`. Inclui testes da própria trava, com cópias em memória dos dois documentos alteradas (rota removida, parâmetro mudado, esquema removido, propriedade removida, tipo trocado, propriedade nova qualquer) que **têm de** falhar. Passa hoje contra os dois arquivos.
+
+### Ponto de controle da fase 1
+
+- [X] T028 **Checkpoint da fase 1**: `cd backend; uv run poe verificar` e `cd frontend; npm run verificar` verdes (com `postgres-teste` de pé); `git diff` não mostra mudança em dependências (`backend/pyproject.toml` só nos contratos do import-linter; `backend/uv.lock`, `frontend/package.json` e `frontend/package-lock.json` intactos); `uv run poe arquitetura` mostra 8 contratos mantidos; o site se comporta como na 001.
+
+---
+
+## Fase 2: User Story 1 - Ver o visto no painel do país (Priority: P1) 🎯 MVP
+
+**Objetivo**: coleta semanal da Wikipédia com dicionários, retenção por país, meios restritos ao dono, API e a seção "Visto" no painel.
+
+**Teste independente**: com os dados carregados a partir da fixture da Wikipédia (sem rede), abrir o painel de Argentina (RG), Estados Unidos, Tailândia, Omã, Austrália, Jamaica, Hong Kong, Guernsey, Kosovo, Etiópia, de um país sem informação e do Brasil, e conferir cada campo da seção (`quickstart.md`, passos 1 a 8 e seção 5). O globo continua só no modo "Alertas".
+
+### Infraestrutura de teste compartilhada
+
+- [X] T029 [US1] Em `backend/tests/conftest.py`, acrescentar a fixture `html_da_wikipedia` (lê a fixture real) e a classe `WikipediaFalsa` (cumpre o Protocol `Baixador`: `baixar` e `interrompido_por`; páginas por URL; simula a página, 403, 429, verificação humana, erro 5xx e um `robots.txt` que proíbe a URL do artigo, como o `GovBrFalso` existente).
+
+### Leitura da fonte e normalização
+
+- [X] T030 [P] [US1] Testes de `backend/tests/unidade/vistos/test_normalizacao.py`: remove marcas `[2]` e `[ 374 ]` e `<sup>`; troca espaço não separável e colapsa espaços; uniformiza `’` → `'`; uniformiza a barra **só nos rótulos** (`A/B`, `A /B`, `A/ B` → `A / B`; observações, nomes e prazos mantêm a barra da fonte); chave de consulta em `casefold` sem mudar o texto exibido.
+- [X] T031 [P] [US1] Testes do extrator da página em `backend/tests/unidade/vistos/test_fonte.py` (usa `html_da_wikipedia`): `dateModified` do JSON-LD (2026-10-19T05:08:59Z) e `wgRevisionId` (1380975986); rodapé como alternativa; sem nenhum dos dois ⇒ erro de formato; 193 linhas na tabela principal (cabeçalhos `Country`, `Visa requirement`, `Allowed stay`, `Notes`), 9 em "Unrecognized or partially recognized countries" e 47 em "Dependent and autonomous territories" (linha de grupo de 1 célula = soberano, não é linha de dado); a lista "Other territories" **não** é lida; cabeçalho diferente ⇒ erro de formato; texto das células é texto puro (sem `<sup>`, sem HTML); nada de HTML da fonte nas linhas.
+- [X] T032 [US1] Criar `backend/src/farol/vistos/normalizacao.py` (a função única de normalização).
+- [X] T033 [US1] Criar `backend/src/farol/vistos/fonte.py`: URL, nome e licença (CC BY-SA) da fonte; extração da página (JSON-LD, três tabelas, linhas `{tabela, grupo, nome, rotulo, permanencia, notas}`); `ErroDeFormato`. Sem usar a API da Wikipédia.
+- [X] T034 [P] [US1] Testes de `backend/tests/unidade/vistos/test_permanencia.py` (FR-004a): `N days/weeks/months/years` → `N dias/semanas/meses/anos` com singular (`1 day`, `1 week`, `1 month` → `1 mês`, `1 year` → `1 ano`); `N days in any M-day period` → `N dias a cada período de M dias`; `3 months` **não** vira `90 dias`; `up to 90 days`, `14 days / 30 days` e `30 days / 60 days` ficam `original`, em inglês; coluna em branco ⇒ sem permanência; permanência das tabelas de territórios **não** é lida (O3: só da coluna "Allowed stay" da tabela principal); o prazo só vem de linha da tabela principal; nenhuma chamada ao tradutor.
+- [X] T035 [US1] Criar `backend/src/farol/vistos/permanencia.py` (formatos conhecidos; tipos `nenhuma`, `padronizada`, `original`).
+
+### Dicionários: formato e regras de leitura
+
+- [X] T036 [P] [US1] Testes do **formato** em `backend/tests/unidade/vistos/test_dicionario_formato.py`, com YAML sintético em `tmp_path` (sem o conteúdo real): validação ao carregar (categoria inválida, nome nas duas listas, `ignorar` sem motivo, código inexistente ou neutro); `classificar_rotulo` pelas regras 1 a 4 de `contracts/dicionario-de-rotulos.md` (rótulo direto; combinado ⇒ categoria **mais exigente**; qualquer parte `outra_situacao` ⇒ `outra_situacao` com motivo `rotulo_conhecido`; qualquer parte fora do dicionário ⇒ `outra_situacao` com motivo `rotulo_desconhecido` e o rótulo inteiro devolvido para revisão); `aceita_rg` só com `aceita_rg: true` **e** "ID card" na nota; `ligar_nome` (nome em `nomes`, em `ignorar`, ou desconhecido); `calcular_hash_observacao` (SHA-256 UTF-8 das notas normalizadas, na ordem da fonte, unidas por `\n`); os arquivos são lidos de dentro do pacote via `importlib.resources`.
+- [X] T037 [US1] Criar `backend/src/farol/vistos/dicionario.py`: carrega e valida `rotulos`, `nomes` e `regras_por_pais`; `classificar_rotulo`, `ligar_nome`, `calcular_hash_observacao`, ordem de exigência. O diretório de dados `backend/src/farol/vistos/dicionarios_yaml/` (sem `__init__.py`; nome diferente do módulo `dicionario.py` de propósito, para não colidir) fica ao lado dele: carregar com `importlib.resources.files("farol.vistos").joinpath("dicionarios_yaml")`.
+
+### Portão de aprovação dos dicionários
+
+- [X] T038 [US1] **PORTÃO — conferência com o documento aprovado.** Antes de escrever qualquer entrada de dicionário, abrir `specs/002-visto-brasileiros/contracts/dicionario-de-rotulos.md` e `specs/002-visto-brasileiros/research.md` (seções 3.1 a 3.5 e 4) e conferir, item a item: (a) o status do contrato diz "formato e regras APROVADOS em 28/10/2026" e as decisões O1 a O4 aparecem como aprovadas; (b) os **20 rótulos atômicos** e a categoria de cada um: isento = `visa not required`, `freedom of movement` (com `aceita_rg`); visto na chegada = `visa on arrival`, `free visa on arrival`, `entry permit on arrival`, `free visitor's permit on arrival`; autorização ou visto eletrônico = `evisa`, `electronic travel authorisation`, `electronic travel authorization`, `electronic travel authority`, `eta`, `e-voa`, `online visa`; visto exigido = `visa required`, `online visa required`; outra situação (rótulo conhecido) = `permit required`, `special permit required`, `entry permit required`, `permission required`, `visa regime undefined`; (c) os **5 combinados** da fixture (`eVisa / Visa on arrival`, `Online Visa / Visa on arrival`, `Visa not required / eVisa`, `ETA / Visa on arrival`, `Visa not required / e-VOA`); (d) `nomes.yaml`: os 18 apelidos, os 21 nomes ignorados e o motivo de cada um; (e) `regras_por_pais.yaml`: só `JM` e `ZM`, com `hash_observacao`; México, Angola e Líbano de fora. **Anotar no relatório da tarefa o que foi conferido.** Qualquer divergência entre os documentos, ou rótulo/nome fora da lista aprovada, **para o trabalho e vai ao usuário**. O ponto ainda aberto, sem bloquear: a parte `online visa` do combinado Burundi/Nepal como `autorizacao_eletronica` (`research.md` 3.1); seguir o que está cadastrado, salvo se o usuário mandar mudar. **As tarefas T039 a T047 só começam depois desta.**
+
+### Conteúdo dos dicionários (só depois do portão)
+
+- [X] T039 [P] [US1] Teste **um por rótulo** em `backend/tests/unidade/vistos/test_dicionario_rotulos.py`, parametrizado pelas 20 entradas aprovadas na T038 (chave normalizada → categoria esperada, `aceita_rg` só para `freedom of movement`), mais: o arquivo não tem entrada fora das 20, e todo rótulo distinto da fixture é reconhecido (SC-010: nenhum desconhecido na tabela atual).
+- [X] T040 [P] [US1] Testes em `backend/tests/unidade/vistos/test_rotulos_combinados.py`: os 5 combinados da fixture com o país de cada um (Omã e Tajiquistão ⇒ `autorizacao_eletronica`; Egito/Bahrein ⇒ `autorizacao_eletronica`; Burundi e Nepal ⇒ `autorizacao_eletronica`; Sri Lanka ⇒ `autorizacao_eletronica`; Indonésia ⇒ `autorizacao_eletronica`); regra geral de categoria (Austrália ⇒ `visto_exigido`; Libéria ⇒ `autorizacao_eletronica`; Samoa e Ilhas Salomão ⇒ `visto_na_chegada`); `Visa required / Admission refused` ⇒ `outra_situacao`; `Visa not required / <rótulo desconhecido>` ⇒ `outra_situacao` com `rotulo_desconhecido`; Santa Helena, Ascensão e Tristão da Cunha (três linhas → `SH`) ⇒ `outra_situacao` pela parte "Permission required".
+- [X] T041 [P] [US1] Testes em `backend/tests/unidade/vistos/test_dicionario_nomes.py`: todo nome da fixture está em `nomes` ou em `ignorar` (SC-009); os 18 apelidos ligam ao código certo; os 19 ignorados têm motivo; nenhum nome nas duas listas; todo código existe em `dados/territorios/territorios.json` e nenhum é de área neutra; Kosovo (XK) e Falkland Islands (FK) ligam à linha própria e não são ignorados (esclarecimento de 28/10/2026); "United Kingdom and Crown dependencies" → `GB`.
+- [X] T042 [P] [US1] Testes em `backend/tests/unidade/vistos/test_regras_por_pais.py`: só `JM` e `ZM`; o `hash_observacao` de cada um bate com o calculado sobre as notas da fixture; a nota da fixture dos dois cita os dois motivos; `MX`, `AO` e `LB` não estão na lista.
+- [X] T043 [P] [US1] Testes em `backend/tests/unidade/vistos/test_aceita_rg.py` sobre a fixture: `aceita_rg` verdadeiro **8 de 8** (AR, BO, CL, CO, EC, PY, PE, UY); Guiana (nota "Brazilian ID card" na fronteira) e Venezuela (sem nota) **falsos**; rótulo `Freedom of Movement` sem a frase "ID card" ⇒ categoria `isento`, RG falso e aviso no log.
+- [X] T044 [P] [US1] Criar `backend/src/farol/vistos/dicionarios_yaml/rotulos.yaml` com as 20 entradas aprovadas (categoria, `exemplo`, `motivo` citando a regra geral onde couber).
+- [X] T045 [P] [US1] Criar `backend/src/farol/vistos/dicionarios_yaml/nomes.yaml` (`nomes:` com todos os nomes da fonte que ligam a um código, inclusive os 18 apelidos; `ignorar:` com os 19 nomes e o motivo de cada um).
+- [X] T046 [P] [US1] Criar `backend/src/farol/vistos/dicionarios_yaml/regras_por_pais.yaml` com `JM` e `ZM` (`varia_conforme_motivo`, `prazos_diferem_por_motivo`, `hash_observacao` calculado sobre as notas da fixture).
+- [X] T047 [US1] Rodar `uv run pytest tests/unidade/vistos` em `backend/` (todos os testes de dicionário verdes) e conferir que os três YAML entram no pacote: `uv build` em `backend/` e listar o `.whl` (os arquivos de `farol/vistos/dicionarios_yaml/` aparecem; a imagem do Docker só copia `src`).
+
+### Consolidação, validade, estabilidade e retenção (funções puras)
+
+- [X] T048 [P] [US1] Testes de `backend/tests/unidade/vistos/test_consolidacao.py`: um candidato por código do mapa; várias linhas do mesmo código viram partes de um rótulo combinado (mais exigente; "Outra situação" vence); `rotulo_original` com as linhas separadas por ` / `; `linhas_fonte` e `hash_fonte` (SHA-256 do JSON canônico) mudam só quando a **fonte** muda, nunca por causa do dicionário; permanências divergentes ⇒ `prazos_divergentes`; **ausência de prazo em outra linha do mesmo país (por exemplo, linha de território sem prazo) não conta como divergência**: vale o prazo da linha da tabela principal (teste sintético com duas linhas, uma com prazo e outra sem); `varia_conforme_motivo` pela lista curada (Jamaica ⇒ `varia_conforme_motivo` na permanência); observações com hash do texto (uma por linha com nota); nomes ignorados e desconhecidos não geram candidato.
+- [X] T049 [US1] Criar `backend/src/farol/vistos/consolidacao.py` (linhas → candidato por território).
+- [X] T050 [P] [US1] Testes de `backend/tests/unidade/vistos/test_validade.py`: válida se formato esperado e reconhecidos ≥ 90% da última coleta válida, ou ≥ 150 na primeira; 203 de 226 rejeita e 204 aceita; ignorados não contam como reconhecidos.
+- [X] T051 [P] [US1] Testes de `backend/tests/unidade/vistos/test_estabilidade.py`: edição de menos de 24 h ⇒ adiar; depois de 3 `adiada` seguidas coleta mesmo assim; falha técnica ⇒ nova tentativa no dia seguinte, no máximo 3 `falhou` seguidas e depois só a próxima segunda (O6); bloqueio (403, 429, verificação humana, `robots.txt`) não insiste.
+- [X] T052 [P] [US1] Testes de `backend/tests/unidade/vistos/test_retencao.py`, em tabela (`decidir_retencao`): hash da fonte igual e derivados diferentes ⇒ aplica (mudança do dicionário, 12g); fonte mudou para menos exigente ⇒ retém (isento < visto na chegada < autorização < visto exigido); "Outra situação" ou "sem informação" → qualquer categoria da ordem ⇒ retém; passar a aceitar só o RG ⇒ retém; mais exigente ou "Outra situação" ⇒ aplica; a linha sair da fonte ⇒ retém (o país mantém o último dado válido), volta com o valor exibido ⇒ `revertida`; mudança só de dicionário entre categorias da ordem, nas duas direções ⇒ aplica; primeira coleta válida ⇒ aplica tudo; transições `pendente` (mesmo hash lido só atualiza a coleta), `rejeitada` (mesmo hash não retém de novo), `revertida` (a fonte voltou ao valor exibido), `superada` (a fonte mudou para outro valor).
+- [X] T053 [P] [US1] Criar `backend/src/farol/vistos/validade.py`.
+- [X] T054 [P] [US1] Criar `backend/src/farol/vistos/estabilidade.py`.
+- [X] T055 [P] [US1] Criar `backend/src/farol/vistos/retencao.py` (`decidir_retencao` pura e os estados).
+
+### Tradutor
+
+- [X] T056 [P] [US1] Testes de `backend/tests/unidade/vistos/test_tradutor.py`: saída estruturada validada (mesma quantidade de itens, nada vazio, tamanho limitado); lotes de até 20; texto da fonte entre delimitadores com neutralização dos delimitadores (como `_neutralizar_delimitadores` em `backend/src/farol/classificacao/cadeia.py`) e instrução de tratá-lo como dado; falha da chamada ⇒ sem tradução (nunca derruba a coleta); o adaptador `TradutorLangChain` com um modelo de chat falso do LangChain, sem rede.
+- [X] T057 [US1] Criar `backend/src/farol/vistos/tradutor.py` (Protocol `Tradutor` e o esquema Pydantic da resposta) e `backend/src/farol/vistos/tradutor_langchain.py` (`init_chat_model` + `with_structured_output`, argumentos de `farol.infra.argumentos_do_modelo`, modelo de `llm_tradutor`).
+- [X] T058 [US1] Acrescentar `TradutorFalso` em `backend/tests/conftest.py` (cumpre o Protocol `Tradutor`; registra os lotes recebidos, devolve `"[pt] " + texto` e tem modo de falha).
+
+### Serviço de coleta e serviço do dono
+
+- [X] T059 [P] [US1] Testes de integração de `backend/tests/integracao/vistos/test_servico_coleta.py` (`WikipediaFalsa`, `TradutorFalso`, banco de teste): primeira coleta válida grava `coleta_vistos` e `requisito_visto` sem reter nada; coleta `rejeitada` (formato ou menos de 90%), `adiada`, `falhou` e `bloqueada` (403, 429, verificação humana e `robots.txt` que proíbe a URL do artigo, sem baixar a página) **não alteram nenhum dado** (SC-007) e gravam o motivo; observação sem mudança mantém a tradução já feita e só as novas ou alteradas vão ao tradutor, em lote; tradutor que falha deixa `traducao` nula e a coleta continua válida, e a coleta seguinte tenta de novo; `lido_em` e `coleta_id` atualizam quando a mesma fonte é confirmada, e não mudam na retenção; texto da fonte com HTML ou instruções fica como texto puro; linha de log `WARNING` "vistos: há pendências para o dono" (com `retidas`, `nomes_pendentes`, `rotulos_pendentes`, `regras_pendentes`) só em rodada agendada com pendência.
+- [X] T060 [P] [US1] Testes de integração de `backend/tests/integracao/vistos/test_servico_coleta_retencao.py`: mudança para menos exigente fica retida **mesmo com um único país** e o painel mantém os dados e a data antigos (12a, 12b); mais exigente é aplicada na mesma coleta (12c); retida de "Outra situação"/"sem informação" (12d); primeira coleta sem retenção (12e); retenção some sozinha quando a fonte volta (12f); rótulo desconhecido → dicionário atualizado ⇒ aplicado sem retenção (12g); passar a aceitar só o RG fica retido (12h); `rejeitada` não reabre com o mesmo hash e `superada` recomeça a decisão; retidas acima de 10% dos reconhecidos ⇒ `WARNING` "vistos: possível vandalismo em massa na fonte"; itens para revisão: nome e rótulo desconhecidos (país continua em "Outra situação" com o rótulo à vista), `resolvido` automático quando uma coleta posterior os reconhece, `ignorado` não volta, `regra` abre quando o hash da nota muda e fecha sozinho quando bate, sem invalidar a coleta.
+- [X] T061 [US1] Criar `backend/src/farol/vistos/servico_coleta.py` (`ServicoDeColetaDeVistos`, resultado com contagens e lista de retidas): robots/baixa a página pelo `Baixador`, extrai, consolida, valida, aplica a estabilidade, decide a retenção, grava o resultado, traduz em lote, atualiza os itens para revisão e escreve os logs.
+- [X] T062 [P] [US1] Testes de integração de `backend/tests/integracao/vistos/test_servico_dono.py`: listar pendentes (retidas com categoria exibida e lida e a data do dado exibido; nomes; rótulos; regras com o hash novo); `confirmar <código>` aplica o candidato com a data da coleta que o leu; `confirmar --todos`; `rejeitar`; `ignorar_nome` exige motivo e só vale para nome pendente; rótulo e regra não podem ser ignorados; código sem mudança retida e nome não pendente dão erro.
+- [X] T063 [US1] Criar `backend/src/farol/vistos/servico_dono.py` (listar pendentes, confirmar, rejeitar, ignorar nome).
+
+### Leitura (o que a API consome)
+
+- [X] T064 [P] [US1] Testes de integração de `backend/tests/integracao/vistos/test_leitura.py`: `montar_visto_do_pais` e `montar_vistos_do_mapa` pelas cinco regras de `data-model.md` ("Como a leitura resolve o visto de um território"): Brasil ⇒ sem visto (`nao_se_aplica` no globo); registro próprio (Hong Kong); dependência sem registro usa o soberano com `origem = soberano` e `soberano_nome` (Guernsey ⇒ Reino Unido); Kosovo e Malvinas ⇒ visto da **linha própria** (nunca o do soberano; sem linha, `sem_informacao`; as Malvinas nunca com RG), sem nota de herança e com `territorio_nome` ("Kosovo", "Ilhas Malvinas"); Taiwan sai como "Taiwan (China)" com visto próprio; Porto Rico segue a regra das dependências (entrada própria, se houver; senão a dos Estados Unidos, com a nota); nunca houve coleta válida ⇒ `sem_informacao` e `dados_obtidos = false`; área neutra sem visto; `dado_de` é o `lido_em` do país e `desatualizado` com mais de 14 dias (FR-015), inclusive país com mudança retida; `desatualizado` do conjunto pela última coleta válida (FR-029a); número fixo de consultas (3 em `/vistos`, 3 no visto do painel) com a fixture `contar_consultas`.
+- [X] T065 [US1] Criar `backend/src/farol/vistos/visoes.py` (dataclasses imutáveis devolvidas à `api`) e `backend/src/farol/vistos/leitura.py` (`montar_visto_do_pais`, `montar_vistos_do_mapa`).
+- [X] T066 [US1] Completar `backend/src/farol/vistos/__init__.py` (interface pública: serviço de coleta e seu resultado, serviço do dono, leitura, visões, `Tradutor`, `TradutorLangChain`, constantes da fonte) e conferir `uv run poe arquitetura` e `uv run poe tipos`.
+
+### API e contrato
+
+- [X] T067 [P] [US1] Testes de `backend/tests/integracao/api/test_rota_vistos.py`: `GET /api/v1/vistos` com e sem dados (antes da primeira coleta `dados_obtidos: false`, todo território `sem_informacao` e o Brasil `nao_se_aplica`); os mesmos territórios de `/mapa`; Kosovo e Malvinas com a situação da própria linha (as Malvinas sem RG); `aceita_rg` das 8 da fixture; teste de **limite de consultas** (3).
+- [X] T068 [P] [US1] Atualizar `backend/tests/integracao/api/test_rota_paises.py`: `visto` presente em todo país com painel; `visto = null` **só** em `/paises/BR`; país sem dado ⇒ `situacao = "sem_informacao"` (nunca a seção ausente); dependência com e sem entrada própria; limite de consultas do painel (3 a mais que a 001).
+- [X] T069 [P] [US1] Atualizar `backend/tests/integracao/api/test_seguranca.py`: nenhuma rota de escrita (inclui `/vistos`); texto da fonte e traduções com HTML e instruções saem como string, sem HTML interpretado.
+- [X] T070 [US1] Apontar `CONTRATO` em `backend/tests/contrato/conftest.py` para `specs/002-visto-brasileiros/contracts/openapi.yaml` (o arquivo da 001 fica como histórico) e atualizar os comentários de `backend/tests/contrato/test_openapi_completo.py`. Os testes de contrato de `/vistos` e de `Pais.visto` falham até a T075.
+- [X] T071 [P] [US1] Criar `backend/tests/contrato/test_openapi_vistos.py`: rota `/vistos` (`obterVistos`, só leitura), esquemas `Visto`, `VistosDoMapa`, `TerritorioDeVisto`, `Permanencia`, `ObservacaoDeVisto`, `SituacaoDeVisto`, `SituacaoNoGlobo`, `MotivoOutraSituacao`, `OrigemDoVisto`, `TipoDePermanencia` equivalentes ao contrato; `Pais.visto` anulável e obrigatório.
+- [X] T072 [US1] Acrescentar em `backend/src/farol/api/dtos.py` os DTOs `Visto`, `VistosDoMapa`, `TerritorioDeVisto`, `Permanencia`, `ObservacaoDeVisto` e os enums de apoio, e `visto` em `Pais` (nomes e campos de `contracts/openapi.yaml`).
+- [X] T073 [US1] Criar `backend/src/farol/api/composicao.py` (junta `montar_painel` e `montar_visto_do_pais`; sem regra de negócio).
+- [X] T074 [P] [US1] Criar `backend/src/farol/api/rotas/vistos.py` (`GET /vistos`, `operation_id="obterVistos"`) e registrar o roteador em `backend/src/farol/api/app.py`.
+- [X] T075 [P] [US1] Atualizar `backend/src/farol/api/rotas/paises.py` para devolver `visto` pela composição (`obterPais` continua com os mesmos erros 404 e 422).
+- [X] T076 [US1] Rodar `uv run pytest tests/contrato tests/integracao/api tests/unidade/api` e `uv run poe exportar-openapi` em `backend/`; contrato, trava da 001 (T027) e limites de consultas verdes.
+
+### Worker: comandos do dono, agenda e jobs
+
+- [X] T077 [P] [US1] Atualizar `backend/tests/unidade/worker/test_agenda.py`: `vistos-semanais` toda segunda às 05:13 (America/Sao_Paulo; `coalesce`, `max_instances=1`, mesma tolerância dos alertas); `vistos-na-partida` só se a última tentativa tem mais de 7 dias; `vistos-amanha` às 05:13 do dia seguinte a uma rodada `adiada` ou `falhou`, até 3 seguidas e depois só a próxima segunda; os jobs de alertas e de postos não mudam.
+- [X] T078 [P] [US1] Criar `backend/tests/unidade/worker/test_comando_vistos.py` (`executar_comando` com falsos): `coletar --vistos` imprime o resumo (válida, reconhecidos e mínimo, artigo e data, aplicados/sem mudança/retidos, não reconhecidos, traduções) e sai com 0 se válida e 1 se `rejeitada`/`adiada`/`falhou`/`bloqueada`, com o motivo; `CONTATO_COLETA` ausente ou de exemplo ⇒ 2; `vistos pendentes` na forma de `contracts/comandos-do-dono.md`; `vistos confirmar <código>` e `--todos`; `vistos rejeitar`; `vistos ignorar-nome "<nome>" --motivo "<texto>"`; uso errado, código sem retenção, nome não pendente e motivo ausente ⇒ 2.
+- [X] T079 [P] [US1] Atualizar `backend/tests/unidade/worker/test_jobs.py`: `rodada_real_de_vistos` usa o cliente educado com o contato (contato inválido ⇒ `ContatoInvalido`); sem LLM (sem chave ou modelo) a coleta segue com tradutor ausente; a rodada agendada escreve a linha de aviso de pendências.
+- [X] T080 [P] [US1] Atualizar `backend/src/farol/worker/agenda.py` (jobs `vistos-semanais`, `vistos-na-partida`, `vistos-amanha`; horário 05:13, decisão O5).
+- [X] T081 [P] [US1] Atualizar `backend/src/farol/worker/jobs.py` (`rodada_real_de_vistos`: cliente educado, banco, tradutor de `llm_tradutor` opcional).
+- [X] T082 [US1] Atualizar `backend/src/farol/worker/comando.py`: `coletar --vistos` (junto de `--alertas` e `--postos`) e o grupo `vistos` (`pendentes`, `confirmar`, `rejeitar`, `ignorar-nome`) com os códigos de saída 0, 1 e 2; `servir_agenda` e `main` passam a agendar e a logar vistos; atualizar o docstring do módulo.
+
+### Ponta a ponta com a fixture real
+
+- [X] T083 [US1] Criar `backend/tests/integracao/vistos/test_coleta_fixture_real.py` (no estilo de `backend/tests/integracao/mapa/test_oriente_medio_alerta_real.py`): a fixture inteira da Wikipédia passa por `ServicoDeColetaDeVistos` (`WikipediaFalsa`, `TradutorFalso`, seed do banco de teste) e depois por `montar_visto_do_pais`, `montar_vistos_do_mapa` e a API. Conferir: coleta **válida** com 228 códigos reconhecidos; **zero** nomes e rótulos desconhecidos pendentes (SC-009, SC-010); cobertura de ligação de 100% dos territórios com painel (237 de 237, sem o Brasil) e **SC-001 ≥ 95%** de países com dado (rótulo conhecido); Argentina `isento` com RG e os 8 do RG; Venezuela e Guiana sem RG; Estados Unidos `visto_exigido` sem permanência; Omã `autorizacao_eletronica` com rótulo combinado visível; Austrália `visto_exigido`; Jamaica `varia_conforme_motivo`; Hong Kong com entrada própria; Guernsey com a entrada do Reino Unido (`origem = soberano`); Kosovo e Malvinas com a linha própria, `territorio_nome` e as Malvinas sem RG; Taiwan como "Taiwan (China)" com visto próprio; Porto Rico pela regra das dependências; Etiópia com permanência `original`; Santa Helena em `outra_situacao`; Brasil `visto = null`; nenhum território sem dado aparece com categoria (SC-002); segunda coleta com a mesma fixture não retém nada nem traduz de novo.
+
+### Frontend: tipos, cliente e seção "Visto"
+
+- [X] T084 [US1] Trocar o contrato padrão em `frontend/scripts/gerar-tipos.mjs` (`specs/002-visto-brasileiros/contracts/openapi.yaml`) e rodar `npm run gerar-tipos` em `frontend/` para regerar `frontend/src/servicos/api/esquema.d.ts`. O `tsc` fica vermelho até as T085 e T087.
+- [X] T085 [P] [US1] Atualizar `frontend/src/testes/dados-exemplo.ts`: `visto` em `PAIS_EXEMPLO` e nos demais países de exemplo (`criarPais`, `PAIS_COM_DOIS_POSTOS`, `PAIS_SEM_POSTO`); novo `criarVisto(sobrescritas)` e exemplos (isento com RG, visto exigido, outra situação, sem informação, herdado do soberano, desatualizado).
+- [X] T086 [P] [US1] Testes de `validarPais` em `frontend/src/servicos/api/cliente.test.ts`: `visto` objeto ou `null` aceitos; situação fora do contrato, campo de tipo errado ou ausente ⇒ erro (resposta fora do contrato).
+- [X] T087 [US1] Atualizar `frontend/src/servicos/api/cliente.ts`: tipos `Visto`, `Permanencia`, `ObservacaoDeVisto` (e demais de apoio) e a validação de `visto` em `validarPais`.
+- [X] T088 [P] [US1] Testes de `frontend/src/compartilhado/vistos.test.ts` (parte da P1): rótulo em português de cada categoria e de "Sem informação de visto"; textos fixos (aviso de fonte não oficial com "consulado ou embaixada", "Varia conforme o motivo da viagem", "Varia conforme o motivo (ver observações)", "Prazos divergentes na fonte (ver observações)", "tradução automática", "não traduzido").
+- [X] T089 [US1] Criar `frontend/src/compartilhado/vistos.ts` (categorias, rótulos e textos fixos, ordem de exigência).
+- [X] T090 [P] [US1] Testes de `frontend/src/funcionalidades/vistos/SecaoVisto.test.tsx` (um por cenário da spec): "Isento de visto" com "90 dias"; RG explícito ("Entrada com o RG"); observações em português com marca de tradução automática e o original acessível; "Outra situação" com o rótulo original à vista; "Sem informação de visto" sem categoria (nunca "isento"); rótulo combinado com o original; nota "Varia conforme o motivo da viagem" e permanência "Varia conforme o motivo (ver observações)"; "Prazos divergentes na fonte (ver observações)"; permanência `original` em inglês com "não traduzido"; sem permanência ⇒ sem a linha; observação sem tradução ⇒ original avisando; nota de herança com `soberano_nome`; link do artigo com "CC BY-SA", data do dado (`dado_de`) e aviso de fonte não oficial; `desatualizado` ⇒ aviso de dados possivelmente desatualizados; a categoria sempre também em texto. Com `territorio_nome` (Kosovo, Ilhas Malvinas) o título é "Visto: <nome>" e as Malvinas nunca mostram "Entrada com o RG".
+- [X] T091 [US1] Criar `frontend/src/funcionalidades/vistos/SecaoVisto.tsx` (usa `compartilhado/vistos.ts`, `compartilhado/datas.ts` e `compartilhado/urlSegura.ts`; texto sempre como texto, nunca como HTML). O título é "Visto" ou, com `territorio_nome`, "Visto: <nome>".
+- [X] T092 [P] [US1] Atualizar `frontend/src/funcionalidades/painel/Painel.test.tsx` (a seção "Visto" aparece **abaixo** dos alertas; Brasil: sem título, sem fonte, sem aviso e sem "não se aplica"; o painel é igual com a seção em todos os estados) e `frontend/src/funcionalidades/painel/seguranca.test.tsx` (nomes, rótulos, observações e traduções com HTML e instruções aparecem como texto; `fonte.url` que não é web não vira link).
+- [X] T093 [US1] Atualizar `frontend/src/funcionalidades/painel/Painel.tsx`: `SecaoVisto` abaixo de `AlertasDoPais`, ausente quando `visto === null`.
+
+### Validação da P1 (`quickstart.md`) e ponto de controle da fase 2
+
+- [X] T094 [US1] **Quickstart seções 1 a 3** (manual, com Docker de pé; se o Docker falhar, parar e avisar o usuário): `docker compose run --rm migracao`; conferir o estado antes de qualquer coleta (`GET /api/v1/vistos` com `dados_obtidos: false`, `/api/v1/paises/AR` com `visto.situacao = "sem_informacao"`, `/paises/BR` com `visto` nulo, site idêntico à 001); com `CONTATO_COLETA` de verdade, rodar a **primeira coleta real** (`docker compose exec worker python -m farol.worker coletar --vistos`; adiada ⇒ repetir no dia seguinte) e registrar em `specs/002-visto-brasileiros/checklists/primeira-coleta.md` o resumo, a contagem por categoria (`select categoria, count(*) from requisito_visto group by 1 order by 2 desc`), o tempo e o resultado do **SC-001 (meta fixa de 95%)**; abaixo disso a feature não está pronta. Feita em 29/10/2026 (coleta id 1, disparada pelo `vistos-na-partida`; origem e contato do User-Agent registrados em `checklists/primeira-coleta.md`).
+- [X] T095 [US1] **Quickstart seção 4, passos 1 a 8** (painel em "Alertas": Argentina, Estados Unidos, Tailândia/Omã/Austrália, Jamaica, Hong Kong/Guernsey/Kosovo, Brasil, Etiópia e a coleta sem tradutor), registrando o resultado de cada passo no mesmo `checklists/primeira-coleta.md`. **Passo 8 (coleta sem tradutor) coberto pelos testes automatizados** (`backend/tests/integracao/vistos/test_servico_coleta.py`: `test_sem_tradutor_a_coleta_segue_e_as_observacoes_ficam_em_ingles`, `test_tradutor_que_falha_deixa_a_traducao_nula_e_a_coleta_continua_valida`; `SecaoVisto.test.tsx`: observação sem tradução); execução manual dispensada em 29/10/2026 para não gerar uma coleta real extra. Painel conferido no navegador pelo dono; P1 aprovada.
+- [X] T096 [US1] **Quickstart seção 5** (retenção por país): o `update` em `requisito_visto` para `AR`, nova coleta, `vistos pendentes` (Argentina retida, painel ainda em "Visto exigido" com a data antiga), `vistos confirmar AR`; repetir o `update` e `vistos rejeitar AR` e conferir que uma nova coleta com o mesmo valor **não** reabre a retenção. **Coberta pelos testes automatizados** (`backend/tests/integracao/vistos/test_servico_coleta_retencao.py` e `test_servico_dono.py`: retenção por país, `confirmar`, `rejeitar` e rejeitada que não reabre com o mesmo valor); execução manual dispensada em 29/10/2026 para não gerar uma coleta real extra. Detalhes em `checklists/primeira-coleta.md`.
+- [X] T097 [US1] **Checkpoint da fase 2**: `cd backend; uv run poe verificar` e `cd frontend; npm run verificar` verdes (com `postgres-teste` de pé); `uv run poe arquitetura` com 8 contratos; US1 funciona sozinha (o site em "Alertas" se comporta como na 001, mais a seção "Visto" no painel).
+
+---
+
+## Fase 3: User Story 2 - Colorir o globo por visto (Priority: P2)
+
+**Objetivo**: seletor "Alertas | Vistos", paleta e legenda de vistos com o subitem "Isento, entrada com RG" (listras), linha de fonte e data, e o erro de `/vistos` sem pintar de cinza.
+
+**Teste independente**: com os dados de visto da fase 2, alternar entre os modos e conferir cores, legenda, bordas regionais e o painel por toque em cada modo, também em 360 px (`quickstart.md`, passos 9 a 16).
+
+**Depende da fase 2** (rota `GET /vistos`, tipos regerados e dados). Não muda regra, nível nem cor de alerta (FR-020).
+
+### Verificação do `fill-pattern` (antes do resto da fase)
+
+- [ ] T098 [US2] **Spike** com o Edge sem interface (como na 001), numa página temporária fora do repositório que usa `maplibre-gl` (a versão de `frontend/package.json`) com projeção de globo: (a) uma camada `fill` com `fill-pattern` mostra as listras 16×16 registradas por `map.addImage`; (b) o clique/toque num território com `fill-opacity: 0` ainda abre o painel. Registrar o resultado em uma seção "Resultado da verificação" de `specs/002-visto-brasileiros/contracts/mapa-props-vistos.md`: se (a) falhar, adotar o **Plano B** (camada `line` com `line-dasharray`, mesma interface `padrao: "rg"`); se (b) falhar, usar `#DCE8F2` como "sem pintura". A T107 segue esta decisão.
+
+### Cores, distância de cor e padrão
+
+- [ ] T099 [P] [US2] Testes de `frontend/src/compartilhado/distanciaDeCor.test.ts`: CIEDE2000 contra valores de referência conhecidos; simulação de protanopia, deuteranopia e tritanopia por matriz; distância de uma cor para ela mesma é 0.
+- [ ] T100 [P] [US2] Criar `frontend/src/compartilhado/distanciaDeCor.ts` (CIEDE2000 e as três simulações; reaproveita `frontend/src/compartilhado/contraste.ts` para a luminância).
+- [ ] T101 [US2] Acrescentar em `frontend/src/compartilhado/vistos.test.ts` (parte da P2): as cores do código são as dos tokens `--color-visto-*` de `frontend/src/compartilhado/tema.css` (como o teste de `niveis.test.ts`); as cores da paleta do plano (`isento` `#00B1DF`, `visto_na_chegada` `#007FC8`, `autorizacao_eletronica` `#424DA1`, `visto_exigido` `#4D2455`, `outra_situacao` `#5E6469`, `sem_informacao` `#AEABA2`, Brasil `#F1EFE8`, listras `#0B3A52`); contraste das listras sobre a base ≥ 4,5 e da borda das amostras (`#5F5E5A`) ≥ 3; **distância CIEDE2000 ≥ 12** entre cada cor de visto e todas as outras, as 4 cores de alerta (`NIVEIS`), o neutro do Brasil e o oceano `#DCE8F2`, em visão normal e nas três simulações; "sem informação" mais escuro que o `nao_verificado` dos alertas (`#D3D1C7`).
+- [ ] T102 [US2] Acrescentar em `frontend/src/compartilhado/vistos.ts` as cores, as chaves da legenda (`ChaveDeVisto`: `isento`, `isento_rg`, `visto_na_chegada`, `autorizacao_eletronica`, `visto_exigido`, `outra_situacao`, `sem_informacao`) com rótulo e ordem de exibição, e os tokens `--color-visto-*` em `frontend/src/compartilhado/tema.css`.
+- [ ] T103 [P] [US2] Testes de `frontend/src/funcionalidades/mapa/padroes.test.ts`: a matriz RGBA 16×16 é determinística; listras diagonais (45°) de 3 px a cada 8 px em `#0B3A52`, opacas, sobre a base `#00B1DF` incluída na imagem; o CSS da amostra da legenda (`repeating-linear-gradient`) usa os mesmos números.
+- [ ] T104 [US2] Criar `frontend/src/funcionalidades/mapa/padroes.ts` (matriz de pixels por função pura, sem canvas, e o gradiente da amostra).
+
+### Filtro da legenda e estado
+
+- [ ] T105 [P] [US2] Testes de `frontend/src/funcionalidades/legenda/filtroDeVistos.test.ts`: a tabela de verdade do "Isento" (4 combinações de `isento` × `isento_rg`); marcar ou desmarcar `isento` marca ou desmarca `isento_rg`; desmarcar só `isento_rg` ⇒ `isento` em estado misto; marcar só `isento_rg` com `isento` desmarcado ⇒ só os com RG aparecem; os outros territórios esmaecem se a chave deles está desmarcada; território sem informação e Brasil seguem a própria chave/neutro; independente do filtro de alertas.
+- [ ] T106 [US2] Criar `frontend/src/funcionalidades/legenda/filtroDeVistos.ts` (funções puras).
+- [ ] T107 [P] [US2] Testes em `frontend/src/estado/reducer.test.ts`: `modo` inicial `alertas`; `trocar-modo` não mexe em seleção, painel aberto, postos expandidos, destaque nem câmera; `vistosMarcados` começa com todas as chaves e é independente de `niveisMarcados`; `alternar-visto` (com o subitem), `marcar-todos-vistos`; `vistos-carregando`, `vistos-carregados`, `vistos-falhou` (`nao_pedido` → `carregando` → `erro`|`pronto`); nada do modo é gravado (nem `localStorage`).
+- [ ] T108 [US2] Atualizar `frontend/src/estado/reducer.ts` (e `contexto.tsx` se preciso): `modo`, `vistosMarcados`, `vistos` e as seis ações novas de `contracts/mapa-props-vistos.md`.
+
+### `Preenchimento` no mapa (a 001 continua igual)
+
+- [ ] T109 [P] [US2] Atualizar `frontend/src/funcionalidades/mapa/cor.test.ts` e `frontend/src/funcionalidades/mapa/feicoes.test.ts`: `preenchimentoDeAlerta` devolve **exatamente** as cores de hoje (regressão da 001; área neutra pela cor própria); `preenchimentoDeVisto` por categoria, "Isento" com RG ⇒ `padrao: "rg"`, "sem informação" cinza `#AEABA2`, Brasil e áreas neutras no neutro `#F1EFE8`, "sem preenchimento" para carregando e erro (**nunca** o cinza); `montarFeicoes` leva `cor` e `padrao` nas propriedades, `bordaRegional` nula no modo Vistos e `esmaecido` vindo do filtro do modo.
+- [ ] T110 [US2] Migrar a 001 para `Preenchimento` sem mudar comportamento: `frontend/src/funcionalidades/mapa/tipos.ts` (`Preenchimento`, `TerritorioDesenhado.preenchimento` no lugar de `nivel`; forma de "sem preenchimento" registrada em `mapa-props-vistos.md` se o tipo precisar de uma extensão), `frontend/src/funcionalidades/mapa/cor.ts` (`preenchimentoDeAlerta`, `preenchimentoDeVisto`), `frontend/src/funcionalidades/mapa/feicoes.ts`, o uso em `frontend/src/App.tsx`, o adaptador `frontend/src/funcionalidades/mapa/adaptador-maplibre.tsx` (lê a cor do preenchimento) e `frontend/src/testes/mapa-falso.tsx`. Os testes existentes do mapa e do App continuam verdes.
+
+### Dados de `/vistos` no cliente
+
+- [ ] T111 [P] [US2] Testes de `validarVistos` e `obterVistos` em `frontend/src/servicos/api/cliente.test.ts` (resposta válida; situação fora do contrato, campo ausente ou tipo errado ⇒ erro; `nao_se_aplica` só no Brasil) e de `useVistos` em `frontend/src/funcionalidades/vistos/useVistos.test.ts`: **não** busca no carregamento nem no modo "Alertas"; busca uma vez ao escolher "Vistos" e guarda a resposta; estados `carregando`, `erro` (rede, 5xx, fora do contrato) e `pronto`; "Tentar de novo" busca outra vez; cancela a busca ao desmontar.
+- [ ] T112 [US2] Atualizar `frontend/src/servicos/api/cliente.ts` (`VistosDoMapa`, `TerritorioDeVisto`, `validarVistos`, `obterVistos` em `ClienteDaApi` e em `criarCliente`), `frontend/src/testes/api-simulada.ts` (`obterVistos` simulado) e `frontend/src/testes/dados-exemplo.ts` (`VISTOS_EXEMPLO`), e criar `frontend/src/funcionalidades/vistos/useVistos.ts`.
+
+### Componentes do modo "Vistos"
+
+- [ ] T113 [P] [US2] Testes de `frontend/src/funcionalidades/vistos/SeletorDeModo.test.tsx`: opções "Alertas" e "Vistos" com nome acessível, "Alertas" marcado por padrão, escolha por clique e por teclado (setas, Enter/Espaço), alvo de toque de pelo menos 44 px; nenhuma transição ou animação nova do seletor fica fora de `prefers-reduced-motion` (conferir o CSS do componente com `simularMatchMedia`/leitura das regras).
+- [ ] T114 [US2] Criar `frontend/src/funcionalidades/vistos/SeletorDeModo.tsx`.
+- [ ] T115 [P] [US2] Testes de `frontend/src/funcionalidades/vistos/LegendaDeVistos.test.tsx`: cada categoria em texto com a caixa de marcar; subitem "Isento, entrada com RG" dentro de "Isento de visto"; estado misto com `aria-checked="mixed"` **e** o texto "(parcial)"; amostras com borda e a do RG em listras; item informativo "Brasil: seu país, sem seção de visto" sem caixa; "Carregando os vistos…"; erro com "Não foi possível carregar os vistos." e o botão "Tentar de novo"; todas desmarcadas ⇒ mensagem e botão como em `SemNiveisMarcados.tsx`; nenhuma transição ou animação nova (esmaecer, estado misto, recolher) fica fora de `prefers-reduced-motion`.
+- [ ] T116 [US2] Criar `frontend/src/funcionalidades/vistos/LegendaDeVistos.tsx` (usa `filtroDeVistos.ts` e `padroes.ts`).
+- [ ] T117 [P] [US2] Testes de `frontend/src/funcionalidades/vistos/LinhaDaFonteDeVistos.test.tsx`: "Vistos: Wikipédia (CC BY-SA), fonte não oficial, coletados em DD/MM/AAAA" com "Wikipédia" como link para o artigo; sem coleta válida ⇒ "Vistos: ainda não há dados de visto"; erro ⇒ "Vistos: dados indisponíveis no momento".
+- [ ] T118 [US2] Criar `frontend/src/funcionalidades/vistos/LinhaDaFonteDeVistos.tsx`.
+- [ ] T119 [P] [US2] Atualizar `frontend/src/funcionalidades/legenda/LegendaRecolhivel.test.tsx`: no modo "Alertas" a legenda recolhida mostra só o botão (como na 001); no modo "Vistos" mostra o botão **e** a linha de fonte e data, também recolhida (FR-029); a legenda muda com o modo; recolher não desfaz nenhum dos dois filtros.
+- [ ] T120 [US2] Atualizar `frontend/src/funcionalidades/legenda/LegendaRecolhivel.tsx` (e `Legenda.tsx` se preciso): troca da legenda por modo e `LinhaDaFonteDeVistos` **fora** da parte recolhível, sem cobrir mapa, aviso nem o "Sobre".
+- [ ] T121 [P] [US2] Atualizar `frontend/src/funcionalidades/aviso/Aviso.test.tsx`: no modo "Vistos", com `vistos.desatualizado`, o aviso de dados desatualizados aparece na área de avisos, sem abrir painel (FR-029a); no modo "Alertas" não aparece.
+- [ ] T122 [US2] Atualizar `frontend/src/funcionalidades/aviso/Aviso.tsx` com o aviso de vistos desatualizados.
+
+### Adaptador e tela
+
+- [ ] T123 [US2] Atualizar `frontend/src/funcionalidades/mapa/adaptador-maplibre.tsx` conforme a decisão da T098: camada `padrao-rg` (`fill-pattern` `listras-rg`, filtro `["==",["get","padrao"],"rg"]`, mesma opacidade da camada `paises`) e imagem registrada com `map.addImage("listras-rg", ...)` depois do carregamento do estilo (ou o Plano B); "sem preenchimento" com `fill-opacity` 0; `regional` vazia no modo Vistos. Só o adaptador importa `maplibre-gl`.
+- [ ] T124 [US2] Testes de `frontend/src/App.test.tsx` (API simulada, mapa falso): o site abre em "Alertas" igual à 001; escolher "Vistos" busca `/vistos` e pinta pela categoria (Brasil neutro; Kosovo e Malvinas com a cor da própria linha vinda de `/vistos`, as Malvinas sem a variação de RG); sem bordas regionais no modo Vistos e de volta ao voltar para "Alertas"; **recarregar volta a "Alertas"** (nada do modo no `localStorage`); o painel é o mesmo nos dois modos; o filtro de cada modo é independente; **erro de `/vistos`**: mensagem na legenda e "Tentar de novo", **nenhum território com a cor de "sem informação"**; "Tentar de novo" refaz a chamada e, com sucesso, pinta; carregando ⇒ nenhum território cinza; em 360 px (`simularMatchMedia`) a legenda recolhida mostra a linha de fonte e data só no modo "Vistos"; aviso de dados antigos no modo "Vistos".
+- [ ] T125 [US2] Atualizar `frontend/src/App.tsx`: seletor de modo, `useVistos`, `preenchimentoDeVisto`, `bordaRegional` nula e filtro de vistos no modo "Vistos", legenda e linha de fonte por modo, aviso de vistos; a seleção, o painel, os postos e a câmera não mudam ao trocar de modo.
+
+### Painel recolhível (FR-030, `plan.md` seção "Painel recolhível")
+
+Numeração continua depois da T128 para não renumerar as referências; na ordem de execução vêm **antes** da T126. Testes primeiro. Só frontend, nenhuma dependência nova.
+
+- [ ] T129 [P] [US2] Testes em `frontend/src/estado/reducer.test.ts`: `painelRecolhido` começa `false`; `recolher-painel` e `expandir-painel` alternam só esse campo (não mexem em `selecionado`, `postosExpandidos`, `grupoEmDestaque`, `modo`, `niveisMarcados` nem `vistosMarcados`); `selecionar`, `tocar-icone`, `expandir-posto` e `limpar-selecao` voltam o campo a `false`; `alternar-nivel` e `trocar-modo` não o alteram; nada é gravado em `localStorage`.
+- [ ] T130 [US2] Atualizar `frontend/src/estado/reducer.ts`: campo `painelRecolhido` e as ações `recolher-painel` e `expandir-painel` (depois da T108, mesmo arquivo).
+- [ ] T131 [P] [US2] Testes de `frontend/src/funcionalidades/painel/BarraDoPainel.test.tsx`: (a) a mesma barra, nos modos lateral e gaveta, mostra bandeira, nome e a situação principal, com o texto na horizontal (nenhum `writing-mode` vertical), e só a classe de posição muda entre os dois modos (lateral: canto superior direito com a largura do painel; gaveta: rodapé em largura total); no modo "Alertas", o rótulo do nível (inclusive "Alerta só para parte do país" e "Não verificado"); no modo "Vistos", o rótulo da categoria (`ROTULOS_DE_VISTO`), "Sem informação de visto" sem dado, e "Kosovo: Isento de visto" / "Ilhas Malvinas: …" com `territorio_nome` (nunca a categoria do soberano); Brasil: só bandeira e nome; (b) o botão principal tem nome acessível "Expandir painel: <nome>, <situação>" e `aria-expanded="false"`, o clique e o toque chamam `onAlternar`, Enter e Espaço também (teclado), sem nenhuma dependência de arrastar; (c) a barra tem também o "Ver mundo", que chama `onFechar` e não expande; (d) alvos de toque com `min-h-11`/`min-w-11` (44 px), nenhuma largura fixa em px, nome com `line-clamp-2`/`break-words` e situação sem corte (360 px e a largura de 340 px do painel lateral); (e) nenhuma `transition`/`animation` fora de `motion-reduce:` ; (f) texto da situação e do nome com marcação aparece como texto.
+- [ ] T132 [US2] Criar `frontend/src/funcionalidades/painel/BarraDoPainel.tsx` (um componente só para os dois formatos: barra horizontal de no mínimo 56 px, flutuando no canto superior direito com a largura do painel no modo `lateral` e no rodapé em largura total no modo `gaveta`).
+- [ ] T133 [P] [US2] Atualizar `frontend/src/funcionalidades/painel/Painel.test.tsx`: com o país carregado o cabeçalho tem "Recolher painel" (`aria-expanded="true"`) ao lado de "Ver mundo"; em "carregando" e "erro" o botão não existe; recolhido, o painel mostra a barra e **não** mostra as seções (alertas, visto, postos); expandir devolve o conteúdo igual, com os postos que estavam abertos (vindos de `postosExpandidos`); o foco vai para "Expandir painel" ao recolher e para "Recolher painel" ao expandir; o painel expandido continua igual ao de hoje (regressão dos testes existentes, sem alteração); Brasil também recolhe.
+- [ ] T134 [US2] Atualizar `frontend/src/funcionalidades/painel/Painel.tsx`: props `recolhido`, `onAlternarRecolhimento` e `modoDoGlobo`; botão "Recolher painel"; renderiza a `BarraDoPainel` quando recolhido.
+- [ ] T135 [P] [US2] Testes em `frontend/src/App.test.tsx` (API simulada, mapa falso): "Recolher painel" mantém o país selecionado e **não muda a câmera** (o mapa falso recebe o mesmo `selecionado` e o mesmo pedido de câmera); `data-painel-recolhido` acompanha o estado; a barra mostra o nível em "Alertas" e a categoria em "Vistos", e trocar o modo com o painel recolhido atualiza a barra sem expandir nem pedir o país de novo; tocar na barra expande o mesmo país com os mesmos postos abertos; escolher outro território (toque, busca, ícone de posto) abre **expandido**; "Ver mundo" na barra e Esc fecham, levam a câmera ao mundo e a próxima seleção abre expandida; recarregar abre sem painel e nada do recolhido vai ao `localStorage`/`sessionStorage`; no celular (`useTelaPequena` verdadeiro) a legenda e a linha de fonte recebem o deslocamento para ficar acima da barra (`data-painel-recolhido`), e os controles de zoom saem de baixo dela; o filtro de cada modo e o painel dos dois modos não mudam.
+- [ ] T136 [US2] Atualizar `frontend/src/App.tsx` (`data-painel-recolhido`, ligação das ações do reducer ao `Painel`, a situação da barra por modo) e `frontend/src/compartilhado/tema.css` (deslocamento dos controles de zoom e da legenda acima da barra no celular; nenhum deslocamento no computador, onde a barra fica no canto superior direito; nenhuma animação fora de `prefers-reduced-motion`). Os testes de `Painel`, `Legenda` e `App` da 001 continuam verdes sem alteração (FR-020).
+
+### Validação da P2 (`quickstart.md`) e ponto de controle da fase 3
+
+- [ ] T126 [US2] **Quickstart seção 4, passos 9 a 14 e 17**, com o site rodando (se o Docker falhar, parar e avisar o usuário): modo "Vistos", recarga volta a "Alertas", 360 px com a legenda recolhida e a linha de fonte visível, subitem "Isento, entrada com RG" e estado "parcial", painel igual nos dois modos, Brasil neutro. Medir **360 px e 1280 px** com o Edge sem interface e registrar o resultado (e o do spike da T098) em `specs/002-visto-brasileiros/checklists/primeira-coleta.md`, incluindo a **captura em 360 px com a legenda recolhida no modo "Vistos"** (linha de fonte e data visível, sem cobrir mapa, aviso nem "Sobre"). Medir também a **SC-004**: do site aberto, abrir, buscar um país e ver a seção de visto em até 10 segundos, e registrar o tempo. Conferir também o **painel recolhível (FR-030, passo 17)** em 1280 px e em 360 px: recolher e expandir por clique, toque e teclado; a barra não cobre a legenda, a linha de fonte, o aviso nem o "Sobre"; no celular os controles de zoom ficam acima dela; "Ver mundo" na barra; e, se o país recolhido ficar mal enquadrado, registrar para decidir o ajuste de câmera do `plan.md`.
+- [ ] T127 [US2] **Quickstart seção 4, passos 15 e 16 (o erro de `/vistos`)**: `docker compose stop api`, abrir o site em "Alertas" e escolher "Vistos" ⇒ legenda com "Não foi possível carregar os vistos." e "Tentar de novo" e **nenhum país em cinza**; `docker compose start api` e tocar em "Tentar de novo" ⇒ os vistos carregam e o globo é pintado. Registrar o resultado.
+- [ ] T128 [US2] **Checkpoint da fase 3**: `cd backend; uv run poe verificar` e `cd frontend; npm run verificar` verdes, mais `npm run build`; `frontend/src/compartilhado/niveis.test.ts` e os testes de alerta da 001 passam **sem alteração** (FR-020); conferir que nada em `specs/001-mapa-alertas-viagem/` mudou e que `git diff` não mostra dependência nova; os testes da T129 a T136 (painel recolhível) verdes.
+
+---
+
+## Dependências e ordem de execução
+
+### Entre as fases
+
+- **Fase 1 (Fundação)**: sem dependências. **Bloqueia** as fases 2 e 3.
+- **Fase 2 (US1 / P1)**: depende da fase 1 inteira (cliente na `infra`, detector corrigido, modelos, migração, repositórios, trava do contrato). Termina com a P1 completa e testável sozinha.
+- **Fase 3 (US2 / P2)**: depende da fase 2 inteira (rota `GET /vistos`, tipos do frontend regerados, `compartilhado/vistos.ts`, dados coletados). A P1 **não** depende da P2.
+
+### Dentro da fase 1
+
+- T001 → T002 → T003/T004 → T005. T006/T007 antes de T008; T009 antes de T010 (mesmo arquivo da T008: T008 → T010). T011 → T012 → T013; T014 → T015. T018 não depende das anteriores (o esqueleto do módulo e os contratos podem ser feitos a qualquer momento da fase). T019/T020/T021 → T022 → T023 → T024 → T025 → T026. T027 é independente. T028 fecha a fase.
+
+### Dentro da fase 2
+
+- T029 antes de T031 e das tarefas de serviço. T030/T031 → T032 → T033. T034 → T035. T036 → T037. **T038 (portão) → T039 a T046 → T047.** T048 → T049 (precisa de T033, T035, T037, T044 a T046). T050/T051/T052 → T053/T054/T055. T056 → T057 → T058. T029, T058 → T059/T060 → T061 (precisa de T049, T053 a T055, T057, T058). T062 → T063. T064 → T065 → T066. T067 a T071 → T072 → T073 → T074/T075 → T076. T077 a T079 → T080/T081 → T082. T083 depois de T061, T065, T076. T084 → T085/T086 → T087; T088 → T089; T090 → T091; T092 → T093. T094 a T096 → T097.
+
+### Dentro da fase 3
+
+- T098 (spike) antes da T123. T099 → T100; T101 → T102; T103 → T104; T105 → T106; T107 → T108; T109 → T110; T111 → T112; T113/T115/T117/T119/T121 → suas implementações; T123 depois de T098, T104 e T110; T124 → T125; **T108 → T129 → T130 (reducer); T131 → T132; T133 → T134 (precisa de T132 e T130); T135 → T136 (precisa de T125, T130 e T134)**; T126 e T127 → T128 (T126 depois de T136).
+
+### Oportunidades de paralelismo (por grupo [P] consecutivo)
+
+```text
+Fase 1:  T003 + T004 | T006 + T007 | T019 + T020 + T021 | T011, T014, T016, T017 (arquivos distintos)
+Fase 2:  T030 + T031 + T034 | T039 a T046 (depois do portão) | T050 + T051 + T052, depois T053 + T054 + T055
+         T059 + T060 | T067 + T068 + T069 | T074 + T075 | T077 + T078 + T079, depois T080 + T081
+         T085 + T086 | T092 (testes) em paralelo com T090
+Fase 3:  T099 + T101-teste + T103 + T105 + T107 + T109 + T111 (testes de arquivos distintos)
+         T113 + T115 + T117 + T119 + T121 (testes dos componentes) e depois as implementações
+```
+
+---
+
+## Estratégia de implementação
+
+1. **Fase 1** primeiro, em ordem: cliente HTTP (testes da 001 passando só com troca de imports) → detector e User-Agent → modelo de LLM, configuração e constante → contratos do import-linter → modelos, migração e repositórios → trava do contrato. Checkpoint verde.
+2. **Fase 2 (MVP)**: leitura da fonte → dicionários (formato, **portão**, conteúdo) → regras puras → tradutor → serviços → leitura → API e contrato → worker → ponta a ponta com a fixture → frontend (tipos, seção, painel). **PARAR e validar a P1** (`quickstart.md` seções 1 a 5, primeira coleta real, SC-001). Entregável sozinho: o painel de cada país mostra o visto.
+3. **Fase 3**: spike do `fill-pattern` → paleta e testes de contraste → filtro e estado → `Preenchimento` → componentes → adaptador e tela → `quickstart.md` passos 9 a 16 (inclusive o erro de `/vistos`). Cada fase adiciona valor sem quebrar a anterior.
+
+## Notas
+
+- [P] = arquivos diferentes e sem dependência de tarefa incompleta; tarefas que tocam o mesmo arquivo seguem em sequência.
+- Confirme que os testes **falham** antes de implementar (exceto os de "trava", que já passam e existem para impedir regressão: T006, T027).
+- Os testes do worker ficam em `backend/tests/unidade/worker/` (onde já estão os de agenda e jobs da 001), e não em `tests/unidade/vistos/` como a árvore do `plan.md` sugere.
+- As tarefas manuais (T094 a T096, T098, T126, T127) usam rede, Docker e, na primeira coleta, o LLM de verdade; ficam **fora** do `poe verificar` e do CI.
+- Nada é commitado por estas tarefas sem pedido do usuário.

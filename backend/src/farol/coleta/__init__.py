@@ -1,6 +1,5 @@
 """Coleta responsável do Portal Consular. Interface pública do módulo."""
 
-from farol.coleta.cliente_educado import ClienteEducado, Pagina
 from farol.coleta.extratores import (
     AlertaExtraido,
     ErroDeExtracao,
@@ -11,7 +10,6 @@ from farol.coleta.extratores import (
 )
 from farol.coleta.servico_alertas import (
     URL_LISTA_DE_ALERTAS,
-    Baixador,
     ResultadoDaColeta,
     ServicoDeColetaDeAlertas,
     hash_do_alerta,
@@ -27,12 +25,9 @@ __all__ = [
     "URL_LISTA_DE_ALERTAS",
     "URL_REPARTICOES",
     "AlertaExtraido",
-    "Baixador",
-    "ClienteEducado",
     "ErroDeExtracao",
     "ItemDaLista",
     "ListaDeAlertas",
-    "Pagina",
     "ResultadoDaColeta",
     "ResultadoDaColetaDePostos",
     "ServicoDeColetaDeAlertas",

@@ -7,13 +7,23 @@ from farol.dominio.repositorios.execucoes import ExecucaoRepositorio
 from farol.dominio.repositorios.fontes import FonteDadosRepositorio
 from farol.dominio.repositorios.postos import PostoRepositorio
 from farol.dominio.repositorios.territorios import TerritorioRepositorio
+from farol.dominio.repositorios.vistos import (
+    ColetaVistosRepositorio,
+    ItemParaRevisaoRepositorio,
+    MudancaRetidaRepositorio,
+    RequisitoVistoRepositorio,
+)
 
 __all__ = [
     "AlertaRepositorio",
     "BancoRepositorio",
     "ClassificacaoRepositorio",
+    "ColetaVistosRepositorio",
     "ExecucaoRepositorio",
     "FonteDadosRepositorio",
+    "ItemParaRevisaoRepositorio",
+    "MudancaRetidaRepositorio",
     "PostoRepositorio",
+    "RequisitoVistoRepositorio",
     "TerritorioRepositorio",
 ]

@@ -1,0 +1,404 @@
+# Contrato COMPLETO da API v1.1 (desenho): o da 001 mais as mudanças da 002 (vistos). Substitui
+# specs/001-mapa-alertas-viagem/contracts/openapi.yaml nos testes de contrato; o da 001 fica como
+# histórico da v1.0. O OpenAPI gerado pelo FastAPI em /api/v1/openapi.json MUST ser equivalente a
+# este arquivo; um teste de contrato compara os dois.
+# Mudanças em relação à v1.0: rota nova GET /vistos; campo novo `visto` em Pais; esquemas novos
+# (Visto, VistosDoMapa e os de apoio). Nada foi removido nem renomeado.
+# Somente leitura (princípio VIII). Sem /docs nem /redoc (princípio III: só JSON).
+openapi: 3.1.0
+info:
+  title: Farol Atlas API
+  version: 1.1.0
+  description: Dados do mapa de alertas de viagem do Itamaraty para brasileiros. Serviço não oficial.
+servers:
+  - url: /api/v1
+paths:
+  /mapa:
+    get:
+      operationId: obterMapa
+      summary: Tudo o que o mapa precisa, numa chamada só
+      description: |
+        Níveis já resolvidos por território (inclui a regra de dependências, FR-031).
+        Rota de lista: tem teste que limita o número de consultas ao banco.
+      responses:
+        "200":
+          description: Estado atual do mapa
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mapa" }
+  /paises/{codigo}:
+    get:
+      operationId: obterPais
+      summary: Dados do painel de um país ou dependência
+      parameters:
+        - name: codigo
+          in: path
+          required: true
+          description: Código do território (ISO-2 ou código de dependência, de 2 a 3 letras como IOA), como em /mapa.
+          schema: { type: string, pattern: "^[A-Z]{2,3}$" }
+      responses:
+        "200":
+          description: Painel do território
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pais" }
+        "404":
+          description: Código desconhecido ou área neutra (FR-016, FR-032)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erro" }
+        "422":
+          description: Código em formato inválido
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erro" }
+  /vistos:
+    get:
+      operationId: obterVistos
+      summary: Situação de visto de cada território, para pintar o globo no modo "Vistos"
+      description: |
+        Resposta leve (código, situação e indicação de RG por território), mais a fonte e a data da
+        última coleta válida de vistos. O frontend a busca sob demanda, ao escolher o modo "Vistos",
+        e não no carregamento do site (princípio III). Rota de lista: tem teste que limita o número
+        de consultas ao banco. As dependências já vêm resolvidas (a entrada própria ou a do
+        soberano, FR-013); Kosovo e Malvinas trazem a situação do soberano (FR-028).
+      responses:
+        "200":
+          description: Situação de visto de todos os territórios com painel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VistosDoMapa" }
+  /saude:
+    get:
+      operationId: obterSaude
+      summary: Estado do banco e da coleta
+      responses:
+        "200":
+          description: Saudável
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Saude" }
+        "503":
+          description: Banco indisponível
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Saude" }
+components:
+  schemas:
+    Nivel:
+      type: string
+      description: Nível exibido de um território (FR-001).
+      enum: [sem_alerta, evitar, nao_viajar, nao_verificado]
+    NivelRegional:
+      type: string
+      description: Nível de uma região dentro de um alerta.
+      enum: [evitar, nao_viajar]
+    TipoTerritorio:
+      type: string
+      enum: [pais, dependencia]
+    TipoPosto:
+      type: string
+      enum:
+        - Embaixada
+        - Consulado-Geral
+        - Consulado
+        - Vice-Consulado
+        - Escritório de Representação
+        - Escritório Comercial
+    Regiao:
+      type: object
+      required: [nome, nivel]
+      properties:
+        nome: { type: string, examples: ["Sul do Líbano"] }
+        nivel: { $ref: "#/components/schemas/NivelRegional" }
+    Mapa:
+      type: object
+      required: [dados_obtidos, desatualizado, atualizado_em, territorios, postos, paises_sem_posto]
+      properties:
+        dados_obtidos:
+          type: boolean
+          description: Falso se nunca houve coleta completa; então todos os níveis são nao_verificado.
+        atualizado_em:
+          type: [string, "null"]
+          format: date-time
+          description: Fim da última coleta completa (FR-005).
+        desatualizado:
+          type: boolean
+          description: Verdadeiro se a última coleta completa tem mais de 3 dias (FR-041). Calculado no backend.
+        territorios:
+          type: array
+          description: Países e dependências com nível. Áreas neutras não aparecem aqui.
+          items: { $ref: "#/components/schemas/TerritorioNoMapa" }
+        postos:
+          type: array
+          items: { $ref: "#/components/schemas/PostoNoMapa" }
+        paises_sem_posto:
+          type: array
+          description: Ícone próprio e ligação visual ao posto responsável (FR-018).
+          items: { $ref: "#/components/schemas/PaisSemPosto" }
+    TerritorioNoMapa:
+      type: object
+      required: [codigo, nome, rotulo_busca, termos_busca, tipo, soberano, bandeira, identidade_do_soberano, nivel, regioes, observacao]
+      properties:
+        codigo: { type: string }
+        nome: { type: string, description: 'Para dependência, "Nome (País)". Para Kosovo e Malvinas, o nome do soberano.' }
+        rotulo_busca: { type: string, description: 'Texto da sugestão na busca. Ex.: "Kosovo (Sérvia)".' }
+        termos_busca:
+          type: array
+          description: 'Outros nomes que também encontram o território (ex.: "Kosovo", "Malvinas").'
+          items: { type: string }
+        tipo: { $ref: "#/components/schemas/TipoTerritorio" }
+        soberano: { type: [string, "null"], description: "Código do país soberano; nulo para país." }
+        bandeira:
+          type: [string, "null"]
+          description: Código da bandeira a exibir; nulo para Taiwan. Kosovo e Malvinas usam o do soberano (RS, AR), nunca uma própria.
+        identidade_do_soberano:
+          type: boolean
+          description: Verdadeiro para Kosovo e Malvinas; o painel é o do soberano, com a observação no topo.
+        nivel: { $ref: "#/components/schemas/Nivel" }
+        regioes:
+          type: array
+          description: Só regiões com destaque (FR-004). Vazia se não há.
+          items: { $ref: "#/components/schemas/Regiao" }
+        observacao: { type: [string, "null"] }
+    PostoNoMapa:
+      type: object
+      required: [id, territorio, tipo, cidade, latitude, longitude, grupo]
+      properties:
+        id: { type: integer }
+        territorio: { type: string }
+        tipo: { $ref: "#/components/schemas/TipoPosto" }
+        cidade: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        grupo:
+          type: string
+          description: Identifica o ícone compartilhado por postos na mesma coordenada (FR-018d, FR-018g).
+    PaisSemPosto:
+      type: object
+      required: [territorio, latitude, longitude, posto_responsavel_id]
+      properties:
+        territorio: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        posto_responsavel_id: { type: [integer, "null"], description: Nulo se não há posto indicado (Líbia). }
+    Pais:
+      type: object
+      required:
+        [codigo, nome, tipo, soberano, bandeira, identidade_do_soberano, nivel, regioes, observacao,
+         observacao_no_topo, eh_brasil, alertas, postos, posto_responsavel, sem_posto_indicado, fonte_postos,
+         visto]
+      properties:
+        codigo: { type: string }
+        nome: { type: string }
+        tipo: { $ref: "#/components/schemas/TipoTerritorio" }
+        soberano: { type: [string, "null"] }
+        bandeira:
+          type: [string, "null"]
+          description: Código da bandeira do painel; nulo para Taiwan. Kosovo e Malvinas mostram a do soberano.
+        identidade_do_soberano: { type: boolean }
+        nivel: { $ref: "#/components/schemas/Nivel" }
+        regioes:
+          type: array
+          items: { $ref: "#/components/schemas/Regiao" }
+        regiao_unica_do_alerta:
+          type: boolean
+          description: Verdadeiro se o alerta que rege o território só tem nível regional (FR-007).
+        observacao: { type: [string, "null"] }
+        observacao_no_topo:
+          type: boolean
+          description: Kosovo e Malvinas abrem o painel do soberano com a observação no topo (FR-030, FR-034).
+        eh_brasil:
+          type: boolean
+          description: O painel do Brasil é próprio e não lista postos (FR-015).
+        alertas:
+          type: array
+          description: Todos os alertas de viagem que citam o território (e o soberano, se dependência), do mais recente ao mais antigo (FR-010).
+          items: { $ref: "#/components/schemas/AlertaDoPais" }
+        postos:
+          type: array
+          items: { $ref: "#/components/schemas/PostoNoPainel" }
+        posto_responsavel:
+          anyOf:
+            - { $ref: "#/components/schemas/PostoNoPainel" }
+            - { type: "null" }
+          description: Posto, em outro país, que atende quem está lá (FR-013).
+        sem_posto_indicado:
+          type: boolean
+          description: Verdadeiro se não há posto nem posto responsável (FR-014).
+        fonte_postos:
+          description: Fonte e data dos dados de postos, para a linha abaixo da lista (FR-011a). Nulo quando o painel não lista nenhum posto (Brasil e Líbia).
+          anyOf:
+            - { $ref: "#/components/schemas/FontePostos" }
+            - { type: "null" }
+        visto:
+          description: |
+            Seção "Visto" do painel (feature 002). Nulo **somente** para o Brasil (FR-014). Todo outro
+            território com painel traz o objeto; sem dado de visto, `situacao` é `sem_informacao`.
+          anyOf:
+            - { $ref: "#/components/schemas/Visto" }
+            - { type: "null" }
+    AlertaDoPais:
+      type: object
+      required: [titulo, url, publicado_em, modificado_em, define_nivel, situacao_normalizada]
+      properties:
+        titulo: { type: string }
+        url: { type: string, format: uri }
+        publicado_em: { type: string, format: date-time }
+        modificado_em: { type: [string, "null"], format: date-time }
+        define_nivel: { type: boolean, description: Verdadeiro para o alerta mais recente, que rege o nível. }
+        situacao_normalizada: { type: boolean }
+        pendente: { type: boolean, description: Ainda sem classificação válida (FR-008). }
+    PostoNoPainel:
+      type: object
+      required: [id, tipo, cidade, pais, grupo, endereco, telefone_plantao, contato_coletado_em, contato_fonte_url]
+      properties:
+        id: { type: integer }
+        tipo: { $ref: "#/components/schemas/TipoPosto" }
+        cidade: { type: string }
+        pais: { type: string, description: Nome do país do posto (útil para o posto responsável). }
+        grupo: { type: string }
+        endereco: { type: [string, "null"] }
+        telefone_plantao: { type: [string, "null"] }
+        contato_coletado_em: { type: [string, "null"], format: date-time }
+        contato_fonte_url: { type: [string, "null"], format: uri }
+    FontePostos:
+      type: object
+      required: [conferido_em, fontes]
+      properties:
+        conferido_em: { type: string, format: date }
+        fontes:
+          type: array
+          items: { $ref: "#/components/schemas/Fonte" }
+    Fonte:
+      type: object
+      required: [nome, url]
+      properties:
+        nome: { type: string, examples: ["Itamaraty", "Wikipédia"] }
+        url: { type: string, format: uri }
+        licenca: { type: [string, "null"], examples: ["CC BY-SA"] }
+    SituacaoDeVisto:
+      type: string
+      description: Situação de visto de um território com painel (FR-002, FR-011).
+      enum: [isento, visto_na_chegada, autorizacao_eletronica, visto_exigido, outra_situacao, sem_informacao]
+    SituacaoNoGlobo:
+      type: string
+      description: A situação do globo é a do painel mais `nao_se_aplica`, só para o Brasil (FR-023).
+      enum: [isento, visto_na_chegada, autorizacao_eletronica, visto_exigido, outra_situacao, sem_informacao, nao_se_aplica]
+    MotivoOutraSituacao:
+      type: string
+      description: Por que o território está em "Outra situação".
+      enum: [rotulo_conhecido, rotulo_desconhecido]
+    OrigemDoVisto:
+      type: string
+      description: A entrada é a do próprio território ou a do soberano (FR-013).
+      enum: [proprio, soberano]
+    TipoDePermanencia:
+      type: string
+      description: |
+        `padronizada`: texto em português de um formato conhecido (FR-004a). `original`: como a fonte
+        escreveu, em inglês, sem tradução. `prazos_divergentes`: linhas da fonte com prazos diferentes.
+        `varia_conforme_motivo`: o prazo muda conforme o motivo da viagem (FR-007a).
+      enum: [padronizada, original, prazos_divergentes, varia_conforme_motivo]
+    Permanencia:
+      type: object
+      required: [tipo, texto]
+      properties:
+        tipo: { $ref: "#/components/schemas/TipoDePermanencia" }
+        texto:
+          type: [string, "null"]
+          description: Preenchido só para `padronizada` (português) e `original` (inglês). O texto dos outros tipos é fixo e fica no frontend.
+    ObservacaoDeVisto:
+      type: object
+      required: [texto_original, traducao]
+      properties:
+        texto_original: { type: string, description: "Texto da fonte, em inglês. Texto puro; nunca HTML." }
+        traducao:
+          type: [string, "null"]
+          description: Tradução automática para o português; nulo se ainda não foi traduzida (o painel mostra o original, avisando).
+    Visto:
+      type: object
+      required:
+        [situacao, motivo_outra_situacao, rotulo_original, aceita_rg, varia_conforme_motivo, permanencia,
+         observacoes, origem, soberano_nome, territorio_nome, dado_de, desatualizado, fonte]
+      properties:
+        situacao: { $ref: "#/components/schemas/SituacaoDeVisto" }
+        motivo_outra_situacao:
+          description: Preenchido só quando `situacao` é `outra_situacao`.
+          anyOf:
+            - { $ref: "#/components/schemas/MotivoOutraSituacao" }
+            - { type: "null" }
+        rotulo_original:
+          type: [string, "null"]
+          description: Rótulo da fonte, normalizado; sempre presente com dado, e visível em "Outra situação" e nos rótulos combinados (FR-003, FR-007). Nulo em `sem_informacao`.
+        aceita_rg: { type: boolean, description: "Basta o documento de identidade (RG), FR-006." }
+        varia_conforme_motivo: { type: boolean, description: "A regra varia conforme o motivo da viagem (FR-007a)." }
+        permanencia:
+          description: Nulo quando a fonte não informa permanência (FR-004) e em `sem_informacao`.
+          anyOf:
+            - { $ref: "#/components/schemas/Permanencia" }
+            - { type: "null" }
+        observacoes:
+          type: array
+          items: { $ref: "#/components/schemas/ObservacaoDeVisto" }
+        origem:
+          description: Nulo em `sem_informacao`.
+          anyOf:
+            - { $ref: "#/components/schemas/OrigemDoVisto" }
+            - { type: "null" }
+        soberano_nome:
+          type: [string, "null"]
+          description: Nome do soberano, para a nota "vale a entrada de …"; preenchido só quando `origem` é `soberano`.
+        territorio_nome:
+          type: [string, "null"]
+          description: |
+            Nome do território a que o visto se refere quando o painel tem a identidade de outro país
+            (Kosovo e Ilhas Malvinas, convenção da 001); nulo nos demais. A seção se intitula
+            "Visto: <nome>". A identidade do painel (nome, bandeira, nota) é a do soberano, mas a
+            regra de entrada é a da linha própria da fonte.
+        dado_de:
+          type: [string, "null"]
+          format: date-time
+          description: Data do dado mostrado para este território (FR-008), e não a da última coleta do conjunto. Nulo em `sem_informacao`.
+        desatualizado: { type: boolean, description: "`dado_de` tem mais de 14 dias (FR-015). Calculado no backend." }
+        fonte:
+          $ref: "#/components/schemas/Fonte"
+    TerritorioDeVisto:
+      type: object
+      required: [codigo, situacao, aceita_rg]
+      properties:
+        codigo: { type: string, description: Mesmo código de /mapa. }
+        situacao: { $ref: "#/components/schemas/SituacaoNoGlobo" }
+        aceita_rg: { type: boolean }
+    VistosDoMapa:
+      type: object
+      required: [dados_obtidos, coletado_em, desatualizado, fonte, territorios]
+      properties:
+        dados_obtidos:
+          type: boolean
+          description: Falso se nunca houve coleta válida de vistos; então todo território é `sem_informacao` (e o Brasil, `nao_se_aplica`).
+        coletado_em:
+          type: [string, "null"]
+          format: date-time
+          description: Fim da última coleta válida de vistos (para a linha de fonte e data do mapa, FR-029).
+        desatualizado:
+          type: boolean
+          description: A última coleta válida tem mais de 14 dias (FR-029a). Calculado no backend.
+        fonte: { $ref: "#/components/schemas/Fonte" }
+        territorios:
+          type: array
+          description: Os mesmos territórios de /mapa (países e dependências), com a situação já resolvida.
+          items: { $ref: "#/components/schemas/TerritorioDeVisto" }
+    Saude:
+      type: object
+      required: [banco, ultima_coleta_completa_em, ultima_tentativa_em, alertas_pendentes]
+      properties:
+        banco: { type: string, enum: [ok, falha] }
+        ultima_coleta_completa_em: { type: [string, "null"], format: date-time }
+        ultima_tentativa_em: { type: [string, "null"], format: date-time }
+        alertas_pendentes: { type: integer }
+    Erro:
+      type: object
+      required: [detalhe]
+      properties:
+        detalhe: { type: string }

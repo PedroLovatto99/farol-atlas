@@ -20,6 +20,7 @@ def ambiente_limpo(monkeypatch: pytest.MonkeyPatch) -> None:
         "PAUSA_SEGUNDOS",
         "LIMITE_HORAS_PARTIDA",
         "LLM_CLASSIFICADOR",
+        "LLM_TRADUTOR",
         "GOOGLE_API_KEY",
         "OLLAMA_BASE_URL",
         "DIRETORIO_DADOS",
@@ -76,3 +77,32 @@ def test_segredos_nunca_aparecem_no_repr(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "senha-secreta" not in texto
     assert "chave-super-secreta" not in texto
     assert configuracao.database_url.get_secret_value() == URL
+
+
+def test_tradutor_sem_variavel_usa_o_modelo_do_classificador(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", URL)
+    configuracao = criar()
+    assert configuracao.llm_tradutor == configuracao.llm_classificador
+
+    monkeypatch.setenv("LLM_CLASSIFICADOR", "ollama:llama3")
+    assert criar().llm_tradutor == "ollama:llama3"
+
+
+def test_tradutor_vazio_no_env_tambem_usa_o_do_classificador(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", URL)
+    monkeypatch.setenv("LLM_CLASSIFICADOR", "ollama:llama3")
+    monkeypatch.setenv("LLM_TRADUTOR", "   ")
+    assert criar().llm_tradutor == "ollama:llama3"
+
+
+def test_tradutor_com_variavel_vale_a_variavel(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", URL)
+    monkeypatch.setenv("LLM_CLASSIFICADOR", "ollama:llama3")
+    monkeypatch.setenv("LLM_TRADUTOR", "google_genai:gemini-3.6-flash")
+    configuracao = criar()
+    assert configuracao.llm_tradutor == "google_genai:gemini-3.6-flash"
+    assert configuracao.llm_classificador == "ollama:llama3"

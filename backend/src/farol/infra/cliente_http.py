@@ -1,4 +1,4 @@
-"""Cliente HTTP educado para o gov.br (constituição, princípio IV: coleta responsável).
+"""Cliente HTTP educado para as coletas (constituição, princípio IV: coleta responsável).
 
 - identifica-se com um User-Agent que traz um contato;
 - consulta o robots.txt de cada host, uma vez, e só baixa o que ele permite;
@@ -9,6 +9,7 @@
   requisição seguinte devolve o mesmo motivo sem tocar na rede.
 """
 
+import re
 import time
 from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import dataclass, replace
@@ -25,6 +26,12 @@ CODIGOS_DE_DESVIO = (301, 302, 303, 307, 308)
 
 # Frases da página de verificação humana do gov.br
 SINAIS_DE_VERIFICACAO = ("testing whether you are a human", "prevent automated spam", "captcha")
+
+# Texto entre as tags de <script> e <style>: configuração e estilo, não conteúdo da página. Só ele
+# é descartado; as tags (com os atributos `src`, `class`, `id`, `data-*`) e o texto visível ficam.
+_CORPO_DE_SCRIPT_OU_ESTILO = re.compile(
+    r"(<(script|style)\b[^>]*>).*?(</\2\s*>)", flags=re.IGNORECASE | re.DOTALL
+)
 
 
 class RespostaHttp(Protocol):
@@ -72,8 +79,17 @@ class Pagina:
         return self.url_final or self.url
 
 
+class Baixador(Protocol):
+    """O que as coletas usam do cliente HTTP (`ClienteEducado` ou um falso nos testes)."""
+
+    interrompido_por: str | None
+
+    def baixar(self, url: str) -> Pagina: ...
+
+
 def parece_verificacao(html: str) -> bool:
-    texto = html.lower()
+    """A página é um desafio de verificação humana? (ignora o texto inline de script e estilo)"""
+    texto = _CORPO_DE_SCRIPT_OU_ESTILO.sub(r"\1\3", html).lower()
     return any(sinal in texto for sinal in SINAIS_DE_VERIFICACAO)
 
 
@@ -88,7 +104,10 @@ class ClienteEducado:
     ) -> None:
         if not contato.strip():
             raise ValueError("informe um contato (CONTATO_COLETA) para o User-Agent da coleta")
-        self.user_agent = f"{NOME_DO_PROJETO} (projeto pessoal; contato: {contato.strip()})"
+        self.user_agent = (
+            f"{NOME_DO_PROJETO} ({contato.strip()}; projeto pessoal) "
+            f"python-requests/{requests.__version__}"
+        )
         self._pausa = pausa_segundos
         self._dormir = dormir
         # `requests.Session` cumpre o protocolo; só os tipos de `get` e `headers` são mais largos

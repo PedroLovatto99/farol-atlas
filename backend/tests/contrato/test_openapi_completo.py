@@ -1,8 +1,9 @@
-"""Regressão final de ponta a ponta: o OpenAPI gerado equivale POR INTEIRO ao contrato.
+"""Regressão final de ponta a ponta: o OpenAPI gerado equivale POR INTEIRO ao contrato (o COMPLETO
+da API v1.1, da feature 002: o da 001 mais `/vistos` e `Pais.visto`).
 
-Repete de propósito o que `test_openapi_mapa.py` e `test_openapi_paises.py` verificam em partes
-(rota a rota). Aqui o que vale é o conjunto: nenhuma rota, esquema, parâmetro ou resposta a mais
-ou a menos, e nenhuma rota que não seja de leitura.
+Repete de propósito o que `test_openapi_mapa.py`, `test_openapi_paises.py` e
+`test_openapi_vistos.py` verificam em partes (rota a rota). Aqui o que vale é o conjunto: nenhuma
+rota, esquema, parâmetro ou resposta a mais ou a menos, e nenhuma rota que não seja de leitura.
 """
 
 from typing import TYPE_CHECKING, Any

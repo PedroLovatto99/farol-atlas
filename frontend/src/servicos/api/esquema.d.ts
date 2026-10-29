@@ -42,6 +42,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vistos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Situação de visto de cada território, para pintar o globo no modo "Vistos"
+         * @description Resposta leve (código, situação e indicação de RG por território), mais a fonte e a data da
+         *     última coleta válida de vistos. O frontend a busca sob demanda, ao escolher o modo "Vistos",
+         *     e não no carregamento do site (princípio III). Rota de lista: tem teste que limita o número
+         *     de consultas ao banco. As dependências já vêm resolvidas (a entrada própria ou a do
+         *     soberano, FR-013); Kosovo e Malvinas trazem a situação do soberano (FR-028).
+         */
+        get: operations["obterVistos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/saude": {
         parameters: {
             query?: never;
@@ -161,6 +185,11 @@ export interface components {
             sem_posto_indicado: boolean;
             /** @description Fonte e data dos dados de postos, para a linha abaixo da lista (FR-011a). Nulo quando o painel não lista nenhum posto (Brasil e Líbia). */
             fonte_postos: components["schemas"]["FontePostos"] | null;
+            /**
+             * @description Seção "Visto" do painel (feature 002). Nulo **somente** para o Brasil (FR-014). Todo outro
+             *     território com painel traz o objeto; sem dado de visto, `situacao` é `sem_informacao`.
+             */
+            visto: components["schemas"]["Visto"] | null;
         };
         AlertaDoPais: {
             titulo: string;
@@ -205,6 +234,97 @@ export interface components {
             url: string;
             /** @example CC BY-SA */
             licenca?: string | null;
+        };
+        /**
+         * @description Situação de visto de um território com painel (FR-002, FR-011).
+         * @enum {string}
+         */
+        SituacaoDeVisto: "isento" | "visto_na_chegada" | "autorizacao_eletronica" | "visto_exigido" | "outra_situacao" | "sem_informacao";
+        /**
+         * @description A situação do globo é a do painel mais `nao_se_aplica`, só para o Brasil (FR-023).
+         * @enum {string}
+         */
+        SituacaoNoGlobo: "isento" | "visto_na_chegada" | "autorizacao_eletronica" | "visto_exigido" | "outra_situacao" | "sem_informacao" | "nao_se_aplica";
+        /**
+         * @description Por que o território está em "Outra situação".
+         * @enum {string}
+         */
+        MotivoOutraSituacao: "rotulo_conhecido" | "rotulo_desconhecido";
+        /**
+         * @description A entrada é a do próprio território ou a do soberano (FR-013).
+         * @enum {string}
+         */
+        OrigemDoVisto: "proprio" | "soberano";
+        /**
+         * @description `padronizada`: texto em português de um formato conhecido (FR-004a). `original`: como a fonte
+         *     escreveu, em inglês, sem tradução. `prazos_divergentes`: linhas da fonte com prazos diferentes.
+         *     `varia_conforme_motivo`: o prazo muda conforme o motivo da viagem (FR-007a).
+         * @enum {string}
+         */
+        TipoDePermanencia: "padronizada" | "original" | "prazos_divergentes" | "varia_conforme_motivo";
+        Permanencia: {
+            tipo: components["schemas"]["TipoDePermanencia"];
+            /** @description Preenchido só para `padronizada` (português) e `original` (inglês). O texto dos outros tipos é fixo e fica no frontend. */
+            texto: string | null;
+        };
+        ObservacaoDeVisto: {
+            /** @description Texto da fonte, em inglês. Texto puro; nunca HTML. */
+            texto_original: string;
+            /** @description Tradução automática para o português; nulo se ainda não foi traduzida (o painel mostra o original, avisando). */
+            traducao: string | null;
+        };
+        Visto: {
+            situacao: components["schemas"]["SituacaoDeVisto"];
+            /** @description Preenchido só quando `situacao` é `outra_situacao`. */
+            motivo_outra_situacao: components["schemas"]["MotivoOutraSituacao"] | null;
+            /** @description Rótulo da fonte, normalizado; sempre presente com dado, e visível em "Outra situação" e nos rótulos combinados (FR-003, FR-007). Nulo em `sem_informacao`. */
+            rotulo_original: string | null;
+            /** @description Basta o documento de identidade (RG), FR-006. */
+            aceita_rg: boolean;
+            /** @description A regra varia conforme o motivo da viagem (FR-007a). */
+            varia_conforme_motivo: boolean;
+            /** @description Nulo quando a fonte não informa permanência (FR-004) e em `sem_informacao`. */
+            permanencia: components["schemas"]["Permanencia"] | null;
+            observacoes: components["schemas"]["ObservacaoDeVisto"][];
+            /** @description Nulo em `sem_informacao`. */
+            origem: components["schemas"]["OrigemDoVisto"] | null;
+            /** @description Nome do soberano, para a nota "vale a entrada de …"; preenchido só quando `origem` é `soberano`. */
+            soberano_nome: string | null;
+            /**
+             * @description Nome do território a que o visto se refere quando o painel tem a identidade de outro país
+             *     (Kosovo e Ilhas Malvinas, convenção da 001); nulo nos demais. A seção se intitula
+             *     "Visto: <nome>". A identidade do painel (nome, bandeira, nota) é a do soberano, mas a
+             *     regra de entrada é a da linha própria da fonte.
+             */
+            territorio_nome: string | null;
+            /**
+             * Format: date-time
+             * @description Data do dado mostrado para este território (FR-008), e não a da última coleta do conjunto. Nulo em `sem_informacao`.
+             */
+            dado_de: string | null;
+            /** @description `dado_de` tem mais de 14 dias (FR-015). Calculado no backend. */
+            desatualizado: boolean;
+            fonte: components["schemas"]["Fonte"];
+        };
+        TerritorioDeVisto: {
+            /** @description Mesmo código de /mapa. */
+            codigo: string;
+            situacao: components["schemas"]["SituacaoNoGlobo"];
+            aceita_rg: boolean;
+        };
+        VistosDoMapa: {
+            /** @description Falso se nunca houve coleta válida de vistos; então todo território é `sem_informacao` (e o Brasil, `nao_se_aplica`). */
+            dados_obtidos: boolean;
+            /**
+             * Format: date-time
+             * @description Fim da última coleta válida de vistos (para a linha de fonte e data do mapa, FR-029).
+             */
+            coletado_em: string | null;
+            /** @description A última coleta válida tem mais de 14 dias (FR-029a). Calculado no backend. */
+            desatualizado: boolean;
+            fonte: components["schemas"]["Fonte"];
+            /** @description Os mesmos territórios de /mapa (países e dependências), com a situação já resolvida. */
+            territorios: components["schemas"]["TerritorioDeVisto"][];
         };
         Saude: {
             /** @enum {string} */
@@ -284,6 +404,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Erro"];
+                };
+            };
+        };
+    };
+    obterVistos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Situação de visto de todos os territórios com painel */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VistosDoMapa"];
                 };
             };
         };

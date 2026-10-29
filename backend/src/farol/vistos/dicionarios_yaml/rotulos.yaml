@@ -1,0 +1,120 @@
+# Rótulos atômicos da coluna de situação do artigo da Wikipédia -> categoria de visto.
+# Formato e regras de leitura: specs/002-visto-brasileiros/contracts/dicionario-de-rotulos.md.
+# Levantamento aprovado em 28/10/2026 (specs/002-visto-brasileiros/research.md, seção 3.1).
+#
+# Chave: rótulo normalizado, em minúsculas. Rótulo combinado ("A / B") não entra aqui: vale a
+# categoria mais exigente das partes, e cada parte precisa estar neste arquivo.
+#
+# Regra geral de categoria (O1): a categoria reflete o que é preciso fazer ANTES DE EMBARCAR.
+# "online" e "e-" descrevem só o canal do pedido, nunca a categoria por si.
+#   - processo de visto completo, mesmo online ........ visto_exigido
+#   - pedido online simplificado (autorização, e-visa
+#     rápido, e-VOA) .................................. autorizacao_eletronica
+#   - obtido na chegada ................................ visto_na_chegada
+#   - rótulo que não cabe na regra .................... outra_situacao, até o dono decidir
+
+# --- isento de visto -------------------------------------------------------------------------
+visa not required:
+  categoria: isento
+  exemplo: Albania
+
+freedom of movement:
+  categoria: isento
+  aceita_rg: true # só vale se a nota trouxer "ID card" (research.md 3.2)
+  exemplo: Argentina
+  motivo: livre circulação do Mercosul e associados; a entrada com o RG vem da nota da fonte
+
+# --- visto na chegada ------------------------------------------------------------------------
+visa on arrival:
+  categoria: visto_na_chegada
+  exemplo: Comoros
+
+free visa on arrival:
+  categoria: visto_na_chegada
+  exemplo: Lebanon
+  motivo: visto obtido na chegada; "free" só diz que não há taxa
+
+entry permit on arrival:
+  categoria: visto_na_chegada
+  exemplo: Samoa
+  motivo: regra geral (O1), é obtido na chegada
+
+"free visitor's permit on arrival":
+  categoria: visto_na_chegada
+  exemplo: Solomon Islands
+  motivo: regra geral (O1), é obtido na chegada; "free" só diz que não há taxa
+
+# --- autorização ou visto eletrônico ---------------------------------------------------------
+evisa:
+  categoria: autorizacao_eletronica
+  exemplo: Afghanistan
+
+electronic travel authorisation:
+  categoria: autorizacao_eletronica
+  exemplo: Kenya
+  motivo: grafia britânica de autorização eletrônica de viagem
+
+electronic travel authorization:
+  categoria: autorizacao_eletronica
+  exemplo: Israel
+  motivo: grafia americana de autorização eletrônica de viagem
+
+electronic travel authority:
+  categoria: autorizacao_eletronica
+  exemplo: New Zealand
+  motivo: grafia australiana de autorização eletrônica de viagem
+
+eta:
+  categoria: autorizacao_eletronica
+  exemplo: Sri Lanka
+  motivo: só aparece como parte do combinado "ETA / Visa on arrival"; sigla de autorização eletrônica
+
+e-voa:
+  categoria: autorizacao_eletronica
+  exemplo: Liberia
+  motivo: regra geral (O1), pedido online simplificado (o canal não muda a categoria)
+
+online visa:
+  categoria: autorizacao_eletronica
+  exemplo: Burundi
+  motivo: >-
+    só aparece no combinado "Online Visa / Visa on arrival" (Burundi, Nepal). Sem "required" e
+    como alternativa ao visto na chegada, é o pedido online simplificado (regra geral, O1).
+    Ponto ainda aberto para o dono (research.md 3.1): se for um visto completo, o combinado
+    sobe para visto_exigido.
+
+# --- visto exigido ---------------------------------------------------------------------------
+visa required:
+  categoria: visto_exigido
+  exemplo: Algeria
+
+online visa required:
+  categoria: visto_exigido
+  exemplo: Australia
+  motivo: regra geral (O1), visto completo pedido online (o canal não muda a categoria)
+
+# --- outra situação (rótulo CONHECIDO, mapeado de propósito) ---------------------------------
+permit required:
+  categoria: outra_situacao
+  exemplo: Tokelau
+  motivo: exige uma permissão especial, que não é visto nem autorização eletrônica
+
+special permit required:
+  categoria: outra_situacao
+  exemplo: Clipperton Island
+  motivo: exige uma permissão especial, que não é visto nem autorização eletrônica
+
+entry permit required:
+  categoria: outra_situacao
+  exemplo: American Samoa
+  motivo: exige uma permissão de entrada, que não é visto nem autorização eletrônica
+
+permission required:
+  categoria: outra_situacao
+  exemplo: Tristan da Cunha
+  motivo: exige permissão para desembarcar, que não é visto nem autorização eletrônica
+
+visa regime undefined:
+  categoria: outra_situacao
+  exemplo: Sahrawi Arab Democratic Republic
+  motivo: a fonte diz que o regime de visto é indefinido
