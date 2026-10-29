@@ -230,3 +230,93 @@ describe("cliente da API", () => {
     });
   });
 });
+
+const VISTOS_VALIDOS = {
+  dados_obtidos: true,
+  coletado_em: "2026-10-29T13:04:35Z",
+  desatualizado: false,
+  fonte: {
+    nome: "Wikipédia: Visa requirements for Brazilian citizens",
+    url: "https://en.wikipedia.org/wiki/Visa_requirements_for_Brazilian_citizens",
+    licenca: "CC BY-SA",
+  },
+  territorios: [
+    { codigo: "AR", situacao: "isento", aceita_rg: true },
+    { codigo: "US", situacao: "visto_exigido", aceita_rg: false },
+    { codigo: "BR", situacao: "nao_se_aplica", aceita_rg: false },
+  ],
+};
+
+describe("GET /vistos (feature 002)", () => {
+  async function lerVistos(corpo: unknown) {
+    const { cliente, fetchFalso } = clienteCom(respostaJson(corpo));
+    return { vistos: await cliente.obterVistos(), fetchFalso };
+  }
+
+  it("obterVistos chama /vistos e devolve a resposta tipada", async () => {
+    const { vistos, fetchFalso } = await lerVistos(VISTOS_VALIDOS);
+    expect(fetchFalso.mock.calls[0]?.[0]).toBe("http://api.exemplo/api/v1/vistos");
+    expect(vistos.dados_obtidos).toBe(true);
+    expect(vistos.coletado_em).toBe("2026-10-29T13:04:35Z");
+    expect(vistos.fonte.licenca).toBe("CC BY-SA");
+    expect(vistos.territorios[0]).toEqual({ codigo: "AR", situacao: "isento", aceita_rg: true });
+  });
+
+  it("repassa o sinal de cancelamento ao fetch", async () => {
+    const { cliente, fetchFalso } = clienteCom(respostaJson(VISTOS_VALIDOS));
+    const controle = new AbortController();
+    await cliente.obterVistos(controle.signal);
+    expect(fetchFalso.mock.calls[0]?.[1]?.signal).toBe(controle.signal);
+  });
+
+  it("aceita antes da primeira coleta: sem dados, sem data e tudo 'sem informação'", async () => {
+    const { vistos } = await lerVistos({
+      ...VISTOS_VALIDOS,
+      dados_obtidos: false,
+      coletado_em: null,
+      territorios: [
+        { codigo: "AR", situacao: "sem_informacao", aceita_rg: false },
+        { codigo: "BR", situacao: "nao_se_aplica", aceita_rg: false },
+      ],
+    });
+    expect(vistos.dados_obtidos).toBe(false);
+    expect(vistos.coletado_em).toBeNull();
+  });
+
+  it("situação fora do contrato não passa", async () => {
+    const corpo = {
+      ...VISTOS_VALIDOS,
+      territorios: [{ codigo: "AR", situacao: "talvez", aceita_rg: false }],
+    };
+    await expect(lerVistos(corpo)).rejects.toThrow(/territorios\[0\]\.situacao/);
+  });
+
+  it("campo ausente ou de tipo errado não passa", async () => {
+    const { dados_obtidos: _removido, ...semCampo } = VISTOS_VALIDOS;
+    await expect(lerVistos(semCampo)).rejects.toThrow(/dados_obtidos/);
+    const rgErrado = {
+      ...VISTOS_VALIDOS,
+      territorios: [{ codigo: "AR", situacao: "isento", aceita_rg: "sim" }],
+    };
+    await expect(lerVistos(rgErrado)).rejects.toThrow(/aceita_rg/);
+    await expect(lerVistos({ ...VISTOS_VALIDOS, fonte: null })).rejects.toThrow(/fonte/);
+    await expect(lerVistos({ ...VISTOS_VALIDOS, territorios: "AR" })).rejects.toThrow(
+      /territorios/,
+    );
+  });
+
+  it("'não se aplica' só vale para o Brasil", async () => {
+    const corpo = {
+      ...VISTOS_VALIDOS,
+      territorios: [{ codigo: "AR", situacao: "nao_se_aplica", aceita_rg: false }],
+    };
+    await expect(lerVistos(corpo)).rejects.toThrow(/situacao/);
+  });
+
+  it("erro 5xx e falha de rede viram ErroDeApi", async () => {
+    const { cliente } = clienteCom(respostaJson({ detalhe: "indisponível" }, 503));
+    await expect(cliente.obterVistos()).rejects.toMatchObject({ status: 503 });
+    const { cliente: semRede } = clienteCom(new TypeError("Failed to fetch"));
+    await expect(semRede.obterVistos()).rejects.toMatchObject({ status: 0 });
+  });
+});

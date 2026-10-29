@@ -3,6 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NIVEIS, ORDEM_DA_LEGENDA, type NivelId } from "../../compartilhado/niveis";
+import { TODAS_AS_CHAVES_DE_VISTO, type ChaveDeVisto } from "../../compartilhado/vistos";
+import type { EstadoDosVistos } from "../../estado/reducer";
+import { VISTOS_EXEMPLO } from "../../testes/dados-exemplo";
+import type { ModoDoGlobo } from "../mapa/tipos";
+import { alternarVisto } from "./filtroDeVistos";
 import { LegendaRecolhivel } from "./LegendaRecolhivel";
 import { CHAVE_DA_LEGENDA } from "./preferencia";
 
@@ -185,5 +190,97 @@ describe("LegendaRecolhivel: estado lembrado entre visitas", () => {
     await usuario.click(botao());
     expect(botao()).toHaveAttribute("aria-expanded", "false");
     expect(within(document.body).queryAllByRole("checkbox")).toHaveLength(0);
+  });
+});
+
+describe("LegendaRecolhivel: modo Vistos (feature 002)", () => {
+  const PRONTO: EstadoDosVistos = { situacao: "pronto", dados: VISTOS_EXEMPLO };
+
+  function TelaComModo({
+    modo,
+    telaPequena = false,
+    vistos = PRONTO,
+  }: {
+    modo: ModoDoGlobo;
+    telaPequena?: boolean;
+    vistos?: EstadoDosVistos;
+  }) {
+    const [niveis, setNiveis] = useState<readonly NivelId[]>(ORDEM_DA_LEGENDA);
+    const [chaves, setChaves] = useState<readonly ChaveDeVisto[]>(TODAS_AS_CHAVES_DE_VISTO);
+    return (
+      <LegendaRecolhivel
+        telaPequena={telaPequena}
+        niveisMarcados={niveis}
+        onAlternarNivel={(n) =>
+          setNiveis((a) => (a.includes(n) ? a.filter((x) => x !== n) : [...a, n]))
+        }
+        modo={modo}
+        vistos={{
+          estado: vistos,
+          marcadas: chaves,
+          onAlternar: (c) => setChaves((a) => alternarVisto(a, c)),
+          onTentarDeNovo: () => {},
+        }}
+      />
+    );
+  }
+
+  const linhaDaFonte = () => screen.queryByText(/^Vistos:/);
+
+  it("no modo 'Alertas' a legenda recolhida mostra só o botão, como na 001", async () => {
+    render(<TelaComModo modo="alertas" telaPequena />);
+    expect(botao()).toHaveAttribute("aria-expanded", "false");
+    expect(linhaDaFonte()).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Wikipédia" })).not.toBeInTheDocument();
+  });
+
+  it("no modo 'Alertas' aberta, também não há linha de fonte dos vistos", () => {
+    render(<TelaComModo modo="alertas" />);
+    expect(linhaDaFonte()).not.toBeInTheDocument();
+  });
+
+  it("no modo 'Vistos' a legenda recolhida mostra o botão e a linha de fonte e data (FR-029)", () => {
+    render(<TelaComModo modo="vistos" telaPequena />);
+    expect(botao()).toHaveAttribute("aria-expanded", "false");
+    expect(caixas()).toHaveLength(0);
+    expect(linhaDaFonte()?.textContent).toBe(
+      "Vistos: Wikipédia (CC BY-SA), fonte não oficial, coletados em 27/10/2026",
+    );
+    expect(linhaDaFonte()).toBeVisible();
+  });
+
+  it("a linha de fonte fica fora da parte recolhível: abrir e fechar não a esconde", async () => {
+    render(<TelaComModo modo="vistos" telaPequena />);
+    await userEvent.setup().click(botao());
+    expect(linhaDaFonte()).toBeVisible();
+    await userEvent.setup().click(botao());
+    expect(linhaDaFonte()).toBeVisible();
+  });
+
+  it("a legenda muda com o modo", () => {
+    const { rerender } = render(<TelaComModo modo="alertas" />);
+    expect(screen.getByText("Evite viagens não essenciais")).toBeVisible();
+    expect(screen.queryByText("Visto exigido")).not.toBeInTheDocument();
+    rerender(<TelaComModo modo="vistos" />);
+    expect(screen.getByRole("checkbox", { name: /Visto exigido/ })).toBeVisible();
+    expect(screen.queryByText("Evite viagens não essenciais")).not.toBeInTheDocument();
+  });
+
+  it("recolher não desfaz nenhum dos dois filtros", async () => {
+    const usuario = userEvent.setup();
+    const { rerender } = render(<TelaComModo modo="vistos" />);
+    await usuario.click(screen.getByRole("checkbox", { name: /Visto exigido/ }));
+    await usuario.click(botao()); // recolhe
+    await usuario.click(botao()); // abre
+    expect(screen.getByRole("checkbox", { name: /Visto exigido/ })).not.toBeChecked();
+    rerender(<TelaComModo modo="alertas" />);
+    for (const caixa of caixas()) expect(caixa).toBeChecked(); // o filtro de alertas ficou intacto
+  });
+
+  it("com erro, a linha de fonte diz que os dados estão indisponíveis", () => {
+    render(
+      <TelaComModo modo="vistos" telaPequena vistos={{ situacao: "erro", mensagem: "caiu" }} />,
+    );
+    expect(screen.getByText("Vistos: dados indisponíveis no momento")).toBeVisible();
   });
 });

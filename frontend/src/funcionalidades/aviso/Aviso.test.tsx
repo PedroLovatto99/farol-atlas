@@ -53,4 +53,27 @@ describe("Aviso", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/não verificado/i);
     expect(screen.queryByText(/atualizado em/i)).not.toBeInTheDocument();
   });
+
+  describe("vistos desatualizados (FR-029a)", () => {
+    it("com a última coleta de vistos antiga, avisa na área de avisos, sem painel aberto", () => {
+      render(<Aviso {...BASE} vistosDesatualizados />);
+      const aviso = screen.getByText(/dados de visto desatualizados/i);
+      expect(aviso).toBeVisible();
+      expect(aviso).toHaveTextContent(/mais de 14 dias/i);
+      expect(aviso.closest("section")).toHaveAccessibleName("Avisos");
+    });
+
+    it("sem o sinal (modo 'Alertas' ou vistos em dia), o aviso não aparece", () => {
+      const { rerender } = render(<Aviso {...BASE} />);
+      expect(screen.queryByText(/dados de visto desatualizados/i)).not.toBeInTheDocument();
+      rerender(<Aviso {...BASE} vistosDesatualizados={false} />);
+      expect(screen.queryByText(/dados de visto desatualizados/i)).not.toBeInTheDocument();
+    });
+
+    it("convive com o aviso de alertas desatualizados", () => {
+      render(<Aviso {...BASE} desatualizado vistosDesatualizados />);
+      expect(screen.getByText(/mais de 3 dias/i)).toBeVisible();
+      expect(screen.getByText(/dados de visto desatualizados/i)).toBeVisible();
+    });
+  });
 });

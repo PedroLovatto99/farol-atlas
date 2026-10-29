@@ -6,7 +6,14 @@ import { MapaFalso } from "./mapa-falso";
 
 function propsBase(): MapaProps {
   return {
-    territorios: [{ codigo: "DK", nivel: "sem_alerta", bordaRegional: null, esmaecido: false }],
+    territorios: [
+      {
+        codigo: "DK",
+        preenchimento: { cor: "#C0DD97", padrao: null },
+        bordaRegional: null,
+        esmaecido: false,
+      },
+    ],
     postos: [
       {
         grupo: "g1",

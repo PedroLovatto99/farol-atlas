@@ -50,3 +50,61 @@ export const TEXTO_SEM_INFORMACAO_DE_VISTO =
 /** FR-015 */
 export const AVISO_DE_VISTO_DESATUALIZADO =
   "Estes dados podem estar desatualizados: foram lidos da fonte há mais de 14 dias.";
+
+/** As cinco categorias com cor própria no globo, mais "sem informação" (cinza). Do amarelo ao roxo escuro: mais escuro, mais exigente. */
+export const CORES_DE_VISTO: Readonly<Record<SituacaoDeVisto, string>> = {
+  isento: "#FEDD50",
+  visto_na_chegada: "#D17DA4",
+  autorizacao_eletronica: "#8F5FCC",
+  visto_exigido: "#3B1C6B",
+  outra_situacao: "#948878",
+  sem_informacao: "#BEBAB1",
+};
+
+/** O Brasil e as áreas neutras: o neutro que já existe, distinto do cinza de "sem informação". */
+export const COR_DO_BRASIL_NO_MODO_VISTOS = "#F1EFE8";
+/** Listras do "Isento, entrada com RG" (a base é a cor do "Isento"). */
+export const COR_DAS_LISTRAS = "#1F2A44";
+/** Borda das amostras da legenda: "Isento" e "sem informação" ficam abaixo de 3:1 contra o branco. */
+export const COR_DA_BORDA_DA_AMOSTRA = "#5F5E5A";
+/** O oceano do mapa, contra o qual as cores de visto também precisam se distinguir. */
+export const COR_DO_OCEANO = "#DCE8F2";
+
+/**
+ * Chaves da legenda do modo "Vistos", na ordem de exibição. `isento_rg` é um subitem de `isento`:
+ * não é uma categoria nova, só o filtro dos isentos que aceitam o RG (FR-022a).
+ */
+export type ChaveDeVisto =
+  | "isento"
+  | "isento_rg"
+  | "visto_na_chegada"
+  | "autorizacao_eletronica"
+  | "visto_exigido"
+  | "outra_situacao"
+  | "sem_informacao";
+
+export const CHAVES_DA_LEGENDA_DE_VISTOS: readonly ChaveDeVisto[] = [
+  "isento",
+  "isento_rg",
+  "visto_na_chegada",
+  "autorizacao_eletronica",
+  "visto_exigido",
+  "outra_situacao",
+  "sem_informacao",
+];
+
+/** Todas as chaves marcadas: o estado da legenda ao abrir o site. */
+export const TODAS_AS_CHAVES_DE_VISTO: readonly ChaveDeVisto[] = CHAVES_DA_LEGENDA_DE_VISTOS;
+
+export const ROTULOS_DA_LEGENDA_DE_VISTOS: Readonly<Record<ChaveDeVisto, string>> = {
+  isento: ROTULOS_DE_VISTO.isento,
+  isento_rg: "Isento, entrada com RG",
+  visto_na_chegada: ROTULOS_DE_VISTO.visto_na_chegada,
+  autorizacao_eletronica: ROTULOS_DE_VISTO.autorizacao_eletronica,
+  visto_exigido: ROTULOS_DE_VISTO.visto_exigido,
+  outra_situacao: ROTULOS_DE_VISTO.outra_situacao,
+  sem_informacao: ROTULOS_DE_VISTO.sem_informacao,
+};
+
+/** Texto do item informativo (sem caixa) do Brasil na legenda (FR-023). */
+export const TEXTO_DO_BRASIL_NA_LEGENDA = "Brasil: seu país, sem seção de visto";

@@ -15,6 +15,7 @@ import {
   Marker,
   NavigationControl,
   setWorkerUrl,
+  type ExpressionSpecification,
   type GeoJSONSource,
   type StyleSpecification,
 } from "maplibre-gl";
@@ -35,6 +36,7 @@ import {
   seloDoMarcador,
   varianteDoMarcador,
 } from "./marcadores";
+import { NOME_DA_IMAGEM_DE_LISTRAS, matrizDasListras } from "./padroes";
 import type { MapaProps, Margem } from "./tipos";
 import { useGeometria } from "./useGeometria";
 
@@ -48,6 +50,18 @@ const COR_DA_SELECAO = "#0C447C";
 const COR_DA_LINHA_ATE_O_RESPONSAVEL = "#0C447C";
 /** Opacidade de um país esmaecido pelo filtro: ainda se vê a cor do nível e ainda se toca (FR-025). */
 const OPACIDADE_ESMAECIDA = 0.25;
+/**
+ * Opacidade do preenchimento: 0 para o território sem preenchimento (vistos carregando ou com erro:
+ * só as fronteiras, o oceano por baixo, e o toque continua valendo); esmaecida pelo filtro; ou 1.
+ */
+const OPACIDADE_DO_PREENCHIMENTO: ExpressionSpecification = [
+  "case",
+  ["get", "sem_preenchimento"],
+  0,
+  ["get", "esmaecido"],
+  OPACIDADE_ESMAECIDA,
+  1,
+];
 const LARGURA_MAXIMA_DO_CELULAR = 700;
 const COLECAO_VAZIA = { type: "FeatureCollection" as const, features: [] };
 
@@ -72,7 +86,19 @@ const ESTILO: StyleSpecification = {
       // Filtro de níveis (FR-025): esmaecer reduz a opacidade e mantém a cor; o toque segue valendo
       paint: {
         "fill-color": ["get", "cor"],
-        "fill-opacity": ["case", ["get", "esmaecido"], OPACIDADE_ESMAECIDA, 1],
+        "fill-opacity": OPACIDADE_DO_PREENCHIMENTO,
+      },
+    },
+    {
+      // "Isento, entrada com RG" (FR-022a): as listras por cima da base do "Isento"; a imagem leva
+      // a base junto (fill-pattern substitui o preenchimento) e é registrada em `styleimagemissing`
+      id: "padrao-rg",
+      type: "fill",
+      source: "paises",
+      filter: ["==", ["get", "padrao"], "rg"],
+      paint: {
+        "fill-pattern": NOME_DA_IMAGEM_DE_LISTRAS,
+        "fill-opacity": OPACIDADE_DO_PREENCHIMENTO,
       },
     },
     {
@@ -168,6 +194,7 @@ function MarcadorNoMapa(props: {
 
 export function MapaMapLibre({
   territorios,
+  modo = "alertas",
   postos,
   paisesSemPosto,
   selecionado,
@@ -206,6 +233,11 @@ export function MapaMapLibre({
       ...visaoDoMundo(),
     });
     novo.on("style.load", () => novo.setProjection({ type: "globe" }));
+    novo.on("styleimagemissing", (evento) => {
+      if (evento.id === NOME_DA_IMAGEM_DE_LISTRAS && !novo.hasImage(evento.id)) {
+        novo.addImage(evento.id, matrizDasListras());
+      }
+    });
     novo.on("load", () => setMapa(novo));
     novo.on("zoom", () => setZoomAlto(novo.getZoom() >= ZOOM_DOS_MARCADORES));
     novo.on("click", (evento) => {
@@ -243,9 +275,9 @@ export function MapaMapLibre({
   useEffect(() => {
     if (mapa === null || geometria.situacao !== "pronto") return;
     const fonte = mapa.getSource<GeoJSONSource>("paises");
-    const dados = montarFeicoes(geometria.geometria, territorios);
+    const dados = montarFeicoes(geometria.geometria, territorios, modo);
     fonte?.setData(dados as unknown as Parameters<GeoJSONSource["setData"]>[0]);
-  }, [mapa, geometria, territorios]);
+  }, [mapa, geometria, territorios, modo]);
 
   // Contorno da seleção. Kosovo e Malvinas contornam o grupo do soberano (propriedade `zoom`).
   useEffect(() => {

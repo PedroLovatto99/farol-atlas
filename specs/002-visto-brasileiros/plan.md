@@ -157,23 +157,44 @@ frontend/
 
 ## Paleta do modo "Vistos"
 
-Escolhida e **conferida por script** (contraste WCAG 2.x e distância de cor CIEDE2000, normal e com simulação de protanopia, deuteranopia e tritanopia). Rampa de azul a roxo, **mais escuro = mais exigente**, sem verde, amarelo nem vermelho (que são das cores de alerta). Os tokens entram em `tema.css` (`--color-visto-*`), com o valor em hex repetido em `compartilhado/vistos.ts` (um teste confere que são iguais, como na 001).
+Escolhida pelo responsável (29/10/2026, opção A: amarelo → roxo; **mais escuro = mais exigente**) e **conferida por script** (contraste WCAG 2.x e distância de cor CIEDE2000, em visão normal e com simulação de protanopia, deuteranopia e tritanopia). A paleta de partida (`#F5D547`, `#F29CC3`, `#9A6BD8`, `#3B1C6B`, `#8C8070`, `#C8C4BB`) falhava em vários pares; os ajustes abaixo mexeram **só na luminosidade (L* do CIELAB), mantendo o matiz** (e a croma, reduzida apenas onde saía do gamute sRGB). Os tokens estão em `tema.css` (`--color-visto-*`), com o hex repetido em `compartilhado/vistos.ts` (um teste confere que são iguais, como na 001).
 
-| Chave | Cor | Contra branco (legenda) | Contra o oceano `#DCE8F2` | Observação |
+| Chave | Cor | Ajuste (L*) | Contra branco (legenda) | Contra o oceano `#DCE8F2` | Contra o contorno branco |
+|---|---|---|---|---|---|
+| Isento de visto | `#FEDD50` | de `#F5D547`, 85,7 → 88,6 | 1,34 | 1,08 | 1,34 |
+| Isento, entrada com RG | `#FEDD50` + listras `#1F2A44` | listras como pedido | — | — | listras 10,64:1 sobre a base (mínimo 3:1) |
+| Visto na chegada | `#D17DA4` | de `#F29CC3`, 73,9 → 62,4 | 2,92 | 2,35 | 2,92 |
+| Autorização ou visto eletrônico | `#8F5FCC` | de `#9A6BD8`, 54,4 → 50,0 | 4,49 | 3,61 | 4,49 |
+| Visto exigido | `#3B1C6B` | sem ajuste | 13,42 | 10,78 | 13,42 |
+| Outra situação | `#948878` | de `#8C8070`, 54,2 → 57,3 | 3,47 | 2,79 | 3,47 |
+| Sem informação de visto | `#BEBAB1` | de `#C8C4BB`, 79,2 → 75,6 | 1,94 | 1,55 | 1,94 |
+| Brasil (neutro) | `#F1EFE8` | sem ajuste | — | — | — |
+
+O contorno do globo é a linha branca de 0,6 px da camada `fronteiras` (`#FFFFFF`; 1,24:1 contra o oceano), por isso a última coluna é o mesmo contraste da coluna do branco.
+
+**Distância de cor (CIEDE2000), menor valor em cada visão:**
+
+| Visão | Cores que aparecem juntas no globo (entre si, com o Brasil e com o oceano) | Cor de visto contra as de alerta (salvo as exceções abaixo) |
+|---|---|---|
+| Normal | 12,45 (sem informação × Brasil) | 20,03 |
+| Protanopia | 12,61 (sem informação × Brasil) | 13,07 (outra situação × não viajar) |
+| Deuteranopia | 12,15 (visto na chegada × sem informação) | 13,25 (outra situação × não viajar) |
+| Tritanopia | 12,64 (sem informação × Brasil) | 14,47 (isento × não verificado) |
+
+Critério adotado: **≥ 12** entre todas as cores que aparecem juntas no globo. Contra as cores de alerta, que pertencem ao outro modo e **nunca aparecem no mesmo globo**, também ≥ 12, com as três exceções abaixo, que **não** chegam a 12 só com ajuste de luminosidade:
+
+| Par (visto × alerta) | Normal | Protanopia | Deuteranopia | Tritanopia |
 |---|---|---|---|---|
-| Isento de visto | `#00B1DF` | 2,5 | 2,0 | azul-ciano; amostra com borda |
-| Isento, entrada com RG | `#00B1DF` + listras `#0B3A52` | — | — | listras 4,8:1 sobre a base; item próprio |
-| Visto na chegada | `#007FC8` | 4,3 | 3,5 | |
-| Autorização ou visto eletrônico | `#424DA1` | 7,5 | 6,0 | |
-| Visto exigido | `#4D2455` | 12,4 | 9,9 | |
-| Outra situação | `#5E6469` | 6,0 | 4,8 | cinza-ardósia escuro |
-| Sem informação de visto | `#AEABA2` | 2,3 | 1,8 | mais escuro que o cinza dos alertas (`#D3D1C7`) |
-| Brasil (neutro) | `#F1EFE8` | — | — | o neutro já existente |
+| Isento (amarelo) × evite (âmbar `#FAC775`) | 11,15 | 8,39 | 6,55 | 5,96 |
+| Isento × sem alerta (verde `#C0DD97`) | 19,29 | 11,64 | 12,52 | 29,17 |
+| Sem informação × não verificado (`#D3D1C7`) | 5,79 | 5,62 | 5,60 | 5,81 |
 
-- **Distinção (CIEDE2000, cada cor de visto contra as outras, contra as 4 cores de alerta, o neutro do Brasil e o oceano):** menor distância **16,6** (visão normal; "sem informação" × Brasil), **14,6** (protanopia), **12,5** (deuteranopia), **13,9** (tritanopia). Critério adotado: **≥ 12** em todas as visões. O Brasil e o "sem informação", que a spec pede "claramente distintos", ficam a 16,6.
-- **Amostras da legenda:** borda de 1 px em `#5F5E5A` (6,5:1 contra o branco; WCAG 1.4.11), porque o "Isento" (2,5) e o "Sem informação" (2,3) ficam abaixo de 3:1 contra o fundo branco. A legenda inclui o texto de cada categoria, então a cor nunca é a única informação.
+- **Amarelo contra âmbar.** São dois amarelos claros: com o matiz mantido, não há luminosidade do amarelo que o afaste do âmbar em 12 nas quatro visões sem esbarrar no Brasil (mais claro) ou no verde, no roxo e no marrom da própria paleta (mais escuro). O ponto escolhido (`#FEDD50`) é o que mais afasta o par sem quebrar as outras. Como os modos não aparecem juntos no globo e o "Isento" tem sempre o texto da legenda ao lado, o par tem limite próprio de **5,5** (teste `vistos.test.ts`); se for preciso 12, o amarelo precisa mudar de **matiz**, o que depende de decisão do responsável.
+- **Sem informação × não verificado.** Os dois são "nada confirmado", em modos diferentes, e nunca aparecem juntos. Com o cinza novo o par mede **5,6 a 5,8** (antes, com `#AEABA2`, 9,9). O tratamento à parte segue aceito; o valor real é o da tabela acima.
+- **Amostras da legenda:** borda de 1 px em `#5F5E5A` (6,5:1 contra o branco; WCAG 1.4.11), porque o "Isento" (1,3), o "Visto na chegada" (2,9) e o "Sem informação" (1,9) ficam abaixo de 3:1 contra o fundo branco. A legenda inclui o texto de cada categoria, então a cor nunca é a única informação.
+- **Contraste de objeto gráfico (WCAG 1.4.11) no globo: NÃO atendido pelo contorno.** O contorno é branco de 0,6 px (1,24:1 contra o oceano; entre 1,34 e 13,42 contra as cores de visto, só o "Visto exigido", a "Autorização" e a "Outra situação" passam de 3:1). Portanto o critério **não** é atendido pelo contorno e fica registrado como pendente: as opções estão no relatório de 29/10/2026 e nenhuma mudança no globo foi feita. A informação da categoria também está no painel do país, na legenda em texto e no nome acessível, mas isso não cumpre sozinho o 1.4.11 para o objeto gráfico.
 - O "sem informação" **muda de tom** entre os modos (no modo Alertas, "não verificado" segue `#D3D1C7`): tem outro significado e precisa se distinguir do neutro do Brasil, que no modo Alertas não existe como estado.
-- Verificação permanente: um teste do frontend recalcula os contrastes de texto (≥ 4,5) e a distância mínima entre as cores (com as matrizes de daltonismo) a partir de `compartilhado/vistos.ts`. A tabela acima é o resultado do script de dimensionamento; os números finais saem do teste.
+- Verificação permanente: um teste do frontend recalcula o contraste das listras (≥ 3) e as distâncias mínimas (com as matrizes de daltonismo) a partir de `compartilhado/vistos.ts` e `niveis.ts`. A tabela acima é o resultado do script de dimensionamento; os limites e as exceções estão no teste.
 
 ## Painel recolhível (FR-030)
 
