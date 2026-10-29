@@ -9,7 +9,8 @@ tentativa tiver mais de 35 dias, para uma instalação nova não ficar um mês s
 
 A coleta de vistos (Wikipédia) é semanal: segunda-feira, às 05:13 (decisão O5 da 002: o job mensal
 de postos, às 05:43, demora cerca de 45 minutos, e o worker tem um fio só). Na partida, só roda se
-não há coleta VÁLIDA ou se a última tem mais de 7 dias; senão, não faz requisição nenhuma. Uma
+não há coleta VÁLIDA ou se a última tem mais de 7 dias; senão, não faz requisição nenhuma. Se a
+última tentativa foi BLOQUEADA, não insiste na partida: a próxima é a da agenda semanal. Uma
 rodada `adiada` (artigo editado há menos de 24 h) ou que `falhou` ganha uma nova tentativa às 05:13
 do dia seguinte (`vistos-amanha`), até 3 falhas seguidas (O6); depois disso, só a próxima segunda.
 Ao subir, o worker retoma uma tentativa de amanhã que a parada dele deixou pendente.
@@ -66,9 +67,18 @@ def deve_coletar_vistos_na_partida(
     ultima_coleta_valida: datetime | None,
     agora: datetime,
     limite_dias: int = LIMITE_DIAS_DE_VISTOS,
+    *,
+    ultima_tentativa_bloqueada: bool = False,
 ) -> bool:
     """Só sem coleta válida ou com a última válida de mais de 7 dias. Uma tentativa que falhou,
-    foi adiada ou rejeitada não conta: o que vale é o dado que o site mostra."""
+    foi adiada ou rejeitada não conta: o que vale é o dado que o site mostra.
+
+    Exceção: se a última tentativa foi **bloqueada** (403, 429, verificação humana ou `robots.txt`),
+    não insiste ao reiniciar: a próxima tentativa é a da agenda semanal. A rejeitada por formato
+    pode tentar na partida, porque o reinício costuma vir do deploy da correção.
+    """
+    if ultima_tentativa_bloqueada:
+        return False
     return ultima_coleta_valida is None or agora - ultima_coleta_valida > timedelta(
         days=limite_dias
     )
@@ -120,6 +130,7 @@ def preparar_agendador(
     ultima_tentativa_de_postos: datetime | None = None,
     rodada_de_vistos: Callable[[], ProximaTentativa] | None = None,
     ultima_coleta_valida_de_vistos: datetime | None = None,
+    ultima_tentativa_de_vistos_bloqueada: bool = False,
     retomada_de_vistos: datetime | None = None,
     relogio: Relogio | None = None,
 ) -> BlockingScheduler:
@@ -175,6 +186,7 @@ def preparar_agendador(
             agendador,
             rodada_de_vistos,
             ultima_coleta_valida=ultima_coleta_valida_de_vistos,
+            bloqueada=ultima_tentativa_de_vistos_bloqueada,
             agora=agora,
             retomada=retomada_de_vistos,
             relogio=relogio or RelogioDoSistema(),
@@ -187,6 +199,7 @@ def _agendar_vistos(
     rodada_de_vistos: Callable[[], ProximaTentativa],
     *,
     ultima_coleta_valida: datetime | None,
+    bloqueada: bool,
     agora: datetime,
     retomada: datetime | None,
     relogio: Relogio,
@@ -228,7 +241,9 @@ def _agendar_vistos(
             max_instances=1,
             misfire_grace_time=TOLERANCIA_DE_ATRASO_SEGUNDOS,
         )
-    elif deve_coletar_vistos_na_partida(ultima_coleta_valida, agora):
+    elif deve_coletar_vistos_na_partida(
+        ultima_coleta_valida, agora, ultima_tentativa_bloqueada=bloqueada
+    ):
         agendador.add_job(
             rodada,
             DateTrigger(run_date=agora, timezone=FUSO_DE_BRASILIA),

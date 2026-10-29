@@ -382,20 +382,25 @@ def _dono_real() -> Iterator[ServicoDoDono]:
 @dataclass(frozen=True)
 class SituacaoDeVistosNaPartida:
     ultima_coleta_valida: datetime | None  # a que o site mostra; nulo se nunca houve
+    ultima_tentativa_bloqueada: bool  # a última tentativa, de qualquer tipo, foi bloqueada
     retomada: datetime | None  # a tentativa de "amanhã" que a última tentativa deixou pendente
 
 
 def situacao_de_vistos_na_partida(sessao: Session) -> SituacaoDeVistosNaPartida:
     """O que o worker precisa saber dos vistos ao subir.
 
-    A coleta da partida depende só da última coleta VÁLIDA: tentativas que falharam, foram adiadas
-    ou rejeitadas não contam. A retomada vem da última tentativa, seja qual for.
+    A coleta da partida depende da última coleta VÁLIDA (tentativas que falharam, foram adiadas ou
+    rejeitadas não contam) e de a última tentativa não ter sido BLOQUEADA: depois de um bloqueio,
+    a próxima tentativa é a da agenda semanal. A retomada vem da última tentativa, seja qual for.
     """
     coletas = ColetaVistosRepositorio(sessao)
     valida = coletas.ultima_valida()
     tentativa = coletas.ultima_tentativa()
     return SituacaoDeVistosNaPartida(
         ultima_coleta_valida=(valida.finalizada_em or valida.iniciada_em) if valida else None,
+        ultima_tentativa_bloqueada=(
+            tentativa is not None and tentativa.resultado is ResultadoDaColetaDeVistos.BLOQUEADA
+        ),
         retomada=(
             retomada_de_vistos(
                 tentativa.resultado,
@@ -442,6 +447,7 @@ def servir_agenda() -> None:
         ultima_tentativa_de_postos=ultima_de_postos,
         rodada_de_vistos=rodada_de_vistos,
         ultima_coleta_valida_de_vistos=vistos.ultima_coleta_valida,
+        ultima_tentativa_de_vistos_bloqueada=vistos.ultima_tentativa_bloqueada,
         retomada_de_vistos=vistos.retomada,
     )
     _log.info(

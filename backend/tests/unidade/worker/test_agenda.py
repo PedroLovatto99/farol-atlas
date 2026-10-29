@@ -764,3 +764,25 @@ def test_retomada_que_ja_passou_com_o_worker_parado_roda_na_partida() -> None:
     )
 
     assert job(agendador, "vistos-amanha").trigger.run_date == AGORA
+
+
+def test_tentativa_bloqueada_trava_a_partida_de_vistos_mesmo_sem_coleta_valida() -> None:
+    assert deve_coletar_vistos_na_partida(None, AGORA) is True
+    assert deve_coletar_vistos_na_partida(None, AGORA, ultima_tentativa_bloqueada=True) is False
+    velha = AGORA - timedelta(days=30)
+    assert deve_coletar_vistos_na_partida(velha, AGORA, ultima_tentativa_bloqueada=True) is False
+    assert deve_coletar_vistos_na_partida(velha, AGORA, ultima_tentativa_bloqueada=False) is True
+
+
+def test_agendador_sem_partida_de_vistos_quando_a_ultima_tentativa_foi_bloqueada() -> None:
+    agendador = preparar_agendador(
+        lambda: None,
+        ultima_tentativa=AGORA,
+        agora=AGORA,
+        limite_horas=20,
+        rodada_de_vistos=lambda: ProximaTentativa.PROXIMA_SEGUNDA,
+        ultima_coleta_valida_de_vistos=None,
+        ultima_tentativa_de_vistos_bloqueada=True,
+    )
+
+    assert {j.id for j in agendador.get_jobs() if j.id.startswith("vistos")} == {"vistos-semanais"}

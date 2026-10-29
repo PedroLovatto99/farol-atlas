@@ -50,6 +50,7 @@ def jobs_de_vistos_ao_subir(sessao: Session) -> tuple[set[str], BlockingSchedule
         limite_horas=20,
         rodada_de_vistos=lambda: ProximaTentativa.PROXIMA_SEGUNDA,
         ultima_coleta_valida_de_vistos=situacao.ultima_coleta_valida,
+        ultima_tentativa_de_vistos_bloqueada=situacao.ultima_tentativa_bloqueada,
         retomada_de_vistos=situacao.retomada,
     )
     return {j.id for j in agendador.get_jobs() if j.id.startswith("vistos")}, agendador
@@ -93,13 +94,14 @@ def test_a_data_que_vale_e_a_da_ultima_coleta_valida_e_nao_a_da_ultima_tentativa
     sessao: Session,
 ) -> None:
     tentativa(sessao, R.VALIDA, timedelta(days=9))
-    tentativa(sessao, R.BLOQUEADA, timedelta(hours=1))  # a tentativa de agora não conta
+    tentativa(sessao, R.FALHOU, timedelta(hours=1), falhas=1)  # a tentativa de agora não conta
 
     situacao = situacao_de_vistos_na_partida(sessao)
     ids, _ = jobs_de_vistos_ao_subir(sessao)
 
     assert situacao.ultima_coleta_valida == AGORA - timedelta(days=9)
-    assert ids == {"vistos-semanais", "vistos-na-partida"}
+    # a falha pede a tentativa de amanhã, que já cobre a coleta atrasada
+    assert ids == {"vistos-semanais", "vistos-amanha"}
 
 
 def test_tentativa_rejeitada_ou_bloqueada_sobre_coleta_valida_recente_nao_coleta_nem_retoma(
@@ -129,3 +131,73 @@ def test_falha_recente_sobre_coleta_valida_recente_so_marca_a_tentativa_de_amanh
     assert ids == {"vistos-semanais", "vistos-amanha"}
     [amanha] = [j for j in agendador.get_jobs() if j.id == "vistos-amanha"]
     assert amanha.trigger.run_date == situacao.retomada
+
+
+# --------------------------------------------------------------------------- bloqueio
+def test_depois_de_uma_tentativa_bloqueada_nao_coleta_na_partida_so_na_agenda_semanal(
+    sessao: Session,
+) -> None:
+    tentativa(sessao, R.BLOQUEADA, timedelta(hours=1))
+
+    situacao = situacao_de_vistos_na_partida(sessao)
+    ids, _ = jobs_de_vistos_ao_subir(sessao)
+
+    assert situacao.ultima_coleta_valida is None  # sem coleta válida, mas bloqueada: não insiste
+    assert situacao.ultima_tentativa_bloqueada is True
+    assert situacao.retomada is None
+    assert ids == {"vistos-semanais"}
+
+
+def test_bloqueio_vale_mesmo_com_a_ultima_coleta_valida_de_mais_de_7_dias(
+    sessao: Session,
+) -> None:
+    tentativa(sessao, R.VALIDA, timedelta(days=20))
+    tentativa(sessao, R.BLOQUEADA, timedelta(days=3))
+
+    ids, _ = jobs_de_vistos_ao_subir(sessao)
+
+    assert ids == {"vistos-semanais"}
+
+
+def test_o_bloqueio_nao_expira_pelo_tempo_so_pela_proxima_tentativa(sessao: Session) -> None:
+    tentativa(sessao, R.BLOQUEADA, timedelta(days=30))
+
+    ids, _ = jobs_de_vistos_ao_subir(sessao)
+
+    assert ids == {"vistos-semanais"}  # a semanal é quem tenta de novo
+
+
+def test_so_a_ultima_tentativa_conta_um_bloqueio_antigo_ja_superado_nao_trava(
+    sessao: Session,
+) -> None:
+    tentativa(sessao, R.BLOQUEADA, timedelta(days=12))
+    tentativa(sessao, R.REJEITADA, timedelta(days=5))  # tentou de novo e não estava bloqueada
+
+    situacao = situacao_de_vistos_na_partida(sessao)
+    ids, _ = jobs_de_vistos_ao_subir(sessao)
+
+    assert situacao.ultima_tentativa_bloqueada is False
+    assert ids == {"vistos-semanais", "vistos-na-partida"}
+
+
+def test_rejeitada_por_formato_pode_tentar_na_partida_porque_o_reinicio_vem_do_deploy(
+    sessao: Session,
+) -> None:
+    tentativa(sessao, R.VALIDA, timedelta(days=10))
+    tentativa(sessao, R.REJEITADA, timedelta(hours=2))
+
+    situacao = situacao_de_vistos_na_partida(sessao)
+    ids, _ = jobs_de_vistos_ao_subir(sessao)
+
+    assert situacao.ultima_tentativa_bloqueada is False
+    assert ids == {"vistos-semanais", "vistos-na-partida"}
+
+
+def test_bloqueada_e_a_unica_que_trava_as_outras_seguem_a_regra_de_7_dias(
+    sessao: Session,
+) -> None:
+    for resultado in (R.ADIADA, R.FALHOU, R.REJEITADA, R.VALIDA):
+        situacao = situacao_de_vistos_na_partida(sessao)
+        assert situacao.ultima_tentativa_bloqueada is False, resultado
+        tentativa(sessao, resultado, timedelta(minutes=5), adiamentos=1, falhas=1)
+        assert situacao_de_vistos_na_partida(sessao).ultima_tentativa_bloqueada is False
