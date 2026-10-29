@@ -59,6 +59,7 @@ docker compose exec postgres psql -U farol -d farol -c "select categoria, count(
 | 14 | Ver o Brasil em "Vistos" | Cor neutra claramente diferente do cinza de "sem informação"; a legenda o explica | FR-023 |
 | 15 | Parar a API (`docker compose stop api`), abrir o site em "Alertas" e escolher "Vistos" | Legenda com "Não foi possível carregar os vistos." e "Tentar de novo"; **nenhum país em cinza** (sem preenchimento) | O10 |
 | 16 | Subir a API (`docker compose start api`) e tocar em "Tentar de novo" | Os vistos carregam e o globo é pintado | O10 |
+| 17 | Com um país selecionado (por exemplo a Argentina), acionar "Recolher painel" no computador (1280 px) e no celular (360 px); repetir pelo teclado (Tab até o botão, Enter e Espaço) | O painel vira a barra horizontal compacta (canto superior direito no computador; rodapé no celular) com bandeira, nome e situação (nível em "Alertas", categoria em "Vistos"); o país continua selecionado e o globo não se move; a barra não cobre a legenda, a linha de fonte, o aviso nem o "Sobre"; tocar na barra expande o mesmo painel; escolher outro país abre expandido; "Ver mundo" na barra fecha o painel e leva o globo ao mundo; recarregar abre sem painel | FR-030 |
 
 ## 5. Simular uma mudança retida (retenção por país)
 
