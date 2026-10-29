@@ -8,6 +8,19 @@
   --color-nivel-nao-viajar: #e24b4a;
   --color-nivel-nao-verificado: #d3d1c7;
 
+  /* Modo "Vistos": do amarelo (isento) ao roxo escuro (exigido), passando pelo rosa; mais escuro, mais
+     exigente. Os valores também existem em vistos.ts; um teste confere. */
+  --color-visto-isento: #fedd50;
+  --color-visto-listras: #1f2a44;
+  --color-visto-na-chegada: #d17da4;
+  --color-visto-autorizacao-eletronica: #8f5fcc;
+  --color-visto-exigido: #3b1c6b;
+  --color-visto-outra-situacao: #948878;
+  --color-visto-sem-informacao: #bebab1;
+  --color-visto-brasil: #f1efe8;
+  --color-visto-borda-da-amostra: #5f5e5a;
+  --color-visto-contorno: #1f2a44;
+
   --color-area-neutra: #f1efe8;
   --color-borda-regional-nao-viaje: #a32d2d;
   --color-borda-regional-evite: #854f0b;
@@ -122,12 +135,29 @@ body {
 }
 
 /* Com o painel aberto, os controles de zoom do mapa saem de baixo dele (lateral: 340 px + margens;
-   gaveta: 55% da altura). */
-[data-painel-aberto="true"][data-modo-do-painel="lateral"] .maplibregl-ctrl-bottom-right {
+   gaveta: 55% da altura). Recolhido, o painel vira uma barra (FR-030): no computador ela fica no
+   canto superior direito e nada se desloca; no celular ela ocupa o rodapé, e os controles de zoom e
+   a legenda (com a linha de fonte) e o crédito das fronteiras sobem para acima dela. Sem animação. */
+:root {
+  --rodape-ocupado: 5.5rem;
+}
+[data-painel-aberto="true"]:not([data-painel-recolhido="true"])[data-modo-do-painel="lateral"]
+  .maplibregl-ctrl-bottom-right {
   right: 352px;
 }
-[data-painel-aberto="true"][data-modo-do-painel="gaveta"] .maplibregl-ctrl-bottom-right {
+[data-painel-aberto="true"]:not([data-painel-recolhido="true"])[data-modo-do-painel="gaveta"]
+  .maplibregl-ctrl-bottom-right {
   bottom: 55dvh;
+}
+[data-painel-recolhido="true"][data-modo-do-painel="gaveta"] .maplibregl-ctrl-bottom-right {
+  bottom: var(--rodape-ocupado);
+}
+/* O crédito das fronteiras sobe junto: fica entre a legenda e a barra, não por baixo dela */
+[data-painel-recolhido="true"][data-modo-do-painel="gaveta"] .maplibregl-ctrl-bottom-left {
+  bottom: calc(var(--rodape-ocupado) - 1.75rem);
+}
+[data-painel-recolhido="true"][data-modo-do-painel="gaveta"] .legenda-flutuante {
+  bottom: calc(var(--rodape-ocupado) + 0.5rem);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,25 +1,47 @@
-import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { NIVEL_PADRAO, type NivelId } from "./compartilhado/niveis";
+import type { ChaveDeVisto } from "./compartilhado/vistos";
 import { useMovimentoReduzido } from "./compartilhado/useMovimentoReduzido";
 import { useTelaPequena } from "./compartilhado/useTelaPequena";
 import { ProvedorDeEstado, useEstado } from "./estado/contexto";
 import { Aviso } from "./funcionalidades/aviso/Aviso";
 import { Busca } from "./funcionalidades/busca/Busca";
 import { nenhumNivelMarcado, territorioEsmaecido } from "./funcionalidades/legenda/filtro";
+import {
+  nenhumVistoMarcado,
+  territorioDeVistoEsmaecido,
+} from "./funcionalidades/legenda/filtroDeVistos";
 import { CeuEstrelado } from "./funcionalidades/mapa/CeuEstrelado";
 import { LegendaRecolhivel } from "./funcionalidades/legenda/LegendaRecolhivel";
 import { SemNiveisMarcados } from "./funcionalidades/legenda/SemNiveisMarcados";
-import { bordaRegionalDe } from "./funcionalidades/mapa/cor";
-import { calcularEnquadramento, margemDoLayout } from "./funcionalidades/mapa/enquadramento";
+import {
+  bordaRegionalDe,
+  preenchimentoDeAlerta,
+  preenchimentoDeVisto,
+} from "./funcionalidades/mapa/cor";
+import {
+  calcularEnquadramento,
+  centroDoEnquadramento,
+  margemDaAreaLivre,
+  margemDoLayout,
+} from "./funcionalidades/mapa/enquadramento";
 import { agruparPostos, paisesSemPostoDesenhados } from "./funcionalidades/mapa/marcadores";
 import { responsavelDe } from "./funcionalidades/mapa/responsavel";
-import type { MapaProps, PedidoDeCamera, TerritorioDesenhado } from "./funcionalidades/mapa/tipos";
+import type {
+  MapaProps,
+  ModoDoGlobo,
+  PedidoDeCamera,
+  TerritorioDesenhado,
+} from "./funcionalidades/mapa/tipos";
 import { useGeometria } from "./funcionalidades/mapa/useGeometria";
 import { useMapa } from "./funcionalidades/mapa/useMapa";
 import { Painel } from "./funcionalidades/painel/Painel";
 import { usePais } from "./funcionalidades/painel/usePais";
 import { Sobre } from "./funcionalidades/sobre/Sobre";
-import type { ClienteDaApi, Mapa, PostoNoPainel } from "./servicos/api/cliente";
+import { SeletorDeModo } from "./funcionalidades/vistos/SeletorDeModo";
+import { useVistos } from "./funcionalidades/vistos/useVistos";
+import type { EstadoDosVistos } from "./estado/reducer";
+import type { ClienteDaApi, Mapa, PostoNoPainel, TerritorioDeVisto } from "./servicos/api/cliente";
 
 interface Props {
   cliente: ClienteDaApi;
@@ -42,7 +64,7 @@ const SEM_TERRITORIOS: Mapa["territorios"] = [];
  * resposta traga outra coisa (princípio V e FR-002). O filtro da legenda age sobre esse mesmo
  * nível, o que o mapa mostra.
  */
-function territoriosDesenhados(
+function territoriosDeAlerta(
   mapa: Mapa,
   niveisMarcados: readonly NivelId[],
 ): TerritorioDesenhado[] {
@@ -51,11 +73,59 @@ function territoriosDesenhados(
     const regioes = mapa.dados_obtidos ? t.regioes : [];
     return {
       codigo: t.codigo,
-      nivel,
+      preenchimento: preenchimentoDeAlerta(t.tipo, nivel),
       bordaRegional: bordaRegionalDe(regioes),
       esmaecido: territorioEsmaecido({ nivel, regioes }, niveisMarcados),
     };
   });
+}
+
+/**
+ * O modo "Vistos" (FR-022 a FR-028): cada território pela situação que `/vistos` traz para ele;
+ * território que a resposta não cita fica "sem informação" (nunca uma categoria deduzida). Sem os
+ * vistos (carregando ou erro) ninguém é pintado, e o cinza de "sem informação" não é usado: ele só
+ * quer dizer que não há dado, e uma falha de rede não é isso. Sem borda regional (FR-025).
+ */
+function territoriosDeVisto(
+  mapa: Mapa,
+  vistos: EstadoDosVistos,
+  marcadas: readonly ChaveDeVisto[],
+): TerritorioDesenhado[] {
+  const porCodigo =
+    vistos.situacao === "pronto"
+      ? new Map<string, TerritorioDeVisto>(vistos.dados.territorios.map((v) => [v.codigo, v]))
+      : null;
+  return mapa.territorios.map((t) => {
+    if (porCodigo === null) {
+      return {
+        codigo: t.codigo,
+        preenchimento: preenchimentoDeVisto(t.tipo, null, false),
+        bordaRegional: null,
+        esmaecido: false,
+      };
+    }
+    const visto = porCodigo.get(t.codigo);
+    const situacao = visto?.situacao ?? "sem_informacao";
+    const aceitaRg = visto?.aceita_rg ?? false;
+    return {
+      codigo: t.codigo,
+      preenchimento: preenchimentoDeVisto(t.tipo, situacao, aceitaRg),
+      bordaRegional: null,
+      esmaecido: territorioDeVistoEsmaecido({ situacao, aceitaRg }, marcadas),
+    };
+  });
+}
+
+function territoriosDesenhados(
+  mapa: Mapa,
+  modo: ModoDoGlobo,
+  niveisMarcados: readonly NivelId[],
+  vistos: EstadoDosVistos,
+  vistosMarcados: readonly ChaveDeVisto[],
+): TerritorioDesenhado[] {
+  return modo === "vistos"
+    ? territoriosDeVisto(mapa, vistos, vistosMarcados)
+    : territoriosDeAlerta(mapa, niveisMarcados);
 }
 
 function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
@@ -64,6 +134,8 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
   const reduzirMovimento = useMovimentoReduzido();
   const celular = useTelaPequena();
   const geometria = useGeometria(buscar);
+  const modo = selecao.modo;
+  const { estado: vistos, tentarDeNovo: tentarVistosDeNovo } = useVistos(cliente, modo);
   const { estado: estadoDoPais, tentarDeNovo: tentarPaisDeNovo } = usePais(
     cliente,
     selecao.selecionado,
@@ -71,12 +143,14 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
   // O pedido fica no estado: cada toque cria um objeto novo e o mapa o executa de novo, mesmo que
   // a pessoa tenha movido o mapa e toque no mesmo país outra vez.
   const [camera, setCamera] = useState<PedidoDeCamera>(CAMERA_INICIAL);
+  const cabecalho = useRef<HTMLElement>(null);
 
   const mapa = estado.situacao === "pronto" ? estado.mapa : null;
   const niveisMarcados = selecao.niveisMarcados;
+  const vistosMarcados = selecao.vistosMarcados;
   const territorios = useMemo(
-    () => (mapa ? territoriosDesenhados(mapa, niveisMarcados) : []),
-    [mapa, niveisMarcados],
+    () => (mapa ? territoriosDesenhados(mapa, modo, niveisMarcados, vistos, vistosMarcados) : []),
+    [mapa, modo, niveisMarcados, vistos, vistosMarcados],
   );
   const postos = useMemo(() => (mapa ? agruparPostos(mapa.postos) : SEM_POSTOS), [mapa]);
   const paisesSemPosto = useMemo(
@@ -150,6 +224,34 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
     [mapa, selecao.postosExpandidos, selecao.grupoEmDestaque, celular, despachar],
   );
 
+  /**
+   * Recolhe ou expande o painel do país; a seleção fica como está (FR-030). No computador a câmera
+   * também não se move. No celular o país vai ao centro da área que sobra visível (entre os
+   * controles do topo e a barra ou a gaveta), sem mudar o zoom.
+   */
+  const alternarRecolhimento = useCallback(() => {
+    const recolher = !selecao.painelRecolhido;
+    despachar({ tipo: recolher ? "recolher-painel" : "expandir-painel" });
+    if (!celular || mapa === null || selecao.selecionado === null) return;
+    if (geometria.situacao !== "pronto") return;
+    const enquadramento = calcularEnquadramento({
+      geometria: geometria.geometria,
+      codigo: selecao.selecionado,
+      responsavel: responsavelDe(mapa, selecao.selecionado),
+      margem: margemDoLayout(true, window.innerHeight),
+    });
+    if (enquadramento === null) return;
+    setCamera({
+      tipo: "centralizar",
+      ...centroDoEnquadramento(enquadramento),
+      margem: margemDaAreaLivre({
+        alturaDaJanela: window.innerHeight,
+        fimDoCabecalho: cabecalho.current?.getBoundingClientRect().bottom ?? 0,
+        painelRecolhido: recolher,
+      }),
+    });
+  }, [selecao.painelRecolhido, selecao.selecionado, celular, mapa, geometria, despachar]);
+
   /** "Ver mundo" e Esc: fecha o painel e devolve a câmera ao mundo. */
   const verMundo = useCallback(() => {
     despachar({ tipo: "limpar-selecao" });
@@ -181,11 +283,13 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
     <div
       className="relative h-dvh w-full overflow-hidden bg-ceu text-texto"
       data-painel-aberto={painelAberto}
+      data-painel-recolhido={painelAberto && selecao.painelRecolhido}
       data-modo-do-painel={modoDoPainel}
     >
       <CeuEstrelado />
       <ComponenteDeMapa
         territorios={territorios}
+        modo={modo}
         postos={postos}
         paisesSemPosto={paisesSemPosto}
         selecionado={selecao.selecionado}
@@ -198,7 +302,10 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
         camera={camera}
       />
 
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-2 sm:flex-row sm:items-start sm:justify-between">
+      <header
+        ref={cabecalho}
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-2 sm:flex-row sm:items-start sm:justify-between"
+      >
         <div className="pointer-events-auto flex max-w-xl flex-col gap-1">
           <h1 className="w-fit rounded-lg bg-ceu/90 px-2 py-0.5 text-base font-semibold text-white">
             Farol Atlas
@@ -208,10 +315,17 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
             atualizadoEm={mapa?.atualizado_em ?? null}
             desatualizado={mapa?.desatualizado ?? false}
             carregando={estado.situacao === "carregando"}
+            vistosDesatualizados={
+              modo === "vistos" && vistos.situacao === "pronto" && vistos.dados.desatualizado
+            }
           />
           <Busca territorios={mapa?.territorios ?? SEM_TERRITORIOS} onEscolher={selecionar} />
         </div>
-        <div className="pointer-events-auto self-end sm:self-auto">
+        <div className="pointer-events-auto flex items-center gap-2 self-end sm:self-auto">
+          <SeletorDeModo
+            modo={modo}
+            onTrocar={(novo) => despachar({ tipo: "trocar-modo", modo: novo })}
+          />
           <Sobre />
         </div>
       </header>
@@ -220,6 +334,13 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
         telaPequena={celular}
         niveisMarcados={niveisMarcados}
         onAlternarNivel={(nivel) => despachar({ tipo: "alternar-nivel", nivel })}
+        modo={modo}
+        vistos={{
+          estado: vistos,
+          marcadas: vistosMarcados,
+          onAlternar: (chave) => despachar({ tipo: "alternar-visto", chave }),
+          onTentarDeNovo: tentarVistosDeNovo,
+        }}
       />
 
       {estadoDoPais.situacao !== "ocioso" && (
@@ -230,12 +351,25 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
           modo={modoDoPainel}
           postosExpandidos={selecao.postosExpandidos}
           onAlternarPosto={alternarPosto}
+          recolhido={selecao.painelRecolhido}
+          onAlternarRecolhimento={alternarRecolhimento}
+          modoDoGlobo={modo}
         />
       )}
 
-      {mapa !== null && nenhumNivelMarcado(niveisMarcados) && (
+      {mapa !== null && modo === "alertas" && nenhumNivelMarcado(niveisMarcados) && (
         <SemNiveisMarcados onMarcarTodos={() => despachar({ tipo: "marcar-todos-niveis" })} />
       )}
+      {mapa !== null &&
+        modo === "vistos" &&
+        vistos.situacao === "pronto" &&
+        nenhumVistoMarcado(vistosMarcados) && (
+          <SemNiveisMarcados
+            mensagem="Nenhuma categoria de visto marcada na legenda. Todos os países estão esmaecidos."
+            botao="Marcar todas as categorias"
+            onMarcarTodos={() => despachar({ tipo: "marcar-todos-vistos" })}
+          />
+        )}
 
       {estado.situacao === "carregando" && (
         <p

@@ -5,17 +5,21 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import App from "./App";
 import type { MapaProps } from "./funcionalidades/mapa/tipos";
 import { limparCacheDaGeometria } from "./funcionalidades/mapa/useGeometria";
-import { ErroDeApi, type Mapa, type Pais } from "./servicos/api/cliente";
+import { NIVEIS } from "./compartilhado/niveis";
+import { CORES_DE_VISTO } from "./compartilhado/vistos";
+import { ErroDeApi, type Mapa, type Pais, type VistosDoMapa } from "./servicos/api/cliente";
 import { criarApiSimulada } from "./testes/api-simulada";
 import {
   ALERTA_EXEMPLO,
   criarPais,
   GEOMETRIA_EXEMPLO,
   MAPA_COM_POSTOS,
+  MAPA_COM_VISTOS,
   MAPA_EXEMPLO,
   PAIS_COM_DOIS_POSTOS,
   PAIS_EXEMPLO,
   PAIS_SEM_POSTO,
+  VISTOS_EXEMPLO,
 } from "./testes/dados-exemplo";
 import { simularMatchMedia, type MediaSimulada } from "./testes/match-media";
 import { MapaFalso } from "./testes/mapa-falso";
@@ -90,11 +94,11 @@ const KOSOVO = criarPais({
 describe("App: ver a situação do mundo", () => {
   it("entrega ao mapa os territórios com os níveis vindos de /mapa", async () => {
     await abrir();
-    expect(desenhado("DK")).toHaveAttribute("data-nivel", "sem_alerta");
-    expect(desenhado("LB")).toHaveAttribute("data-nivel", "evitar");
-    expect(desenhado("BO")).toHaveAttribute("data-nivel", "nao_verificado");
-    expect(desenhado("GL")).toHaveAttribute("data-nivel", "sem_alerta");
-    expect(desenhado("XK")).toHaveAttribute("data-nivel", "sem_alerta");
+    expect(desenhado("DK")).toHaveAttribute("data-cor", NIVEIS.sem_alerta.cor);
+    expect(desenhado("LB")).toHaveAttribute("data-cor", NIVEIS.evitar.cor);
+    expect(desenhado("BO")).toHaveAttribute("data-cor", NIVEIS.nao_verificado.cor);
+    expect(desenhado("GL")).toHaveAttribute("data-cor", NIVEIS.sem_alerta.cor);
+    expect(desenhado("XK")).toHaveAttribute("data-cor", NIVEIS.sem_alerta.cor);
   });
 
   it("faz uma única chamada a /mapa e nenhuma por país", async () => {
@@ -124,7 +128,7 @@ describe("App: ver a situação do mundo", () => {
     // mesmo que o servidor mande outra coisa, o padrão sem dado confirmado é não verificado
     await abrir({ ...MAPA_EXEMPLO, dados_obtidos: false, atualizado_em: null });
     for (const codigo of ["DK", "LB", "BO", "GL", "XK"]) {
-      expect(desenhado(codigo)).toHaveAttribute("data-nivel", "nao_verificado");
+      expect(desenhado(codigo)).toHaveAttribute("data-cor", NIVEIS.nao_verificado.cor);
       expect(desenhado(codigo)).toHaveAttribute("data-borda-regional", "");
     }
     expect(screen.getByText(/ainda não obtivemos os dados/i)).toBeVisible();
@@ -190,7 +194,7 @@ describe("App: erro ao carregar", () => {
     api.obterMapa.mockResolvedValueOnce(MAPA_EXEMPLO);
     await usuario.click(screen.getByRole("button", { name: "Tentar de novo" }));
 
-    await waitFor(() => expect(desenhado("LB")).toHaveAttribute("data-nivel", "evitar"));
+    await waitFor(() => expect(desenhado("LB")).toHaveAttribute("data-cor", NIVEIS.evitar.cor));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(api.obterMapa).toHaveBeenCalledTimes(2);
   });
@@ -629,7 +633,7 @@ describe("App: filtrar o mapa por nível (P5)", () => {
     expect(desenhado("GL")).toHaveAttribute("data-esmaecido", "true");
     expect(desenhado("LB")).toHaveAttribute("data-esmaecido", "false");
     // continua desenhado, com o nível e a cor: esmaecer não esconde nem pinta de cinza
-    expect(desenhado("DK")).toHaveAttribute("data-nivel", "sem_alerta");
+    expect(desenhado("DK")).toHaveAttribute("data-cor", NIVEIS.sem_alerta.cor);
 
     await usuario.click(caixa("Sem alerta do Itamaraty"));
     expect(desenhado("DK")).toHaveAttribute("data-esmaecido", "false");
@@ -688,5 +692,589 @@ describe("App: filtrar o mapa por nível (P5)", () => {
     await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
     await usuario.click(caixa("Evite viagens não essenciais"));
     expect(painel()).toBeInTheDocument();
+  });
+});
+
+describe("App: modo Vistos (feature 002)", () => {
+  const COR = CORES_DE_VISTO;
+
+  async function abrirComVistos(vistos: VistosDoMapa | ErroDeApi = VISTOS_EXEMPLO) {
+    const api = criarApiSimulada({
+      mapa: MAPA_COM_VISTOS,
+      paises: { DK: PAIS_EXEMPLO },
+      vistos,
+    });
+    render(<App cliente={api.cliente} Mapa={MapaEspiao} buscar={buscarGeometria} />);
+    await waitFor(() => expect(desenhado("DK")).toBeInTheDocument());
+    return api;
+  }
+
+  async function escolherVistos() {
+    await userEvent.setup().click(screen.getByRole("radio", { name: "Vistos" }));
+  }
+
+  const cor = (codigo: string) => desenhado(codigo).getAttribute("data-cor");
+  const semIds = (html: string | undefined) => html?.replace(/ (id|aria-labelledby)="[^"]*"/g, "");
+
+  it("o site abre em 'Alertas', igual à 001, sem pedir /vistos", async () => {
+    const api = await abrirComVistos();
+    expect(screen.getByRole("radio", { name: "Alertas" })).toBeChecked();
+    expect(cor("DK")).toBe(NIVEIS.sem_alerta.cor);
+    expect(desenhado("LB")).toHaveAttribute("data-borda-regional", "nao_viajar");
+    expect(api.obterMapa).toHaveBeenCalledTimes(1);
+    expect(api.obterVistos).not.toHaveBeenCalled();
+    expect(screen.queryByText(/^Vistos:/)).not.toBeInTheDocument();
+  });
+
+  it("escolher 'Vistos' busca /vistos uma vez e pinta cada território pela sua categoria", async () => {
+    const api = await abrirComVistos();
+    await escolherVistos();
+    await waitFor(() => expect(cor("US")).toBe(COR.visto_exigido));
+    expect(api.obterVistos).toHaveBeenCalledTimes(1);
+    expect(cor("DK")).toBe(COR.isento);
+    expect(cor("LB")).toBe(COR.autorizacao_eletronica);
+    expect(cor("GL")).toBe(COR.isento);
+    expect(cor("BO")).toBe(COR.sem_informacao); // sem dado: o cinza de "sem informação"
+  });
+
+  it("o Brasil fica no neutro, distinto do cinza de 'sem informação'", async () => {
+    await abrirComVistos();
+    await escolherVistos();
+    await waitFor(() => expect(cor("US")).toBe(COR.visto_exigido));
+    expect(cor("BR")).toBe("#F1EFE8");
+    expect(cor("BR")).not.toBe(cor("BO"));
+  });
+
+  it("'Isento' que aceita só o RG ganha o padrão; o isento comum não", async () => {
+    await abrirComVistos();
+    await escolherVistos();
+    await waitFor(() => expect(cor("AR")).toBe(COR.isento));
+    expect(desenhado("AR")).toHaveAttribute("data-padrao", "rg");
+    expect(desenhado("DK")).toHaveAttribute("data-padrao", "");
+  });
+
+  it("Kosovo e Malvinas são pintados pela própria linha; as Malvinas nunca com a variação do RG", async () => {
+    await abrirComVistos();
+    await escolherVistos();
+    await waitFor(() => expect(cor("XK")).toBe(COR.visto_na_chegada));
+    expect(cor("FK")).toBe(COR.isento);
+    expect(desenhado("FK")).toHaveAttribute("data-padrao", "");
+    expect(desenhado("AR")).toHaveAttribute("data-padrao", "rg"); // a Argentina tem RG; as Malvinas não
+  });
+
+  it("nenhuma borda regional no modo Vistos, e elas voltam ao voltar para 'Alertas'", async () => {
+    await abrirComVistos();
+    await escolherVistos();
+    await waitFor(() => expect(cor("US")).toBe(COR.visto_exigido));
+    expect(desenhado("LB")).toHaveAttribute("data-borda-regional", "");
+    await userEvent.setup().click(screen.getByRole("radio", { name: "Alertas" }));
+    expect(desenhado("LB")).toHaveAttribute("data-borda-regional", "nao_viajar");
+    expect(cor("LB")).toBe(NIVEIS.evitar.cor);
+  });
+
+  it("voltar para 'Alertas' e escolher 'Vistos' de novo não repete a chamada", async () => {
+    const api = await abrirComVistos();
+    const usuario = userEvent.setup();
+    await usuario.click(screen.getByRole("radio", { name: "Vistos" }));
+    await waitFor(() => expect(cor("US")).toBe(COR.visto_exigido));
+    await usuario.click(screen.getByRole("radio", { name: "Alertas" }));
+    await usuario.click(screen.getByRole("radio", { name: "Vistos" }));
+    expect(api.obterVistos).toHaveBeenCalledTimes(1);
+    expect(cor("US")).toBe(COR.visto_exigido);
+  });
+
+  it("recarregar volta a 'Alertas': nada do modo vai para o navegador", async () => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    await abrirComVistos();
+    await escolherVistos();
+    await waitFor(() => expect(cor("US")).toBe(COR.visto_exigido));
+    expect(JSON.stringify({ ...window.localStorage })).not.toMatch(/vistos|modo/i);
+    expect(window.sessionStorage.length).toBe(0);
+
+    cleanup(); // "recarregar": uma tela nova
+    await abrirComVistos();
+    expect(screen.getByRole("radio", { name: "Alertas" })).toBeChecked();
+    expect(cor("US")).toBe(NIVEIS.sem_alerta.cor);
+  });
+
+  it("o painel é o mesmo nos dois modos, e trocar de modo não mexe na seleção nem na câmera", async () => {
+    const api = await abrirComVistos();
+    await tocar("DK");
+    await waitFor(() => expect(painel()).toBeInTheDocument());
+    const painelEmAlertas = semIds(painel()?.innerHTML);
+    expect(propsDoMapa().selecionado).toBe("DK");
+    const camera = propsDoMapa().camera;
+
+    await escolherVistos();
+    await waitFor(() => expect(cor("US")).toBe(COR.visto_exigido));
+    expect(propsDoMapa().selecionado).toBe("DK");
+    expect(propsDoMapa().camera).toBe(camera);
+    expect(semIds(painel()?.innerHTML)).toBe(painelEmAlertas);
+    expect(api.obterPais).toHaveBeenCalledTimes(1); // o painel não é pedido de novo
+  });
+
+  it("tocar num país abre o painel dele também no modo Vistos", async () => {
+    await abrirComVistos();
+    await escolherVistos();
+    await waitFor(() => expect(cor("US")).toBe(COR.visto_exigido));
+    await tocar("DK");
+    await waitFor(() => expect(painel()).toBeInTheDocument());
+    expect(within(painel() as HTMLElement).getByRole("region", { name: "Visto" })).toBeVisible();
+  });
+
+  describe("legenda e filtro", () => {
+    it("a legenda muda para a de vistos, com o subitem do RG", async () => {
+      await abrirComVistos();
+      expect(screen.queryByRole("checkbox", { name: /Visto exigido/ })).not.toBeInTheDocument();
+      await escolherVistos();
+      expect(await screen.findByRole("checkbox", { name: /Isento, entrada com RG/ })).toBeVisible();
+      expect(screen.queryByText("Evite viagens não essenciais")).not.toBeInTheDocument();
+    });
+
+    it("desmarcar uma categoria esmaece só os países dela", async () => {
+      await abrirComVistos();
+      await escolherVistos();
+      await userEvent.setup().click(await screen.findByRole("checkbox", { name: /Visto exigido/ }));
+      expect(desenhado("US")).toHaveAttribute("data-esmaecido", "true");
+      expect(desenhado("DK")).toHaveAttribute("data-esmaecido", "false");
+      expect(desenhado("BR")).toHaveAttribute("data-esmaecido", "false"); // o Brasil não tem chave
+    });
+
+    it("desmarcar só o subitem esmaece só os isentos com RG, e o pai fica 'parcial'", async () => {
+      await abrirComVistos();
+      await escolherVistos();
+      await userEvent
+        .setup()
+        .click(await screen.findByRole("checkbox", { name: /Isento, entrada com RG/ }));
+      expect(desenhado("AR")).toHaveAttribute("data-esmaecido", "true");
+      expect(desenhado("DK")).toHaveAttribute("data-esmaecido", "false");
+      expect(screen.getByText("(parcial)")).toBeVisible();
+    });
+
+    it("o filtro de cada modo é independente", async () => {
+      await abrirComVistos();
+      const usuario = userEvent.setup();
+      await usuario.click(screen.getByRole("checkbox", { name: /Sem alerta do Itamaraty/ }));
+      expect(desenhado("DK")).toHaveAttribute("data-esmaecido", "true");
+
+      await usuario.click(screen.getByRole("radio", { name: "Vistos" }));
+      await screen.findByRole("checkbox", { name: /Visto exigido/ });
+      for (const chave of screen.getAllByRole("checkbox")) expect(chave).toBeChecked();
+      await usuario.click(
+        screen.getByRole("checkbox", { name: /Autorização ou visto eletrônico/ }),
+      );
+      expect(desenhado("LB")).toHaveAttribute("data-esmaecido", "true");
+
+      await usuario.click(screen.getByRole("radio", { name: "Alertas" }));
+      expect(desenhado("DK")).toHaveAttribute("data-esmaecido", "true"); // o de alertas ficou como estava
+      expect(desenhado("LB")).toHaveAttribute("data-esmaecido", "false"); // o de vistos não vazou
+    });
+
+    it("todas desmarcadas: mensagem e botão que marcam tudo de novo", async () => {
+      await abrirComVistos();
+      await escolherVistos();
+      const usuario = userEvent.setup();
+      for (const rotulo of [
+        /^Isento de visto/,
+        /Visto na chegada/,
+        /Autorização ou visto eletrônico/,
+        /Visto exigido/,
+        /Outra situação/,
+        /Sem informação de visto/,
+      ]) {
+        await usuario.click(await screen.findByRole("checkbox", { name: rotulo }));
+      }
+      expect(screen.getByText(/nenhuma categoria de visto marcada/i)).toBeVisible();
+      await usuario.click(screen.getByRole("button", { name: "Marcar todas as categorias" }));
+      expect(screen.queryByText(/nenhuma categoria de visto marcada/i)).not.toBeInTheDocument();
+      expect(desenhado("US")).toHaveAttribute("data-esmaecido", "false");
+    });
+  });
+
+  describe("carregando e erro de /vistos", () => {
+    const COM_PAINEL = ["DK", "LB", "BO", "US", "XK", "FK"];
+
+    it("carregando: nenhum território pintado, nenhum cinza; a legenda avisa", async () => {
+      const api = criarApiSimulada({ mapa: MAPA_COM_VISTOS });
+      api.obterVistos.mockReturnValue(new Promise(() => {}));
+      render(<App cliente={api.cliente} Mapa={MapaEspiao} buscar={buscarGeometria} />);
+      await waitFor(() => expect(desenhado("DK")).toBeInTheDocument());
+      await escolherVistos();
+      expect(await screen.findByText("Carregando os vistos…")).toBeVisible();
+      for (const codigo of COM_PAINEL) {
+        expect(desenhado(codigo)).toHaveAttribute("data-sem-preenchimento", "true");
+        expect(cor(codigo)).not.toBe(COR.sem_informacao);
+      }
+    });
+
+    it("erro: mensagem e 'Tentar de novo', e nenhum território com a cor de 'sem informação'", async () => {
+      await abrirComVistos(new ErroDeApi(503, "indisponível"));
+      await escolherVistos();
+      expect(await screen.findByText("Não foi possível carregar os vistos.")).toBeVisible();
+      expect(screen.getByRole("button", { name: "Tentar de novo" })).toBeVisible();
+      expect(screen.getByText("Vistos: dados indisponíveis no momento")).toBeVisible();
+      for (const codigo of COM_PAINEL) {
+        expect(desenhado(codigo)).toHaveAttribute("data-sem-preenchimento", "true");
+        expect(cor(codigo)).not.toBe(COR.sem_informacao);
+      }
+      expect(desenhado("BR")).toHaveAttribute("data-sem-preenchimento", "true"); // nada é pintado
+    });
+
+    it("'Tentar de novo' refaz a chamada e, com sucesso, pinta", async () => {
+      const api = await abrirComVistos(new ErroDeApi(503, "indisponível"));
+      await escolherVistos();
+      const botao = await screen.findByRole("button", { name: "Tentar de novo" });
+      api.obterVistos.mockResolvedValue(VISTOS_EXEMPLO);
+      await userEvent.setup().click(botao);
+      await waitFor(() => expect(cor("US")).toBe(COR.visto_exigido));
+      expect(api.obterVistos).toHaveBeenCalledTimes(2);
+      expect(screen.queryByText("Não foi possível carregar os vistos.")).not.toBeInTheDocument();
+    });
+
+    it("com erro, voltar para 'Alertas' funciona normalmente", async () => {
+      await abrirComVistos(new ErroDeApi(503, "indisponível"));
+      await escolherVistos();
+      await screen.findByText("Não foi possível carregar os vistos.");
+      await userEvent.setup().click(screen.getByRole("radio", { name: "Alertas" }));
+      expect(cor("DK")).toBe(NIVEIS.sem_alerta.cor);
+      expect(desenhado("LB")).toHaveAttribute("data-borda-regional", "nao_viajar");
+    });
+
+    it("com erro, o painel continua abrindo e a seleção não muda", async () => {
+      await abrirComVistos(new ErroDeApi(503, "indisponível"));
+      await escolherVistos();
+      await screen.findByText("Não foi possível carregar os vistos.");
+      await tocar("DK");
+      await waitFor(() => expect(painel()).toBeInTheDocument());
+      expect(propsDoMapa().selecionado).toBe("DK");
+    });
+
+    it("antes da primeira coleta (dados_obtidos falso) tudo é 'sem informação' e a legenda explica", async () => {
+      const vazio: VistosDoMapa = {
+        ...VISTOS_EXEMPLO,
+        dados_obtidos: false,
+        coletado_em: null,
+        territorios: VISTOS_EXEMPLO.territorios.map((t) =>
+          t.codigo === "BR" ? t : { ...t, situacao: "sem_informacao" as const, aceita_rg: false },
+        ),
+      };
+      await abrirComVistos(vazio);
+      await escolherVistos();
+      expect(await screen.findByText("Vistos: ainda não há dados de visto")).toBeVisible();
+      expect(cor("DK")).toBe(COR.sem_informacao);
+      expect(cor("BR")).toBe("#F1EFE8");
+    });
+  });
+
+  describe("linha de fonte e aviso", () => {
+    it("no celular, com a legenda recolhida, a linha de fonte e data só aparece no modo 'Vistos'", async () => {
+      media.definir(CELULAR, true);
+      await abrirComVistos();
+      expect(screen.queryByText(/^Vistos:/)).not.toBeInTheDocument();
+      const legenda = () => screen.getByRole("button", { name: "Legenda das cores" });
+      expect(legenda()).toHaveAttribute("aria-expanded", "false");
+      await escolherVistos();
+      const linha = await screen.findByText(/^Vistos:.*coletados em 27\/10\/2026/);
+      expect(linha).toBeVisible();
+      expect(legenda()).toHaveAttribute("aria-expanded", "false");
+      expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    });
+
+    it("no modo Vistos, vistos com mais de 14 dias avisam na área de avisos, sem painel aberto", async () => {
+      await abrirComVistos({ ...VISTOS_EXEMPLO, desatualizado: true });
+      expect(screen.queryByText(/dados de visto desatualizados/i)).not.toBeInTheDocument();
+      await escolherVistos();
+      const aviso = await screen.findByText(/dados de visto desatualizados/i);
+      expect(aviso.closest("section")).toHaveAccessibleName("Avisos");
+      expect(painel()).not.toBeInTheDocument();
+      await userEvent.setup().click(screen.getByRole("radio", { name: "Alertas" }));
+      expect(screen.queryByText(/dados de visto desatualizados/i)).not.toBeInTheDocument();
+    });
+
+    it("vistos em dia não trazem o aviso", async () => {
+      await abrirComVistos();
+      await escolherVistos();
+      await screen.findByText(/^Vistos:.*coletados em/);
+      expect(screen.queryByText(/dados de visto desatualizados/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it("o seletor de modo é alcançável pelo teclado", async () => {
+    await abrirComVistos();
+    const usuario = userEvent.setup();
+    screen.getByRole("radio", { name: "Alertas" }).focus();
+    await usuario.keyboard("{ArrowRight}");
+    expect(screen.getByRole("radio", { name: "Vistos" })).toBeChecked();
+    await waitFor(() => expect(cor("US")).toBe(COR.visto_exigido));
+  });
+});
+
+describe("App: painel recolhível (FR-030)", () => {
+  const PAISES = { DK: PAIS_EXEMPLO, US: PAIS_COM_DOIS_POSTOS, PR: PAIS_SEM_POSTO };
+  const WASHINGTON = "38.9,-77";
+
+  async function abrirRecolhivel() {
+    const api = criarApiSimulada({ mapa: MAPA_COM_POSTOS, paises: PAISES, vistos: VISTOS_EXEMPLO });
+    render(<App cliente={api.cliente} Mapa={MapaEspiao} buscar={buscarGeometria} />);
+    await waitFor(() => expect(desenhado("DK")).toBeInTheDocument());
+    return api;
+  }
+
+  const raiz = () => document.querySelector<HTMLElement>("[data-painel-aberto]") as HTMLElement;
+  const barra = () => screen.queryByRole("complementary", { name: "Detalhes do país (recolhido)" });
+  const botaoDeRecolher = () => screen.getByRole("button", { name: "Recolher painel" });
+  const botaoDeExpandir = () => screen.getByRole("button", { name: /^Expandir painel/ });
+  const semIds = (html: string | undefined) => html?.replace(/ (id|aria-labelledby)="[^"]*"/g, "");
+
+  async function abrirDinamarcaERecolher() {
+    const api = await abrirRecolhivel();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    await userEvent.setup().click(botaoDeRecolher());
+    return api;
+  }
+
+  it("recolher mantém o país selecionado e não muda a câmera", async () => {
+    await abrirRecolhivel();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    const camera = propsDoMapa().camera;
+
+    await userEvent.setup().click(botaoDeRecolher());
+
+    expect(barra()).toBeVisible();
+    expect(painel()).not.toBeInTheDocument();
+    expect(propsDoMapa().selecionado).toBe("DK");
+    expect(propsDoMapa().camera).toBe(camera);
+  });
+
+  it("data-painel-recolhido acompanha o estado", async () => {
+    await abrirRecolhivel();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+    const usuario = userEvent.setup();
+    await usuario.click(botaoDeRecolher());
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "true");
+    expect(raiz()).toHaveAttribute("data-painel-aberto", "true");
+    await usuario.click(botaoDeExpandir());
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+  });
+
+  it("a barra mostra o nível em 'Alertas' e a categoria em 'Vistos', sem expandir nem pedir o país", async () => {
+    const api = await abrirDinamarcaERecolher();
+    const usuario = userEvent.setup();
+    expect(within(barra() as HTMLElement).getByText("Sem alerta")).toBeVisible();
+
+    await usuario.click(screen.getByRole("radio", { name: "Vistos" }));
+    expect(barra()).toBeVisible();
+    expect(within(barra() as HTMLElement).getByText("Isento")).toBeVisible();
+    expect(within(barra() as HTMLElement).queryByText("Sem alerta")).toBeNull();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "true");
+
+    await usuario.click(screen.getByRole("radio", { name: "Alertas" }));
+    expect(within(barra() as HTMLElement).getByText("Sem alerta")).toBeVisible();
+    expect(api.obterPais).toHaveBeenCalledTimes(1);
+  });
+
+  it("tocar na barra expande o mesmo país com os mesmos postos abertos", async () => {
+    const api = await abrirRecolhivel();
+    const usuario = userEvent.setup();
+    await usuario.click(screen.getByRole("button", { name: `tocar ícone ${WASHINGTON}` }));
+    await screen.findByRole("heading", { level: 2, name: "Estados Unidos" });
+    const abertos = () => Array.from(document.querySelectorAll("details")).map((d) => d.open);
+    expect(abertos()).toEqual([true, true]);
+
+    await usuario.click(botaoDeRecolher());
+    expect(document.querySelector("details")).toBeNull();
+    await usuario.click(botaoDeExpandir());
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Estados Unidos" })).toBeVisible();
+    expect(abertos()).toEqual([true, true]);
+    expect(api.obterPais).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("mapa-grupo-em-destaque")).toHaveTextContent(WASHINGTON);
+  });
+
+  it("escolher outro território abre expandido (toque, ícone de posto e busca)", async () => {
+    const usuario = userEvent.setup();
+    await abrirDinamarcaERecolher();
+    await tocar("US");
+    expect(await screen.findByRole("heading", { level: 2, name: "Estados Unidos" })).toBeVisible();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+    expect(barra()).toBeNull();
+
+    await usuario.click(botaoDeRecolher());
+    await usuario.click(screen.getByRole("button", { name: `tocar ícone ${WASHINGTON}` }));
+    expect(await screen.findByRole("heading", { level: 2, name: "Estados Unidos" })).toBeVisible();
+    expect(barra()).toBeNull();
+
+    await usuario.click(botaoDeRecolher());
+    await usuario.type(screen.getByRole("combobox"), "Dinamarca");
+    await usuario.click(
+      (await screen.findAllByRole("option", { name: /Dinamarca/ }))[0] as HTMLElement,
+    );
+    expect(await screen.findByRole("heading", { level: 2, name: "Dinamarca" })).toBeVisible();
+    expect(barra()).toBeNull();
+  });
+
+  it("'Ver mundo' na barra fecha, leva a câmera ao mundo e a próxima seleção abre expandida", async () => {
+    const usuario = userEvent.setup();
+    await abrirDinamarcaERecolher();
+    await usuario.click(within(barra() as HTMLElement).getByRole("button", { name: "Ver mundo" }));
+
+    expect(barra()).toBeNull();
+    expect(painel()).not.toBeInTheDocument();
+    expect(propsDoMapa().camera.tipo).toBe("mundo");
+    expect(screen.getByTestId("mapa-selecionado")).toBeEmptyDOMElement();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+
+    await tocar("DK");
+    expect(await screen.findByRole("heading", { level: 2, name: "Dinamarca" })).toBeVisible();
+  });
+
+  it("Esc com a barra fecha e leva a câmera ao mundo", async () => {
+    await abrirDinamarcaERecolher();
+    await userEvent.setup().keyboard("{Escape}");
+    expect(barra()).toBeNull();
+    expect(propsDoMapa().camera.tipo).toBe("mundo");
+    expect(screen.getByTestId("mapa-selecionado")).toBeEmptyDOMElement();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+  });
+
+  it("o toque no oceano também fecha a barra", async () => {
+    await abrirDinamarcaERecolher();
+    await userEvent.setup().click(screen.getByRole("button", { name: "tocar no oceano" }));
+    expect(barra()).toBeNull();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+  });
+
+  it("recarregar abre sem painel, e nada do recolhido vai ao navegador", async () => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    await abrirDinamarcaERecolher();
+    expect(JSON.stringify({ ...window.localStorage })).not.toMatch(/recolhid|painel/i);
+    expect(window.sessionStorage.length).toBe(0);
+
+    cleanup(); // "recarregar": uma tela nova
+    await abrirRecolhivel();
+    expect(barra()).toBeNull();
+    expect(painel()).not.toBeInTheDocument();
+    expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+  });
+
+  it("o filtro de cada modo e o painel dos dois modos não mudam ao recolher e expandir", async () => {
+    const usuario = userEvent.setup();
+    await abrirRecolhivel();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    await usuario.click(screen.getByRole("checkbox", { name: "Não viaje" }));
+    const painelAntes = semIds(painel()?.innerHTML);
+
+    await usuario.click(botaoDeRecolher());
+    await usuario.click(botaoDeExpandir());
+
+    expect(screen.getByRole("checkbox", { name: "Não viaje" })).not.toBeChecked();
+    expect(semIds(painel()?.innerHTML)).toBe(painelAntes);
+    await usuario.click(screen.getByRole("radio", { name: "Vistos" }));
+    expect(within(painel() as HTMLElement).getByRole("region", { name: "Visto" })).toBeVisible();
+  });
+
+  describe("no celular", () => {
+    beforeEach(() => media.definir(CELULAR, true));
+
+    it("a barra fica no rodapé e a legenda, com a linha de fonte, é a que o CSS sobe", async () => {
+      const usuario = userEvent.setup();
+      await abrirRecolhivel();
+      await usuario.click(screen.getByRole("radio", { name: "Vistos" }));
+      await tocar("DK");
+      await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+      expect(raiz()).toHaveAttribute("data-modo-do-painel", "gaveta");
+      expect(raiz()).toHaveAttribute("data-painel-recolhido", "false");
+
+      await usuario.click(botaoDeRecolher());
+
+      expect(raiz()).toHaveAttribute("data-modo-do-painel", "gaveta");
+      expect(raiz()).toHaveAttribute("data-painel-recolhido", "true");
+      expect(barra()).toHaveAttribute("data-modo", "gaveta");
+      const legenda = screen.getByRole("button", { name: "Legenda das cores" }).parentElement;
+      expect(legenda).toHaveClass("legenda-flutuante");
+      expect(legenda).toContainElement(screen.getByText(/^Vistos:/));
+    });
+
+    it("recolher e expandir levam o país ao centro da área visível, sem mudar o zoom (FR-030)", async () => {
+      const usuario = userEvent.setup();
+      await abrirRecolhivel();
+      await tocar("DK");
+      await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+      expect(propsDoMapa().camera.tipo).toBe("enquadrar");
+
+      await usuario.click(botaoDeRecolher());
+
+      const recolhido = propsDoMapa().camera;
+      expect(recolhido.tipo).toBe("centralizar");
+      expect(recolhido).toMatchObject({
+        margem: { esquerda: 20, direita: 20, baixo: 80 },
+      });
+      expect(recolhido).not.toHaveProperty("zoom");
+      expect(recolhido).not.toHaveProperty("zoomMaximo");
+      expect(propsDoMapa().selecionado).toBe("DK");
+
+      await usuario.click(botaoDeExpandir());
+
+      const expandido = propsDoMapa().camera;
+      expect(expandido).not.toBe(recolhido);
+      expect(expandido).toMatchObject({
+        tipo: "centralizar",
+        margem: { baixo: Math.round(window.innerHeight * 0.55) },
+      });
+      // o mesmo ponto nos dois pedidos: o centro do país
+      expect(expandido).toMatchObject({
+        latitude: (recolhido as { latitude: number }).latitude,
+        longitude: (recolhido as { longitude: number }).longitude,
+      });
+    });
+
+    it("selecionar outro país com a barra aberta enquadra como sempre, sem o pedido de centralizar", async () => {
+      const usuario = userEvent.setup();
+      await abrirDinamarcaERecolher();
+      expect(propsDoMapa().camera.tipo).toBe("centralizar");
+
+      await tocar("US");
+      await screen.findByRole("heading", { level: 2, name: "Estados Unidos" });
+      expect(propsDoMapa().camera.tipo).toBe("enquadrar");
+      await usuario.click(botaoDeRecolher());
+      expect(propsDoMapa().camera.tipo).toBe("centralizar");
+    });
+
+    it("o pedido de centralizar leva a preferência por movimento reduzido (sem animação)", async () => {
+      media.definir("(prefers-reduced-motion: reduce)", true);
+      await abrirDinamarcaERecolher();
+      expect(propsDoMapa().camera.tipo).toBe("centralizar");
+      expect(propsDoMapa().reduzirMovimento).toBe(true);
+    });
+  });
+
+  describe("no computador", () => {
+    beforeEach(() => media.definir(CELULAR, false));
+
+    it("a barra flutua no canto do painel", async () => {
+      await abrirDinamarcaERecolher();
+      expect(raiz()).toHaveAttribute("data-modo-do-painel", "lateral");
+      expect(barra()).toHaveAttribute("data-modo", "lateral");
+    });
+
+    it("no computador recolher e expandir não pedem câmera nenhuma", async () => {
+      const usuario = userEvent.setup();
+      await abrirRecolhivel();
+      await tocar("DK");
+      await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+      const camera = propsDoMapa().camera;
+      await usuario.click(botaoDeRecolher());
+      expect(propsDoMapa().camera).toBe(camera);
+      await usuario.click(botaoDeExpandir());
+      expect(propsDoMapa().camera).toBe(camera);
+    });
   });
 });

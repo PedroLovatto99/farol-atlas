@@ -18,7 +18,9 @@ export function MapaFalso(props: MapaProps) {
           <li
             key={t.codigo}
             data-codigo={t.codigo}
-            data-nivel={t.nivel}
+            data-cor={t.preenchimento.cor ?? ""}
+            data-padrao={t.preenchimento.padrao ?? ""}
+            data-sem-preenchimento={String(t.preenchimento.cor === null)}
             data-borda-regional={t.bordaRegional ?? ""}
             data-esmaecido={String(t.esmaecido)}
           >

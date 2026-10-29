@@ -1,6 +1,17 @@
 /** Estado compartilhado da aplicação (sem biblioteca global): seleção, postos e filtro de níveis. */
 import { ORDEM_DA_LEGENDA, type NivelId } from "../compartilhado/niveis";
+import { TODAS_AS_CHAVES_DE_VISTO, type ChaveDeVisto } from "../compartilhado/vistos";
 import { alternarNivel } from "../funcionalidades/legenda/filtro";
+import { alternarVisto } from "../funcionalidades/legenda/filtroDeVistos";
+import type { ModoDoGlobo } from "../funcionalidades/mapa/tipos";
+import type { VistosDoMapa } from "../servicos/api/cliente";
+
+/** Os vistos do globo (`GET /vistos`), pedidos só quando a pessoa escolhe o modo "Vistos". */
+export type EstadoDosVistos =
+  | { situacao: "nao_pedido" }
+  | { situacao: "carregando" }
+  | { situacao: "erro"; mensagem: string }
+  | { situacao: "pronto"; dados: VistosDoMapa };
 
 export interface Estado {
   /** Código do território selecionado (inclusive Kosovo e Malvinas, que abrem o painel do soberano). */
@@ -11,6 +22,13 @@ export interface Estado {
   grupoEmDestaque: string | null;
   /** Níveis marcados na legenda; todos vêm marcados ao abrir o site (FR-024). */
   niveisMarcados: readonly NivelId[];
+  /** O que o globo mostra; sempre "alertas" ao abrir e nunca guardado entre visitas (FR-021). */
+  modo: ModoDoGlobo;
+  /** Chaves marcadas na legenda de vistos; todas ao abrir; independente de `niveisMarcados`. */
+  vistosMarcados: readonly ChaveDeVisto[];
+  vistos: EstadoDosVistos;
+  /** O painel do país virou uma barra (FR-030); o país continua selecionado. Nunca guardado entre visitas. */
+  painelRecolhido: boolean;
 }
 
 export type Acao =
@@ -25,28 +43,60 @@ export type Acao =
   /** Marca ou desmarca um nível na legenda; não mexe na seleção nem nos postos (FR-024). */
   | { tipo: "alternar-nivel"; nivel: NivelId }
   /** O botão da mensagem "nenhum nível marcado". */
-  | { tipo: "marcar-todos-niveis" };
+  | { tipo: "marcar-todos-niveis" }
+  /** Alterna o globo entre "Alertas" e "Vistos"; não mexe em seleção, painel, postos nem câmera. */
+  | { tipo: "trocar-modo"; modo: ModoDoGlobo }
+  /** Marca ou desmarca uma chave da legenda de vistos (o item "Isento" leva o subitem do RG). */
+  | { tipo: "alternar-visto"; chave: ChaveDeVisto }
+  | { tipo: "marcar-todos-vistos" }
+  | { tipo: "vistos-carregando" }
+  | { tipo: "vistos-carregados"; dados: VistosDoMapa }
+  | { tipo: "vistos-falhou"; mensagem: string }
+  /** O painel vira a barra; não mexe em seleção, postos, câmera, modo nem filtros. */
+  | { tipo: "recolher-painel" }
+  | { tipo: "expandir-painel" };
 
 export const ESTADO_INICIAL: Estado = {
   selecionado: null,
   postosExpandidos: [],
   grupoEmDestaque: null,
   niveisMarcados: ORDEM_DA_LEGENDA,
+  modo: "alertas",
+  vistosMarcados: TODAS_AS_CHAVES_DE_VISTO,
+  vistos: { situacao: "nao_pedido" },
+  painelRecolhido: false,
 };
 
 export function reducer(estado: Estado, acao: Acao): Estado {
   switch (acao.tipo) {
     case "selecionar":
-      return { ...estado, selecionado: acao.codigo, postosExpandidos: [], grupoEmDestaque: null };
+      return {
+        ...estado,
+        selecionado: acao.codigo,
+        postosExpandidos: [],
+        grupoEmDestaque: null,
+        painelRecolhido: false,
+      };
     case "limpar-selecao":
-      return { ...estado, selecionado: null, postosExpandidos: [], grupoEmDestaque: null };
+      return {
+        ...estado,
+        selecionado: null,
+        postosExpandidos: [],
+        grupoEmDestaque: null,
+        painelRecolhido: false,
+      };
     case "expandir-posto":
       // O navegador repete o evento ao abrir por código: nada a mudar, nem uma renderização
-      if (estado.postosExpandidos.includes(acao.id) && estado.grupoEmDestaque === acao.grupo) {
+      if (
+        estado.postosExpandidos.includes(acao.id) &&
+        estado.grupoEmDestaque === acao.grupo &&
+        !estado.painelRecolhido
+      ) {
         return estado;
       }
       return {
         ...estado,
+        painelRecolhido: false,
         postosExpandidos: estado.postosExpandidos.includes(acao.id)
           ? estado.postosExpandidos
           : [...estado.postosExpandidos, acao.id],
@@ -68,11 +118,29 @@ export function reducer(estado: Estado, acao: Acao): Estado {
         selecionado: acao.territorio,
         postosExpandidos: acao.ids,
         grupoEmDestaque: acao.grupo,
+        painelRecolhido: false,
       };
     case "alternar-nivel":
       return { ...estado, niveisMarcados: alternarNivel(estado.niveisMarcados, acao.nivel) };
     case "marcar-todos-niveis":
       if (ORDEM_DA_LEGENDA.every((n) => estado.niveisMarcados.includes(n))) return estado;
       return { ...estado, niveisMarcados: ORDEM_DA_LEGENDA };
+    case "trocar-modo":
+      return acao.modo === estado.modo ? estado : { ...estado, modo: acao.modo };
+    case "alternar-visto":
+      return { ...estado, vistosMarcados: alternarVisto(estado.vistosMarcados, acao.chave) };
+    case "marcar-todos-vistos":
+      if (TODAS_AS_CHAVES_DE_VISTO.every((c) => estado.vistosMarcados.includes(c))) return estado;
+      return { ...estado, vistosMarcados: TODAS_AS_CHAVES_DE_VISTO };
+    case "vistos-carregando":
+      return { ...estado, vistos: { situacao: "carregando" } };
+    case "vistos-carregados":
+      return { ...estado, vistos: { situacao: "pronto", dados: acao.dados } };
+    case "vistos-falhou":
+      return { ...estado, vistos: { situacao: "erro", mensagem: acao.mensagem } };
+    case "recolher-painel":
+      return estado.painelRecolhido ? estado : { ...estado, painelRecolhido: true };
+    case "expandir-painel":
+      return estado.painelRecolhido ? { ...estado, painelRecolhido: false } : estado;
   }
 }

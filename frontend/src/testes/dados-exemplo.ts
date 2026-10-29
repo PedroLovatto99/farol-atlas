@@ -1,5 +1,13 @@
 /** Respostas de exemplo da API, no formato do contrato, para os testes de interface. */
-import type { AlertaDoPais, Mapa, Pais, PostoNoPainel, Visto } from "../servicos/api/cliente";
+import type {
+  AlertaDoPais,
+  Mapa,
+  Pais,
+  PostoNoPainel,
+  TerritorioNoMapa,
+  Visto,
+  VistosDoMapa,
+} from "../servicos/api/cliente";
 
 export const MAPA_EXEMPLO: Mapa = {
   dados_obtidos: true,
@@ -462,3 +470,66 @@ export const PAIS_SEM_POSTO: Pais = criarPais({
     grupo: "25.76,-80.19",
   },
 });
+
+const territorioDoMapa = (
+  codigo: string,
+  nome: string,
+  extras: Partial<TerritorioNoMapa> = {},
+): TerritorioNoMapa => ({
+  codigo,
+  nome,
+  rotulo_busca: nome,
+  termos_busca: [],
+  tipo: "pais",
+  soberano: null,
+  bandeira: codigo,
+  identidade_do_soberano: false,
+  nivel: "sem_alerta",
+  regioes: [],
+  observacao: null,
+  ...extras,
+});
+
+/** /mapa com os territórios que os testes de vistos precisam: Argentina, Estados Unidos, Malvinas e Brasil. */
+export const MAPA_COM_VISTOS: Mapa = {
+  ...MAPA_EXEMPLO,
+  territorios: [
+    ...MAPA_EXEMPLO.territorios,
+    territorioDoMapa("AR", "Argentina"),
+    territorioDoMapa("US", "Estados Unidos"),
+    territorioDoMapa("FK", "Argentina", {
+      rotulo_busca: "Ilhas Malvinas (Argentina)",
+      termos_busca: ["Malvinas"],
+      tipo: "dependencia",
+      soberano: "AR",
+      identidade_do_soberano: true,
+    }),
+    territorioDoMapa("BR", "Brasil"),
+  ],
+};
+
+/**
+ * /vistos para `MAPA_COM_VISTOS`: Kosovo e Malvinas com a situação da própria linha (nunca a do
+ * soberano; as Malvinas sem o RG da Argentina), o Brasil `nao_se_aplica` e a Bolívia sem dado.
+ */
+export const VISTOS_EXEMPLO: VistosDoMapa = {
+  dados_obtidos: true,
+  coletado_em: "2026-10-27T12:00:00Z",
+  desatualizado: false,
+  fonte: {
+    nome: "Wikipédia: Visa requirements for Brazilian citizens",
+    url: "https://en.wikipedia.org/wiki/Visa_requirements_for_Brazilian_citizens",
+    licenca: "CC BY-SA",
+  },
+  territorios: [
+    { codigo: "DK", situacao: "isento", aceita_rg: false },
+    { codigo: "LB", situacao: "autorizacao_eletronica", aceita_rg: false },
+    { codigo: "BO", situacao: "sem_informacao", aceita_rg: false },
+    { codigo: "GL", situacao: "isento", aceita_rg: false },
+    { codigo: "XK", situacao: "visto_na_chegada", aceita_rg: false },
+    { codigo: "AR", situacao: "isento", aceita_rg: true },
+    { codigo: "US", situacao: "visto_exigido", aceita_rg: false },
+    { codigo: "FK", situacao: "isento", aceita_rg: false },
+    { codigo: "BR", situacao: "nao_se_aplica", aceita_rg: false },
+  ],
+};

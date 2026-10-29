@@ -147,6 +147,46 @@ export function margemDoLayout(celular: boolean, alturaDaJanela: number): Margem
     : { topo: TOPO_DO_COMPUTADOR, esquerda: 20, direita: 380, baixo: 20 };
 }
 
+/** Espaço que a barra do painel recolhido ocupa no rodapé do celular: 59 px de barra, 8 de margem e folga. */
+const ALTURA_DA_BARRA_NO_CELULAR = 80;
+const FOLGA_DO_TOPO = 8;
+
+/** Centro da caixa de um enquadramento: o ponto onde fica o país, para centralizá-lo sem mudar o zoom. */
+export function centroDoEnquadramento(pedido: PedidoDeEnquadramento): {
+  latitude: number;
+  longitude: number;
+} {
+  const [[oeste, sul], [leste, norte]] = pedido.caixa;
+  return { latitude: (sul + norte) / 2, longitude: (oeste + leste) / 2 };
+}
+
+interface EntradaDaAreaLivre {
+  alturaDaJanela: number;
+  /** Onde terminam os controles do topo (aviso, busca, seletor), em pixels; 0 se não foi medido. */
+  fimDoCabecalho: number;
+  /** O painel que vai ocupar o rodapé: a barra (recolhido) ou a gaveta de 55% (expandido). */
+  painelRecolhido: boolean;
+}
+
+/**
+ * Margem da área visível do celular depois de recolher ou expandir o painel (FR-030): de baixo dos
+ * controles do topo até o painel, que é a barra ou a gaveta.
+ */
+export function margemDaAreaLivre({
+  alturaDaJanela,
+  fimDoCabecalho,
+  painelRecolhido,
+}: EntradaDaAreaLivre): Margem {
+  return {
+    topo: fimDoCabecalho > 0 ? Math.ceil(fimDoCabecalho) + FOLGA_DO_TOPO : TOPO_DO_CELULAR,
+    esquerda: 20,
+    direita: 20,
+    baixo: painelRecolhido
+      ? ALTURA_DA_BARRA_NO_CELULAR
+      : Math.round(alturaDaJanela * FRACAO_DA_GAVETA),
+  };
+}
+
 /** Duração dos movimentos de câmera: nenhuma com a preferência por movimento reduzido (FR-039). */
 export function duracaoDoMovimento(reduzirMovimento: boolean): number {
   return reduzirMovimento ? 0 : DURACAO_DO_MOVIMENTO;

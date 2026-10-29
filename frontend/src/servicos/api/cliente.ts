@@ -23,6 +23,9 @@ export type Visto = Esquemas["Visto"];
 export type Permanencia = Esquemas["Permanencia"];
 export type ObservacaoDeVisto = Esquemas["ObservacaoDeVisto"];
 export type SituacaoDeVisto = Esquemas["SituacaoDeVisto"];
+export type SituacaoNoGlobo = Esquemas["SituacaoNoGlobo"];
+export type VistosDoMapa = Esquemas["VistosDoMapa"];
+export type TerritorioDeVisto = Esquemas["TerritorioDeVisto"];
 
 export class ErroDeApi extends Error {
   readonly status: number;
@@ -54,6 +57,11 @@ class Leitor {
 
   private falhar(campo: string): never {
     return invalido(`${this.caminho}${campo}`, this.status);
+  }
+
+  /** Recusa o campo por uma regra que o tipo sozinho não enxerga. */
+  rejeitar(campo: string): never {
+    return this.falhar(campo);
   }
 
   texto(campo: string): string {
@@ -135,6 +143,7 @@ function raiz(dados: unknown, status: number): Leitor {
   return new Leitor(dados, "", status);
 }
 
+const CODIGO_DO_BRASIL = "BR";
 const NIVEIS = ["sem_alerta", "evitar", "nao_viajar", "nao_verificado"] as const;
 const NIVEIS_REGIONAIS = ["evitar", "nao_viajar"] as const;
 const TIPOS_DE_TERRITORIO = ["pais", "dependencia"] as const;
@@ -146,6 +155,7 @@ const SITUACOES_DE_VISTO = [
   "outra_situacao",
   "sem_informacao",
 ] as const;
+const SITUACOES_NO_GLOBO = [...SITUACOES_DE_VISTO, "nao_se_aplica"] as const;
 const MOTIVOS_OUTRA_SITUACAO = ["rotulo_conhecido", "rotulo_desconhecido"] as const;
 const ORIGENS_DO_VISTO = ["proprio", "soberano"] as const;
 const TIPOS_DE_PERMANENCIA = [
@@ -305,6 +315,25 @@ export function validarPais(dados: unknown, status = 200): Pais {
   };
 }
 
+function lerTerritorioDeVisto(l: Leitor): TerritorioDeVisto {
+  const codigo = l.texto("codigo");
+  const situacao = l.um("situacao", SITUACOES_NO_GLOBO);
+  // "não se aplica" é só do Brasil (FR-023): em outro território, a resposta está fora do contrato
+  if (situacao === "nao_se_aplica" && codigo !== CODIGO_DO_BRASIL) return l.rejeitar("situacao");
+  return { codigo, situacao, aceita_rg: l.booleano("aceita_rg") };
+}
+
+export function validarVistos(dados: unknown, status = 200): VistosDoMapa {
+  const l = raiz(dados, status);
+  return {
+    dados_obtidos: l.booleano("dados_obtidos"),
+    coletado_em: l.textoOuNulo("coletado_em"),
+    desatualizado: l.booleano("desatualizado"),
+    fonte: l.objeto("fonte", lerFonteDeDados),
+    territorios: l.lista("territorios", lerTerritorioDeVisto),
+  };
+}
+
 export function validarSaude(dados: unknown, status = 200): Saude {
   const l = raiz(dados, status);
   return {
@@ -319,6 +348,8 @@ export function validarSaude(dados: unknown, status = 200): Saude {
 export interface ClienteDaApi {
   obterMapa(sinal?: AbortSignal): Promise<Mapa>;
   obterPais(codigo: string, sinal?: AbortSignal): Promise<Pais>;
+  /** Os vistos de todos os territórios, para pintar o globo; só é pedido no modo "Vistos". */
+  obterVistos(sinal?: AbortSignal): Promise<VistosDoMapa>;
   obterSaude(sinal?: AbortSignal): Promise<Saude>;
 }
 
@@ -366,6 +397,7 @@ export function criarCliente(
     obterMapa: (sinal) => pedir("/mapa", validarMapa, sinal),
     obterPais: (codigo, sinal) =>
       pedir(`/paises/${encodeURIComponent(codigo)}`, validarPais, sinal),
+    obterVistos: (sinal) => pedir("/vistos", validarVistos, sinal),
     obterSaude: (sinal) => pedir("/saude", validarSaude, sinal),
   };
 }

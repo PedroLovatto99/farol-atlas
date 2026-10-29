@@ -5,20 +5,33 @@
  * `maplibre-gl`. Trocá-la não pode exigir mudança em painel, busca, legenda nem no estado.
  */
 import type { TipoPosto } from "../../servicos/api/cliente";
-import type { NivelId } from "../../compartilhado/niveis";
 
 export type CodigoTerritorio = string;
 
 /** Nível de uma região com alerta mais grave (FR-004). */
 export type BordaRegional = "nao_viajar" | "evitar";
 
+/** O que o globo mostra: os alertas da 001 ou os vistos da 002 (nunca guardado entre visitas). */
+export type ModoDoGlobo = "alertas" | "vistos";
+
+/**
+ * Como um território é pintado. O adaptador só executa; a cor e o padrão são calculados fora dele
+ * (`preenchimentoDeAlerta`, `preenchimentoDeVisto`).
+ */
+export interface Preenchimento {
+  /** Cor de base, em hex. `null`: sem preenchimento (carregando ou erro dos vistos), nunca cinza. */
+  cor: string | null;
+  /** "rg": listras sobre a cor de base ("Isento, entrada com RG"); `null`: cor lisa. */
+  padrao: "rg" | null;
+}
+
 export interface TerritorioDesenhado {
   /** Código da feição na geometria. */
   codigo: CodigoTerritorio;
-  /** Nível já resolvido pelo backend. */
-  nivel: NivelId;
+  preenchimento: Preenchimento;
+  /** Sempre nula no modo Vistos (FR-025). */
   bordaRegional: BordaRegional | null;
-  /** Filtro de níveis (FR-025), calculado fora do mapa. */
+  /** Filtro da legenda do modo ativo (FR-025 da 001, FR-024), calculado fora do mapa. */
   esmaecido: boolean;
 }
 
@@ -60,11 +73,21 @@ export type PedidoDeCamera =
   | { tipo: "enquadrar"; caixa: Caixa; margem: Margem; zoomMaximo: number }
   /** FR-018c: só desloca o centro, sem mudar o zoom. A margem é a área coberta pelo painel. */
   | { tipo: "garantir-visivel"; latitude: number; longitude: number; margem: Margem }
+  /**
+   * FR-030: no celular, recolher ou expandir o painel leva o país selecionado ao centro da área que
+   * sobrou visível (a margem), sempre, sem mudar o zoom.
+   */
+  | { tipo: "centralizar"; latitude: number; longitude: number; margem: Margem }
   /** FR-018g: tocar num ícone não reenquadra o mapa. */
   | { tipo: "manter" };
 
 export interface MapaProps {
   territorios: readonly TerritorioDesenhado[];
+  /**
+   * O que o globo mostra. Só decide o que fazer com um território que a lista não traz (alertas:
+   * "não verificado", como na 001; vistos: sem preenchimento). Sem ele vale "alertas".
+   */
+  modo?: ModoDoGlobo;
   postos: readonly PostoDesenhado[];
   paisesSemPosto: readonly PaisSemPostoDesenhado[];
 

@@ -3,7 +3,9 @@ import {
   LIMITE_DE_LARGURA,
   ZOOM_MAXIMO,
   calcularEnquadramento,
+  centroDoEnquadramento,
   duracaoDoMovimento,
+  margemDaAreaLivre,
   margemDoLayout,
 } from "./enquadramento";
 import type { Geometria } from "./feicoes";
@@ -160,5 +162,40 @@ describe("duracaoDoMovimento", () => {
 
   it("anima por mais de zero sem a preferência", () => {
     expect(duracaoDoMovimento(false)).toBeGreaterThan(0);
+  });
+});
+
+describe("centroDoEnquadramento", () => {
+  it("é o centro da caixa do país", () => {
+    const pedido = {
+      tipo: "enquadrar",
+      caixa: [
+        [-73, -55],
+        [-53, -22],
+      ],
+      margem: MARGEM,
+      zoomMaximo: ZOOM_MAXIMO,
+    } as const;
+    expect(centroDoEnquadramento(pedido)).toEqual({ latitude: -38.5, longitude: -63 });
+  });
+});
+
+describe("margemDaAreaLivre (FR-030, só no celular)", () => {
+  it("recolhido, a área livre vai de baixo dos controles do topo até a barra", () => {
+    expect(
+      margemDaAreaLivre({ alturaDaJanela: 740, fimDoCabecalho: 206.4, painelRecolhido: true }),
+    ).toEqual({ topo: 215, esquerda: 20, direita: 20, baixo: 80 });
+  });
+
+  it("expandido, a área livre vai até o topo da gaveta (55% da altura)", () => {
+    expect(
+      margemDaAreaLivre({ alturaDaJanela: 800, fimDoCabecalho: 200, painelRecolhido: false }),
+    ).toEqual({ topo: 208, esquerda: 20, direita: 20, baixo: 440 });
+  });
+
+  it("sem a medição do topo, usa a margem de topo do celular", () => {
+    expect(
+      margemDaAreaLivre({ alturaDaJanela: 800, fimDoCabecalho: 0, painelRecolhido: true }).topo,
+    ).toBe(margemDoLayout(true, 800).topo);
   });
 });

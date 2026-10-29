@@ -9,6 +9,8 @@ interface Props {
   desatualizado: boolean;
   /** Ainda esperando a resposta do servidor: só o aviso de site não oficial aparece. */
   carregando?: boolean;
+  /** Modo "Vistos" com a última coleta válida de vistos de mais de 14 dias (FR-029a), do backend. */
+  vistosDesatualizados?: boolean;
 }
 
 const FORMATO_DA_DATA = new Intl.DateTimeFormat("pt-BR", {
@@ -17,7 +19,13 @@ const FORMATO_DA_DATA = new Intl.DateTimeFormat("pt-BR", {
 });
 
 /** Data da última atualização, aviso de site não oficial e avisos de dados antigos ou ausentes. */
-export function Aviso({ dadosObtidos, atualizadoEm, desatualizado, carregando = false }: Props) {
+export function Aviso({
+  dadosObtidos,
+  atualizadoEm,
+  desatualizado,
+  carregando = false,
+  vistosDesatualizados = false,
+}: Props) {
   return (
     <section
       aria-label="Avisos"
@@ -41,6 +49,11 @@ export function Aviso({ dadosObtidos, atualizadoEm, desatualizado, carregando = 
       {desatualizado && (
         <p role="status" className="font-semibold">
           Dados desatualizados: a última atualização completa tem mais de 3 dias.
+        </p>
+      )}
+      {vistosDesatualizados && (
+        <p role="status" className="font-semibold">
+          Dados de visto desatualizados: a última coleta válida tem mais de 14 dias.
         </p>
       )}
       {!dadosObtidos && !carregando && (

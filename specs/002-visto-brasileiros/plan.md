@@ -157,23 +157,51 @@ frontend/
 
 ## Paleta do modo "Vistos"
 
-Escolhida e **conferida por script** (contraste WCAG 2.x e distância de cor CIEDE2000, normal e com simulação de protanopia, deuteranopia e tritanopia). Rampa de azul a roxo, **mais escuro = mais exigente**, sem verde, amarelo nem vermelho (que são das cores de alerta). Os tokens entram em `tema.css` (`--color-visto-*`), com o valor em hex repetido em `compartilhado/vistos.ts` (um teste confere que são iguais, como na 001).
+Escolhida pelo responsável (29/10/2026, opção A: amarelo → roxo; **mais escuro = mais exigente**) e **conferida por script** (contraste WCAG 2.x e distância de cor CIEDE2000, em visão normal e com simulação de protanopia, deuteranopia e tritanopia). A paleta de partida (`#F5D547`, `#F29CC3`, `#9A6BD8`, `#3B1C6B`, `#8C8070`, `#C8C4BB`) falhava em vários pares; os ajustes abaixo mexeram **só na luminosidade (L* do CIELAB), mantendo o matiz** (e a croma, reduzida apenas onde saía do gamute sRGB). Os tokens estão em `tema.css` (`--color-visto-*`), com o hex repetido em `compartilhado/vistos.ts` (um teste confere que são iguais, como na 001).
 
-| Chave | Cor | Contra branco (legenda) | Contra o oceano `#DCE8F2` | Observação |
+| Chave | Cor | Ajuste (L*) | Contra branco (legenda) | Contra o oceano `#DCE8F2` | Contra o contorno escuro `#1F2A44` |
+|---|---|---|---|---|---|
+| Isento de visto | `#FEDD50` | de `#F5D547`, 85,7 → 88,6 | 1,34 | 1,08 | 10,64 |
+| Isento, entrada com RG | `#FEDD50` + listras `#1F2A44` | listras como pedido | — | — | listras 10,64:1 sobre a base (mínimo 3:1) |
+| Visto na chegada | `#D17DA4` | de `#F29CC3`, 73,9 → 62,4 | 2,92 | 2,35 | 4,88 |
+| Autorização ou visto eletrônico | `#8F5FCC` | de `#9A6BD8`, 54,4 → 50,0 | 4,49 | 3,61 | 3,18 |
+| Visto exigido | `#3B1C6B` | sem ajuste | 13,42 | 10,78 | 1,06 (ver abaixo) |
+| Outra situação | `#948878` | de `#8C8070`, 54,2 → 57,3 | 3,47 | 2,79 | 4,11 |
+| Sem informação de visto | `#BEBAB1` | de `#C8C4BB`, 79,2 → 75,6 | 1,94 | 1,55 | 7,36 |
+| Brasil (neutro) | `#F1EFE8` | sem ajuste | — | — | — |
+
+O contorno do globo no modo "Vistos" é **escuro** (`#1F2A44`, opaco, 0,6 px; decisão de 29/10/2026); no modo "Alertas" segue a linha branca de 0,6 px da 001. A última coluna é o contraste do contorno escuro contra cada cor (o contorno fica metade sobre o país, metade sobre o vizinho ou o oceano).
+
+**Distância de cor (CIEDE2000), menor valor em cada visão:**
+
+| Visão | Cores que aparecem juntas no globo (entre si, com o Brasil e com o oceano) | Cor de visto contra as de alerta (salvo as exceções abaixo) |
+|---|---|---|
+| Normal | 12,45 (sem informação × Brasil) | 20,03 |
+| Protanopia | 12,61 (sem informação × Brasil) | 13,07 (outra situação × não viajar) |
+| Deuteranopia | 12,15 (visto na chegada × sem informação) | 13,25 (outra situação × não viajar) |
+| Tritanopia | 12,64 (sem informação × Brasil) | 14,47 (isento × não verificado) |
+
+Critério adotado: **≥ 12** entre todas as cores que aparecem juntas no globo. Contra as cores de alerta, que pertencem ao outro modo e **nunca aparecem no mesmo globo**, também ≥ 12, com as três exceções abaixo, que **não** chegam a 12 só com ajuste de luminosidade:
+
+| Par (visto × alerta) | Normal | Protanopia | Deuteranopia | Tritanopia |
 |---|---|---|---|---|
-| Isento de visto | `#00B1DF` | 2,5 | 2,0 | azul-ciano; amostra com borda |
-| Isento, entrada com RG | `#00B1DF` + listras `#0B3A52` | — | — | listras 4,8:1 sobre a base; item próprio |
-| Visto na chegada | `#007FC8` | 4,3 | 3,5 | |
-| Autorização ou visto eletrônico | `#424DA1` | 7,5 | 6,0 | |
-| Visto exigido | `#4D2455` | 12,4 | 9,9 | |
-| Outra situação | `#5E6469` | 6,0 | 4,8 | cinza-ardósia escuro |
-| Sem informação de visto | `#AEABA2` | 2,3 | 1,8 | mais escuro que o cinza dos alertas (`#D3D1C7`) |
-| Brasil (neutro) | `#F1EFE8` | — | — | o neutro já existente |
+| Isento (amarelo) × evite (âmbar `#FAC775`) | 11,15 | 8,39 | 6,55 | 5,96 |
+| Isento × sem alerta (verde `#C0DD97`) | 19,29 | 11,64 | 12,52 | 29,17 |
+| Sem informação × não verificado (`#D3D1C7`) | 5,79 | 5,62 | 5,60 | 5,81 |
 
-- **Distinção (CIEDE2000, cada cor de visto contra as outras, contra as 4 cores de alerta, o neutro do Brasil e o oceano):** menor distância **16,6** (visão normal; "sem informação" × Brasil), **14,6** (protanopia), **12,5** (deuteranopia), **13,9** (tritanopia). Critério adotado: **≥ 12** em todas as visões. O Brasil e o "sem informação", que a spec pede "claramente distintos", ficam a 16,6.
-- **Amostras da legenda:** borda de 1 px em `#5F5E5A` (6,5:1 contra o branco; WCAG 1.4.11), porque o "Isento" (2,5) e o "Sem informação" (2,3) ficam abaixo de 3:1 contra o fundo branco. A legenda inclui o texto de cada categoria, então a cor nunca é a única informação.
+- **Amarelo contra âmbar (decisão de 29/10/2026: manter o matiz e aceitar a exceção).** São dois amarelos claros: com o matiz mantido, nenhuma luminosidade do amarelo os afasta em 12 nas quatro visões sem esbarrar no Brasil, no verde, no roxo ou no marrom da própria paleta. O ponto escolhido (`#FEDD50`) é o que mais afasta o par sem quebrar os outros. Como os modos nunca aparecem juntos, a legenda traz o texto e o modo ativo fica sempre visível no seletor, o par tem limite próprio de **5,5** (teste `vistos.test.ts`). A regra está no FR-022 e o motivo no `research.md` (D8).
+- **Sem informação × não verificado.** Os dois são "nada confirmado", em modos diferentes, e nunca aparecem juntos. Com o cinza novo o par mede **5,6 a 5,8** (antes, com `#AEABA2`, 9,9). O tratamento à parte segue aceito; o valor real é o da tabela acima.
+- **Amostras da legenda:** borda de 1 px em `#5F5E5A` (6,5:1 contra o branco; WCAG 1.4.11), porque o "Isento" (1,3), o "Visto na chegada" (2,9) e o "Sem informação" (1,9) ficam abaixo de 3:1 contra o fundo branco. A legenda inclui o texto de cada categoria, então a cor nunca é a única informação.
+- **Contraste de objeto gráfico (WCAG 1.4.11) no globo: ATENDIDO pelo contorno escuro no modo "Vistos"** (mínimo 3:1; medido com `contraste()` do projeto, contorno `#1F2A44` opaco, 0,6 px, teste `contorno.test.ts`). Cor por cor, o contorno contra:
+  - **oceano `#DCE8F2`:** 11,45;
+  - **Brasil `#F1EFE8`:** 12,39;
+  - **Isento `#FEDD50`:** 10,64; **Sem informação `#BEBAB1`:** 7,36;
+  - **Visto na chegada `#D17DA4`:** 4,88; **Outra situação `#948878`:** 4,11; **Autorização `#8F5FCC`:** 3,18;
+  - **Visto exigido `#3B1C6B`:** 1,06 (contorno e preenchimento são escuros); esse país se distingue pelo **próprio preenchimento contra o oceano**, 10,78, e contra o Brasil, e o contorno só separa dois países "Visto exigido" vizinhos, o que a legenda e o painel cobrem em texto.
+  - **Opacidade:** fica em 1. Com 0,9 a "Autorização" cai para 2,87 e fica abaixo de 3:1; portanto a opacidade não pôde ser reduzida.
+  - O preenchimento de cada cor contra o oceano (1,08 a 10,78) **não** é o que sustenta o critério: quem sustenta é o contorno. O modo "Alertas" não mudou.
 - O "sem informação" **muda de tom** entre os modos (no modo Alertas, "não verificado" segue `#D3D1C7`): tem outro significado e precisa se distinguir do neutro do Brasil, que no modo Alertas não existe como estado.
-- Verificação permanente: um teste do frontend recalcula os contrastes de texto (≥ 4,5) e a distância mínima entre as cores (com as matrizes de daltonismo) a partir de `compartilhado/vistos.ts`. A tabela acima é o resultado do script de dimensionamento; os números finais saem do teste.
+- Verificação permanente: um teste do frontend recalcula o contraste das listras (≥ 3) e as distâncias mínimas (com as matrizes de daltonismo) a partir de `compartilhado/vistos.ts` e `niveis.ts`. A tabela acima é o resultado do script de dimensionamento; os limites e as exceções estão no teste.
 
 ## Painel recolhível (FR-030)
 
@@ -197,14 +225,15 @@ A barra recolhida **também tem o "Ver mundo"** (segundo botão, só ícone com 
 
 **Componentes.**
 - `Painel.tsx` recebe `recolhido` e `onAlternarRecolhimento`; no cabeçalho, ao lado do "Ver mundo", o botão "Recolher painel" (`aria-expanded="true"`, ícone de seta). Recolhido, o `Painel` renderiza a `BarraDoPainel` no lugar do `aside` expandido (o conteúdo sai do DOM; os postos abertos são do reducer e voltam sozinhos).
-- `BarraDoPainel.tsx` (novo): um `<aside aria-label="Detalhes do país (recolhido)">` com um botão principal que ocupa a barra (bandeira, nome, situação; nome acessível "Expandir painel: <nome>, <situação>"; `aria-expanded="false"`) e o "Ver mundo". **Um componente só, texto sempre na horizontal**: bandeira, bloco de texto (nome em cima, situação embaixo), botão de expandir e "Ver mundo", com altura mínima de 56 px. O nome quebra em até duas linhas (`line-clamp-2`, `break-words`) e a situação nunca é cortada. **Computador** (`modo="lateral"`): flutua na posição do painel, `absolute right-2 top-16 z-20 w-[340px]` (a mesma largura e o mesmo canto do painel; o "Sobre" no topo continua livre). **Celular** (`modo="gaveta"`): `absolute inset-x-2 bottom-2 z-20`, em largura total.
+- `BarraDoPainel.tsx` (novo): um `<aside aria-label="Detalhes do país (recolhido)">` com um botão principal que ocupa a barra (bandeira, nome, situação; nome acessível "Expandir painel: <nome>, <situação>"; `aria-expanded="false"`) e o "Ver mundo". **Um componente só, texto sempre na horizontal**: bandeira, bloco de texto (nome em cima, situação embaixo), botão de expandir e "Ver mundo", com altura mínima de 56 px. O nome ocupa uma linha, cortada com reticências (`truncate`, com o nome completo no `title` e no nome acessível; decisão do dono de 29/10/2026, no lugar do `line-clamp-2` do desenho inicial), e a situação fica sempre em uma linha: rótulo curto na barra (`ROTULOS_CURTOS_DE_VISTO`; alertas: Sem alerta, Evite, Não viaje, Não verificado, Alerta regional), rótulo completo com o prefixo de território no `title` e no nome acessível, e `truncate` como rede de segurança (decisão do dono, 29/10/2026; medido em 320 e 360 px). **Computador** (`modo="lateral"`): flutua na posição do painel, `absolute right-2 top-16 z-20 w-[340px]` (a mesma largura e o mesmo canto do painel; o "Sobre" no topo continua livre). **Celular** (`modo="gaveta"`): `absolute inset-x-2 bottom-2 z-20`, em largura total.
 - A situação principal vem de dados que o painel já carregou: `NIVEIS[pais.nivel].rotulo` (ou `ALERTA_SO_REGIONAL.rotulo`, como o `NivelDoPais`) no modo "Alertas"; `ROTULOS_DE_VISTO[pais.visto.situacao]` no modo "Vistos" (Kosovo e Malvinas: "Kosovo: Isento de visto", com `territorio_nome`). **Não depende** de `GET /vistos`. Brasil: `visto = null` e nenhuma situação, só bandeira e nome.
 - O foco vai, depois da troca, ao botão que passa a valer (`Expandir painel` na barra; `Recolher painel` no cabeçalho), com o mesmo cuidado do foco já existente no `Painel`.
 
 **Layout e câmera.**
-- A câmera **não se move** ao recolher ou expandir. O enquadramento continua sendo feito ao selecionar, com `margemDoLayout` do painel expandido; recolhido, o país fica descentrado dentro de uma área visível maior, o que é aceitável e evita animação inesperada. Se isso incomodar na medição (T126), um pedido `garantir-visivel` ao recolher é o ajuste, mas **não** entra por padrão.
+- **Computador:** a câmera **não se move** ao recolher ou expandir; o enquadramento é feito ao selecionar, com `margemDoLayout` do painel expandido.
+- **Celular (decisão do dono, 29/10/2026, depois da medição da T126):** a cada recolher ou expandir, a câmera leva o país selecionado ao centro da área visível naquele momento, **sem mudar o zoom** (`easeTo` só com `center` e `offset`; duração 0 com `prefers-reduced-motion`). Pedido novo `{ tipo: "centralizar", latitude, longitude, margem }` (sempre desloca, ao contrário do `garantir-visivel`); o centro é o da caixa do enquadramento do país (`centroDoEnquadramento`) e a margem vem de `margemDaAreaLivre`: topo logo abaixo dos controles do topo (medido no cabeçalho), base na barra (80 px) ou na gaveta (55% da altura). Só o `alternarRecolhimento` do `App` o pede; selecionar continua enquadrando como antes.
 - `App.tsx` passa `data-painel-recolhido` junto de `data-painel-aberto` e `data-modo-do-painel`. O CSS de `tema.css` (que hoje afasta os controles de zoom do painel: 352 px à direita no lateral, 55dvh embaixo na gaveta) ganha o caso recolhido: no **computador** nenhum deslocamento (a barra fica no canto superior direito e os controles de zoom ficam livres no canto inferior direito); no **celular**, os controles sobem para ~72 px do rodapé, acima da barra.
-- **Celular: legenda e linha de fonte** ficam em `bottom-10` e hoje são cobertas pela gaveta de 55dvh. Com a barra (56 px ou mais, mais a margem) no rodapé elas **não podem ficar por baixo dela**: com `data-painel-recolhido="true"` no celular, sobem para acima da barra (variável CSS `--rodape-ocupado`). Isso entra nos testes do `App` e na medição em 360 px.
+- **Celular: legenda e linha de fonte** ficam em `bottom-10` e hoje são cobertas pela gaveta de 55dvh. Com a barra (56 px ou mais, mais a margem) no rodapé elas **não podem ficar por baixo dela**: com `data-painel-recolhido="true"` no celular, sobem para acima da barra (variável CSS `--rodape-ocupado`). O **crédito "Fronteiras: Natural Earth"** (controle de atribuição do MapLibre, embaixo à esquerda) também sobe, para ficar entre a legenda e a barra (decisão de 29/10/2026); com o painel aberto ele continua escondido atrás da gaveta, e o crédito está no "Sobre" (Fontes). Isso entra nos testes do `App` e na medição em 360 px.
 - Transição: nenhuma animação nova por padrão; se houver (fade curto da barra), fica dentro de `prefers-reduced-motion` (`motion-reduce:transition-none`), como o resto, com teste.
 
 **Constituição.** VI (acessível e celular): botão com nome e `aria-expanded`, teclado, 360 px, alvo ≥ 44 px, sem gesto de arrastar, sem animação obrigatória. III: só estado de interface no reducer; nada no `mapa`. Nenhum princípio muda.
