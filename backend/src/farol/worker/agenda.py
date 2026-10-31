@@ -120,6 +120,16 @@ def retomada_de_vistos(
     return momento_da_nova_tentativa_de_vistos(proxima, iniciada_em)
 
 
+def agendador_ocioso() -> BlockingScheduler:
+    """Agendador sem nenhum job: o worker fica de pé sem coletar nada (COLETAS_AUTOMATICAS=false).
+
+    Os comandos de coleta única (`coletar --alertas` etc.) seguem funcionando.
+    """
+    return BlockingScheduler(
+        timezone=FUSO_DE_BRASILIA, executors={"default": ThreadPoolExecutor(1)}
+    )
+
+
 def preparar_agendador(
     rodada: Callable[[], object],
     *,

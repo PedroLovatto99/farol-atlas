@@ -100,3 +100,36 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  producao:
+    name: producao (Caddy, compose e imagens)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validar o Caddyfile
+        run: >
+          docker run --rm -e DOMINIO=farol-api.duckdns.org
+          -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2
+          caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+      - name: Validar o compose de produção
+        env:
+          # Valores descartáveis só para o compose resolver as variáveis obrigatórias; não são segredo
+          POSTGRES_PASSWORD: ci-descartavel
+          DOMINIO: farol-api.duckdns.org
+          COLETAS_AUTOMATICAS: "false"
+        run: |
+          touch .env
+          docker compose -f docker-compose.prod.yml config --quiet
+
+      - name: As imagens têm versão para linux/arm64 (VM Ampere)
+        run: |
+          for imagem in caddy:2 postgres:18 python:3.13-slim; do
+            docker buildx imagetools inspect "$imagem" | grep -q 'linux/arm64' \
+              || { echo "sem linux/arm64: $imagem"; exit 1; }
+          done
+
+      - name: Caddy de verdade (X-Forwarded-For forjado, cabeçalhos, corpo, compressão)
+        run: bash ferramentas/verificar-caddy.sh

@@ -1,0 +1,170 @@
+# Produção do Farol Atlas (VM ARM com Docker Compose). Uso (a partir da raiz do repositório):
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# O .env de produção fica só no servidor (veja docs/deploy.md e .env.example). Variáveis exigidas:
+# DOMINIO, POSTGRES_PASSWORD, CORS_ORIGENS, COLETAS_AUTOMATICAS, CONTATO_COLETA e a chave do LLM.
+#
+# Só o caddy publica portas (80 e 443). O banco e a API ficam nas redes internas do Docker. O
+# frontend não está aqui: ele roda na Vercel.
+
+name: farol
+
+x-registro: &registro
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-backend: &backend
+  image: farol-backend
+  build: ./backend
+  restart: unless-stopped
+  env_file:
+    - .env
+  environment: &ambiente
+    AMBIENTE: producao
+    DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-farol}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}@postgres:5432/${POSTGRES_DB:-farol}
+    DIRETORIO_DADOS: /app/dados
+    # /docs e /redoc nunca existem em produção, mesmo que o .env venha do exemplo de desenvolvimento
+    API_DOCS_HABILITADA: "false"
+    # A rede onde só o Caddy chama a API: dela (e só dela) vale o X-Forwarded-For
+    PROXY_CONFIAVEL: 172.30.0.0/24
+  logging: *registro
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DOMINIO: ${DOMINIO:?defina DOMINIO no .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-dados:/data
+      - caddy-config:/config
+    networks:
+      publica:
+        ipv4_address: 172.30.0.2
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:2019/config/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *registro
+
+  api:
+    <<: *backend
+    # Um processo só: o limite de pedidos e o cache ficam na memória do processo
+    command:
+      [
+        "uvicorn",
+        "farol.api.app:criar_app",
+        "--factory",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--workers",
+        "1",
+        "--no-proxy-headers",
+      ]
+    expose:
+      - "8000"
+    networks:
+      - publica
+      - interna
+    depends_on:
+      migracao:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/saude', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "farol.worker"]
+    environment:
+      <<: *ambiente
+      COLETAS_AUTOMATICAS: ${COLETAS_AUTOMATICAS:?defina COLETAS_AUTOMATICAS (true ou false) no .env}
+      # Arquivo de log rotativo no volume: sobrevive à recriação do contêiner
+      DIRETORIO_LOGS: /app/logs
+    volumes:
+      - logs-worker:/app/logs
+    networks:
+      - interna
+    depends_on:
+      migracao:
+        condition: service_completed_successfully
+    healthcheck:
+      # O worker não tem porta: vale se ele consegue falar com o banco
+      test:
+        - CMD
+        - python
+        - -c
+        - "from sqlalchemy import text; from farol.infra import abrir_sessao; abrir_sessao().__enter__().execute(text('select 1'))"
+      interval: 120s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+
+  # Aplica as migrações e o seed, depois termina
+  migracao:
+    <<: *backend
+    restart: "no"
+    command: ["sh", "-c", "alembic upgrade head && python -m farol.dominio.seed"]
+    volumes:
+      - ./dados:/app/dados:ro
+    networks:
+      - interna
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-farol}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-farol}
+    volumes:
+      - dados-postgres:/var/lib/postgresql
+    networks:
+      - interna
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *registro
+
+networks:
+  # Caddy e API: sub-rede fixa, para a API saber de qual endereço vem o proxy. O Caddy tem o
+  # 172.30.0.2; os demais contêineres recebem endereços só da metade de cima (ip_range), senão a
+  # API, que sobe primeiro, poderia ficar com o .2 e o Caddy não subiria
+  publica:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+          ip_range: 172.30.0.128/25
+  # API, worker, migração e banco
+  interna: {}
+
+volumes:
+  dados-postgres:
+  caddy-dados:
+  caddy-config:
+  logs-worker:

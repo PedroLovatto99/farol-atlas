@@ -1,6 +1,7 @@
 """Worker: coleta agendada dos alertas e classificação. Topo da arquitetura."""
 
 from farol.worker.agenda import (
+    agendador_ocioso,
     deve_coletar_na_partida,
     deve_coletar_postos_na_partida,
     deve_coletar_vistos_na_partida,
@@ -32,6 +33,7 @@ __all__ = [
     "ContatoInvalido",
     "ResultadoDaRodada",
     "SituacaoDeVistosNaPartida",
+    "agendador_ocioso",
     "deve_coletar_na_partida",
     "deve_coletar_postos_na_partida",
     "deve_coletar_vistos_na_partida",

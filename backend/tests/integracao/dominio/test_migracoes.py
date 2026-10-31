@@ -20,12 +20,14 @@ TABELAS = {
     "requisito_visto",
     "mudanca_retida",
     "item_para_revisao",
+    "versao_dados",
 }
 TABELAS_DA_001 = TABELAS - {
     "coleta_vistos",
     "requisito_visto",
     "mudanca_retida",
     "item_para_revisao",
+    "versao_dados",
 }
 TABELAS_DA_002 = TABELAS - TABELAS_DA_001
 

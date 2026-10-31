@@ -33,7 +33,11 @@ OITO_DO_RG = {"AR", "BO", "CL", "CO", "EC", "PY", "PE", "UY"}
 
 
 def cliente(sessao: Session, relogio: "RelogioFalso") -> TestClient:
-    app = criar_app(Configuracoes(database_url=SecretStr("postgresql+psycopg://x:y@nao-existe/z")))
+    app = criar_app(
+        Configuracoes(
+            database_url=SecretStr("postgresql+psycopg://x:y@nao-existe/z"), cache_ttl_segundos=0
+        )
+    )
 
     def fornecer_sessao() -> Iterator[Session]:
         yield sessao
