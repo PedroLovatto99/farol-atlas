@@ -396,3 +396,17 @@ class ItemParaRevisao(Base):
     estado: Mapped[EstadoDoItem] = mapped_column(_enum(EstadoDoItem, "estado_do_item"))
     motivo_ignorar: Mapped[str | None] = mapped_column(Text)
     resolvido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class VersaoDosDados(Base):
+    """Contador de uma linha só: sobe a cada escrita confirmada (veja `farol.infra.versao`).
+
+    O cache da API o consulta para não servir dado de antes de uma coleta, uma classificação ou um
+    comando do dono.
+    """
+
+    __tablename__ = "versao_dados"
+    __table_args__ = (CheckConstraint("id = 1", name="linha_unica"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    contador: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))

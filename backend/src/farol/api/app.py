@@ -3,7 +3,14 @@
 Princípios (constituição): a API só devolve JSON; todas as rotas públicas são de leitura; o CORS
 aceita só as origens configuradas; a documentação interativa (/docs e /redoc) só existe em
 desenvolvimento, por variável de ambiente.
+
+Camadas de middleware, de fora para dentro: CORS, IP real (atrás do proxy), limite de pedidos,
+compressão e cache de leitura. O 429 do limite sai com os cabeçalhos do CORS; o cache guarda o corpo
+sem comprimir.
 """
+
+import time
+from collections.abc import Callable
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -12,9 +19,18 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from farol.api.cache import CacheDeLeitura, VersaoMemorizada
 from farol.api.dependencias import sessao_da_requisicao
+from farol.api.ip_real import IpReal
+from farol.api.limite import LimiteDePedidos
 from farol.api.rotas import mapa, paises, saude, vistos
-from farol.infra import Configuracoes, configurar_logs, obter_configuracoes, obter_logger
+from farol.infra import (
+    Configuracoes,
+    configurar_logs,
+    ler_versao_dos_dados,
+    obter_configuracoes,
+    obter_logger,
+)
 
 PREFIXO = "/api/v1"
 
@@ -23,7 +39,11 @@ __all__ = ["criar_app", "sessao_da_requisicao"]
 _log = obter_logger("farol.api")
 
 
-def criar_app(configuracoes: Configuracoes | None = None) -> FastAPI:
+def criar_app(
+    configuracoes: Configuracoes | None = None,
+    *,
+    relogio_monotonico: Callable[[], float] = time.monotonic,
+) -> FastAPI:
     config = configuracoes or obter_configuracoes()
     configurar_logs()
     docs = config.api_docs_habilitada
@@ -39,9 +59,34 @@ def criar_app(configuracoes: Configuracoes | None = None) -> FastAPI:
         openapi_url=f"{PREFIXO}/openapi.json",
     )
 
+    def ler_versao() -> int:
+        # Usa a mesma fonte de sessão das rotas (os testes a trocam por uma sessão deles)
+        fornecer = app.dependency_overrides.get(sessao_da_requisicao, sessao_da_requisicao)
+        sessoes = fornecer()
+        try:
+            return ler_versao_dos_dados(next(sessoes))
+        finally:
+            sessoes.close()
+
+    # Do mais interno ao mais externo (o último adicionado é o primeiro a ver o pedido)
+    if config.cache_ttl_segundos > 0:
+        app.add_middleware(
+            CacheDeLeitura,
+            versao=VersaoMemorizada(ler_versao, config.cache_versao_segundos, relogio_monotonico),
+            ttl=config.cache_ttl_segundos,
+            max_age_do_navegador=config.cache_max_age_navegador_segundos,
+            relogio=relogio_monotonico,
+        )
     # O /mapa tem cerca de 90 KB de JSON: comprimido, chega bem mais rápido em rede de celular.
-    # Adicionado antes do CORS, que fica por fora e continua pondo os seus cabeçalhos.
     app.add_middleware(GZipMiddleware, minimum_size=1000)
+    if config.limite_pedidos_por_minuto > 0:
+        app.add_middleware(
+            LimiteDePedidos,
+            por_minuto=config.limite_pedidos_por_minuto,
+            rajada=config.limite_rajada,
+            relogio=relogio_monotonico,
+        )
+    app.add_middleware(IpReal, redes_confiaveis=config.redes_confiaveis)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=config.cors_origens,

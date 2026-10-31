@@ -27,6 +27,7 @@ from farol.dominio.modelos import (
     Posto,
     RequisitoVisto,
     Territorio,
+    VersaoDosDados,
 )
 from farol.dominio.regioes import e_nivel_do_pais, separar_nivel_do_pais
 from farol.dominio.repositorios import (
@@ -79,6 +80,7 @@ __all__ = [
     "TipoExecucao",
     "TipoPosto",
     "TipoTerritorio",
+    "VersaoDosDados",
     "e_nivel_do_pais",
     "separar_nivel_do_pais",
 ]

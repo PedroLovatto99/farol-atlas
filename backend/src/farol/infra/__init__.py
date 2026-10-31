@@ -19,6 +19,7 @@ from farol.infra.config import Configuracoes, obter_configuracoes
 from farol.infra.logs import configurar_logs, obter_logger
 from farol.infra.modelo import argumentos_do_modelo
 from farol.infra.relogio import FUSO_DE_BRASILIA, Relogio, RelogioDoSistema
+from farol.infra.versao import ler_versao_dos_dados
 
 __all__ = [
     "FUSO_DE_BRASILIA",
@@ -35,6 +36,7 @@ __all__ = [
     "configurar_logs",
     "criar_engine",
     "criar_fabrica_de_sessoes",
+    "ler_versao_dos_dados",
     "obter_configuracoes",
     "obter_engine",
     "obter_fabrica_de_sessoes",

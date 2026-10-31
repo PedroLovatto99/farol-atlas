@@ -23,6 +23,7 @@ def configuracoes(**campos: Any) -> Configuracoes:
         "database_url": SecretStr("postgresql+psycopg://x:y@banco-que-nao-existe/z"),
         "cors_origens": [ORIGEM_PERMITIDA],
         "api_docs_habilitada": False,
+        "cache_ttl_segundos": 0,
     }
     base.update(campos)
     return Configuracoes(**base)

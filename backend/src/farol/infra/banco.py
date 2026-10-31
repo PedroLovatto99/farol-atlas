@@ -11,6 +11,7 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from farol.infra.config import obter_configuracoes
+from farol.infra.versao import subir_se_escreveu
 
 
 def criar_engine(url: str) -> Engine:
@@ -33,10 +34,15 @@ def obter_fabrica_de_sessoes() -> sessionmaker[Session]:
 
 @contextmanager
 def abrir_sessao(fabrica: sessionmaker[Session] | None = None) -> Iterator[Session]:
-    """Abre uma sessão; confirma ao sair sem erro e desfaz se houver exceção."""
+    """Abre uma sessão; confirma ao sair sem erro e desfaz se houver exceção.
+
+    Se a sessão gravou algo, sobe a versão dos dados na mesma transação (veja `versao.py`).
+    """
     sessao = (fabrica or obter_fabrica_de_sessoes())()
     try:
         yield sessao
+        sessao.flush()
+        subir_se_escreveu(sessao)
         sessao.commit()
     except Exception:
         sessao.rollback()

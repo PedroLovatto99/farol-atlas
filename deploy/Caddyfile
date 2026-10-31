@@ -1,0 +1,58 @@
+# Proxy reverso de produção do Farol Atlas (Caddy 2).
+#
+# DOMINIO vem do .env do servidor (ex.: farol-api.duckdns.org). Com um nome público e as portas
+# 80 e 443 abertas, o Caddy obtém e renova o certificado (Let's Encrypt) sozinho; os certificados
+# ficam no volume caddy-dados e não se perdem entre deploys.
+
+{
+	# Só HTTP/1.1 e HTTP/2: a UDP 443 (HTTP/3) não é publicada
+	servers {
+		protocols h1 h2
+		timeouts {
+			read_header 10s
+			read_body 10s
+			write 30s
+			idle 2m
+		}
+	}
+}
+
+{$DOMINIO} {
+	encode zstd gzip
+
+	# A API só tem GET: um corpo de pedido nunca precisa passar de 1 KB
+	request_body {
+		max_size 1KB
+	}
+
+	header {
+		# Sem includeSubDomains nem preload: o domínio é um subdomínio do DuckDNS
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		# A API só devolve JSON: nada a carregar, nada a embutir
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		-Server
+	}
+
+	reverse_proxy api:8000 {
+		# O visitante nunca escolhe o próprio IP: o que ele mandar em X-Forwarded-For é
+		# descartado e o Caddy escreve só o endereço que viu na conexão
+		header_up X-Forwarded-For {remote_host}
+		header_up -X-Real-IP
+
+		# Verificação ativa: a cada 5 s, com 2 s de limite. Um passe basta para voltar a usar a API
+		# (um reinício no deploy não deixa o Caddy esperando 30 s) e duas falhas seguidas a tiram
+		# de cena (uma resposta lenta isolada não derruba o site).
+		health_uri /api/v1/saude
+		health_interval 5s
+		health_timeout 2s
+		health_passes 1
+		health_fails 2
+
+		# Se a API estiver fora (reinício, deploy), o Caddy segura o pedido e tenta de novo a cada
+		# 250 ms por até 10 s, em vez de devolver 503 na hora. Passou disso, devolve 503.
+		lb_try_duration 10s
+		lb_try_interval 250ms
+	}
+}

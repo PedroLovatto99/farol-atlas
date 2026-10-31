@@ -23,6 +23,7 @@ from collections.abc import Callable, Iterator, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Protocol, TextIO
 
 from sqlalchemy.orm import Session
@@ -57,7 +58,7 @@ from farol.vistos import (
     ResumoDaColetaDeVistos,
     ServicoDoDono,
 )
-from farol.worker.agenda import preparar_agendador, retomada_de_vistos
+from farol.worker.agenda import agendador_ocioso, preparar_agendador, retomada_de_vistos
 from farol.worker.jobs import (
     ClassificadorIndisponivel,
     ContatoInvalido,
@@ -417,6 +418,13 @@ def situacao_de_vistos_na_partida(sessao: Session) -> SituacaoDeVistosNaPartida:
 def servir_agenda() -> None:
     """Fica de pé coletando no horário (e na partida, se a última coleta estiver velha)."""
     configuracoes = obter_configuracoes()
+    if not configuracoes.coletas_ligadas:
+        _log.info(
+            "worker iniciado com as coletas automáticas DESLIGADAS (COLETAS_AUTOMATICAS): "
+            "nada será coletado sozinho; use `python -m farol.worker coletar ...`"
+        )
+        agendador_ocioso().start()  # bloqueia até receber o sinal de parada
+        return
     with abrir_sessao() as sessao:
         execucoes = ExecucaoRepositorio(sessao)
         tentativa = execucoes.ultima_tentativa(TipoExecucao.ALERTAS)
@@ -469,11 +477,13 @@ def configurar_saida_em_utf8(saida: TextIO) -> None:
 def main(argumentos: Sequence[str]) -> int:
     configurar_saida_em_utf8(sys.stdout)
     configurar_saida_em_utf8(sys.stderr)
-    configurar_logs()
+    configuracoes = obter_configuracoes()
+    configurar_logs(
+        diretorio=Path(configuracoes.diretorio_logs) if configuracoes.diretorio_logs else None
+    )
     if not argumentos:
         servir_agenda()
         return 0
-    configuracoes = obter_configuracoes()
     return executar_comando(
         argumentos,
         rodada=lambda: rodada_real(configuracoes),
