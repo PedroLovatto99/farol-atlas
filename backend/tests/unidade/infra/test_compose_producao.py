@@ -181,6 +181,20 @@ def test_caddyfile_limita_tempos_e_corpo(caddyfile: str) -> None:
         assert diretiva in caddyfile
 
 
+def test_caddyfile_espera_a_api_voltar_antes_de_devolver_503(caddyfile: str) -> None:
+    """Durante o reinício da API num deploy, o Caddy segura o pedido alguns segundos."""
+    for diretiva in (
+        "health_interval 5s",
+        "health_timeout 2s",
+        "health_passes 1",
+        "health_fails 2",
+        "lb_try_duration 10s",
+        "lb_try_interval 250ms",
+    ):
+        assert diretiva in caddyfile
+    assert "health_interval 30s" not in caddyfile
+
+
 def test_caddyfile_comprime(caddyfile: str) -> None:
     assert "encode zstd gzip" in caddyfile
 

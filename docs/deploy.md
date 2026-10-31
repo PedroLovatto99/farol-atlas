@@ -168,6 +168,10 @@ jeito, com `exec worker python -m farol.worker vistos ...`.
   `publica` do compose). Quem falar com a API de qualquer outro endereço, mesmo de dentro das redes
   do Docker, não consegue forjar o IP. Se mudar o IP do Caddy no compose, mude o
   `PROXY_CONFIAVEL` junto (um teste confere que os dois combinam).
+- **Reinício da API (deploy).** O Caddy checa `/api/v1/saude` a cada 5 s (2 s de limite; um passe
+  basta para voltar a usar a API e duas falhas seguidas a tiram de cena) e, com a API fora, segura
+  o pedido e tenta de novo a cada 250 ms por até 10 s (`lb_try_duration`) antes de devolver 503.
+  Num `up -d --build` o visitante vê, no máximo, uma resposta mais lenta.
 - **Limite de pedidos.** 120 por minuto por IP, com rajada de 40, e `429` com `Retry-After`. O
   `/api/v1/saude` fica de fora. O valor é folgado de propósito: operadoras móveis brasileiras põem
   muitos clientes atrás do mesmo IP (CGNAT). O contador fica na memória do processo, por isso o
@@ -354,6 +358,7 @@ Para acabar: `docker compose -p farol-prod-teste -f docker-compose.prod.yml down
 O CI valida, a cada pull request: o `Caddyfile` (`caddy validate`); o `docker-compose.prod.yml`
 (`config`); que as imagens têm `linux/arm64`; o Caddy de verdade na frente de uma API de mentira
 (`ferramentas/verificar-caddy.sh`: X-Forwarded-For forjado não passa, cabeçalhos de segurança,
-corpo máximo de 1 KB e compressão); e, nos testes do backend, o script de backup, as regras do
+corpo máximo de 1 KB, compressão e o reinício da API, em que o Caddy segura o pedido em vez de devolver
+503; o script espera até 90 s por etapa, porque no CI as imagens precisam ser baixadas); e, nos testes do backend, o script de backup, as regras do
 compose (só o Caddy publica portas, o banco não publica nenhuma, volumes, `restart`, healthchecks,
 rotação de logs) e que toda dependência Python de produção tem wheel para `aarch64`.

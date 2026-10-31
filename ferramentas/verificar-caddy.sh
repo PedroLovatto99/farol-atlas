@@ -14,6 +14,7 @@ REDE="farol-verificar-caddy-${SUFIXO}"
 API="farol-verificar-api-${SUFIXO}"
 CADDY="farol-verificar-caddy-${SUFIXO}"
 PORTA="${PORTA_DA_VERIFICACAO:-18080}"
+ESPERA_MAXIMA="${ESPERA_MAXIMA:-90}"  # segundos, por etapa de espera
 export MSYS_NO_PATHCONV=1  # Git Bash no Windows: não converter os caminhos dos volumes
 
 limpar() {
@@ -47,8 +48,11 @@ fi
 docker network create "$REDE" >/dev/null
 
 # API de mentira: devolve em JSON os cabeçalhos que recebeu, com um texto longo para comprimir
-docker run -d --name "$API" --network "$REDE" --network-alias api python:3.13-slim python -c '
+# (ATRASO_DA_API=N faz a API demorar N s para começar a ouvir: simula o CI lento)
+docker run -d --name "$API" --network "$REDE" --network-alias api   -e ATRASO_DA_API="${ATRASO_DA_API:-0}" python:3.13-slim python -c '
 import json
+import os
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 class Eco(BaseHTTPRequestHandler):
@@ -63,6 +67,7 @@ class Eco(BaseHTTPRequestHandler):
     def log_message(self, *_):
         pass
 
+time.sleep(int(os.environ.get("ATRASO_DA_API", "0")))
 HTTPServer(("0.0.0.0", 8000), Eco).serve_forever()
 ' >/dev/null
 
@@ -71,14 +76,31 @@ docker run -d --name "$CADDY" --network "$REDE" -p "127.0.0.1:${PORTA}:80" \
   -e DOMINIO="http://localhost" \
   -v "${CAMINHO_DO_CADDYFILE}:/etc/caddy/Caddyfile:ro" caddy:2 >/dev/null
 
-for _ in $(seq 1 30); do
-  if curl -fsS -H "Host: localhost" "http://127.0.0.1:${PORTA}/api/v1/mapa" >/dev/null 2>&1; then
-    pronto=1
-    break
-  fi
-  sleep 1
-done
-[ "${pronto:-0}" = 1 ] || falhar "o Caddy não respondeu"
+# Espera até ${ESPERA_MAXIMA}s por uma condição, avisando qual etapa estourou o tempo. No CI as
+# imagens precisam ser baixadas e tudo sobe mais devagar que num PC: 90 s por etapa.
+esperar() {
+  local etapa="$1"
+  shift
+  local inicio=$SECONDS
+  until "$@" >/dev/null 2>&1; do
+    if [ $((SECONDS - inicio)) -ge "$ESPERA_MAXIMA" ]; then
+      falhar "etapa '${etapa}' não ficou pronta em ${ESPERA_MAXIMA} s"
+    fi
+    sleep 1
+  done
+  echo "pronto: ${etapa} ($((SECONDS - inicio)) s)"
+}
+
+api_responde() {
+  docker exec "$API" python -c     "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/saude', timeout=2)"
+}
+caddy_encaminha() {
+  curl -fsS -H "Host: localhost" "http://127.0.0.1:${PORTA}/api/v1/saude"
+}
+
+# 1ª etapa: a API de mentira responde por si só; 2ª: o Caddy já a vê saudável e encaminha
+esperar "API de teste respondendo" api_responde
+esperar "Caddy encaminhando para a API" caddy_encaminha
 
 # 1. X-Forwarded-For forjado
 corpo="$(curl -fsS -H "Host: localhost" -H "X-Forwarded-For: 6.6.6.6, 7.7.7.7" \
@@ -120,3 +142,19 @@ compactado="$(buscar -H "Host: localhost" -H "Accept-Encoding: gzip" \
   "http://127.0.0.1:${PORTA}/api/v1/mapa" | sed '/^$/q')"
 printf '%s\n' "$compactado" | grep -qi '^content-encoding: ' || falhar "a resposta não saiu comprimida"
 echo "ok: compressão"
+
+# 5. reinício da API (deploy): o pedido feito com a API fora não leva 503 na hora, o Caddy espera
+# (com ATRASO_DA_API a API também demoraria ao reiniciar: esse teste só vale sem o atraso)
+if [ "${ATRASO_DA_API:-0}" != 0 ]; then
+  echo "pulado: reinício da API (ATRASO_DA_API definido)"
+  exit 0
+fi
+docker stop -t 0 "$API" >/dev/null
+( sleep 3 && docker start "$API" >/dev/null ) &
+inicio=$SECONDS
+codigo="$(curl -sS -m 30 -w '
+%{http_code}' -H "Host: localhost"   "http://127.0.0.1:${PORTA}/api/v1/saude" | tail -n 1)"
+espera=$((SECONDS - inicio))
+wait
+[ "$codigo" = 200 ] || falhar "pedido durante o reinício da API deu '$codigo' (esperado 200 após ${espera} s)"
+echo "ok: reinício da API (o pedido esperou ${espera} s e voltou 200)"
