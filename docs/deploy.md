@@ -163,9 +163,11 @@ jeito, com `exec worker python -m farol.worker vistos ...`.
 ### Como a API se comporta atrás do Caddy
 
 - **IP do visitante.** O Caddy escreve o `X-Forwarded-For` com o endereço que ele viu e descarta o
-  que o visitante mandar. A API só confia nesse cabeçalho quando o pedido vem da rede interna
-  `172.30.0.0/24` (a rede `publica` do compose, onde só o Caddy chama a API). Quem falar com a API
-  de outro lugar não consegue forjar o IP.
+  que o visitante mandar. A API só confia nesse cabeçalho quando o pedido vem do **IP fixo do
+  Caddy**, `172.30.0.2` (`PROXY_CONFIAVEL=172.30.0.2/32`; o endereço está reservado na rede
+  `publica` do compose). Quem falar com a API de qualquer outro endereço, mesmo de dentro das redes
+  do Docker, não consegue forjar o IP. Se mudar o IP do Caddy no compose, mude o
+  `PROXY_CONFIAVEL` junto (um teste confere que os dois combinam).
 - **Limite de pedidos.** 120 por minuto por IP, com rajada de 40, e `429` com `Retry-After`. O
   `/api/v1/saude` fica de fora. O valor é folgado de propósito: operadoras móveis brasileiras põem
   muitos clientes atrás do mesmo IP (CGNAT). O contador fica na memória do processo, por isso o

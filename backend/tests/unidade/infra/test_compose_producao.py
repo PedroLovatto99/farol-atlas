@@ -108,12 +108,14 @@ def test_a_api_roda_com_um_processo_e_sem_confiar_no_proxy_do_uvicorn(
     assert "--reload" not in comando
 
 
-def test_a_api_confia_so_na_sub_rede_fixa_do_caddy(
+def test_a_api_confia_so_no_ip_fixo_do_caddy(
     compose: dict[str, Any], servicos: dict[str, dict[str, Any]]
 ) -> None:
-    sub_rede = compose["networks"]["publica"]["ipam"]["config"][0]["subnet"]
-    assert servicos["api"]["environment"]["PROXY_CONFIAVEL"] == sub_rede
-    assert servicos["caddy"]["networks"]["publica"]["ipv4_address"].startswith("172.30.0.")
+    sub_rede = ipaddress.IPv4Network(compose["networks"]["publica"]["ipam"]["config"][0]["subnet"])
+    ip_do_caddy = servicos["caddy"]["networks"]["publica"]["ipv4_address"]
+    assert ipaddress.IPv4Address(ip_do_caddy) in sub_rede
+    # um endereço só (/32), não a rede inteira
+    assert servicos["api"]["environment"]["PROXY_CONFIAVEL"] == f"{ip_do_caddy}/32"
     # só o caddy e a própria API estão nessa rede
     na_publica = {n for n, s in servicos.items() if "publica" in (s.get("networks") or [])}
     assert na_publica == {"caddy", "api"}

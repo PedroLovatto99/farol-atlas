@@ -44,6 +44,17 @@ def test_sem_redes_confiaveis_o_cabecalho_nunca_vale() -> None:
     assert resposta.text == CADDY
 
 
+def test_com_so_o_ip_do_caddy_confiavel_um_vizinho_na_mesma_rede_nao_vale() -> None:
+    """PROXY_CONFIAVEL=172.30.0.2/32: outro contêiner da rede (ex.: 172.30.0.3) não forja o IP."""
+    so_o_caddy = [ipaddress.IPv4Network("172.30.0.2/32")]
+    caddy = _cliente(CADDY, redes=so_o_caddy).get("/", headers={"X-Forwarded-For": VISITANTE})
+    assert caddy.text == VISITANTE
+    vizinho = _cliente("172.30.0.3", redes=so_o_caddy).get(
+        "/", headers={"X-Forwarded-For": FORJADO}
+    )
+    assert vizinho.text == "172.30.0.3"
+
+
 def test_do_caddy_sem_cabecalho_fica_o_ip_do_caddy() -> None:
     assert _cliente(CADDY).get("/").text == CADDY
 

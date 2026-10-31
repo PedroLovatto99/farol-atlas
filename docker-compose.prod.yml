@@ -28,8 +28,8 @@ x-backend: &backend
     DIRETORIO_DADOS: /app/dados
     # /docs e /redoc nunca existem em produção, mesmo que o .env venha do exemplo de desenvolvimento
     API_DOCS_HABILITADA: "false"
-    # A rede onde só o Caddy chama a API: dela (e só dela) vale o X-Forwarded-For
-    PROXY_CONFIAVEL: 172.30.0.0/24
+    # O IP fixo do Caddy (veja a rede publica): só dele vale o X-Forwarded-For
+    PROXY_CONFIAVEL: 172.30.0.2/32
   logging: *registro
 
 services:
