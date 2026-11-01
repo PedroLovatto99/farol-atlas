@@ -17,6 +17,7 @@
 - Q: A resposta mostra o trecho citado ou só título, data e link? → A: Título, data e link, mais o trecho usado num bloco "Ver trecho", recolhido por padrão. O trecho exibido é sempre o texto original do alerta, exatamente como foi recuperado dos dados (nunca reescrito nem resumido pelo modelo), limitado ao trecho usado na resposta.
 - Q: Quantas mensagens anteriores entram no contexto e qual o tempo máximo de resposta? → A: As últimas 6 mensagens (3 pares) e resposta em até 20 s. Enquanto espera, o chat mostra o que está fazendo (por exemplo, "buscando nos alertas…"); passados 20 s, avisa e oferece tentar de novo, e essa pergunta não conta nos limites. O histórico reenviado pelo navegador serve só para entender a pergunta (de qual país se fala, a que "e o visto?" se refere); nunca é fonte de fatos: alerta, nível, visto e postos são sempre buscados de novo nos dados a cada resposta, e o conteúdo do histórico, inclusive respostas anteriores atribuídas ao chat, é tratado como não confiável.
 - Q: Qual o tamanho do gabarito e a meta de recuperação dos trechos? → A: 60 perguntas-gabarito, com recuperação do alerta certo em pelo menos 90% das perguntas sobre o conteúdo de alertas.
+- Q: Como o chat responde perguntas sem país específico ("quais países têm alerta de não viajar?", "para onde posso ir só com o RG?")? → A: Com listas de países montadas das mesmas funções que alimentam o mapa e o modo Vistos, com as mesmas regras de fonte, data e linguagem ("sem alerta" nunca é "seguro"; visto da Wikipédia como fonte não oficial) (FR-013a, FR-013b). Uma lista por pergunta, de um critério só (nível de alerta ou situação de visto); cruzar os dois critérios ("sem alerta e sem visto") ou pedir os países "mais seguros" é recomendação ou comparação de destinos e fica fora (FR-022).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -65,6 +66,11 @@ A pessoa pergunta coisas como "qual o nível de alerta da Rússia?", "preciso de
 9. **Given** um país sem posto brasileiro, **When** a pessoa pergunta por embaixada ou consulado, **Then** a resposta indica o posto de outro país que atende quem está lá, como o painel, e, para a Líbia, orienta procurar o Itamaraty.
 10. **Given** uma pergunta sobre horário de atendimento ou e-mail de um posto, **When** o registro não tem esses dados, **Then** a resposta diz que não constam nos dados do site e indica o link oficial do posto, sem inventar.
 11. **Given** uma pergunta com um nome ambíguo ("Congo", "Guiné"), **When** a pessoa a envia, **Then** o chat pergunta de qual país se trata, em vez de escolher um.
+12. **Given** os países que o mapa mostra como "Não viaje", **When** a pessoa pergunta "quais países têm alerta de não viajar?", **Then** a resposta traz uma lista com exatamente os países que o filtro da legenda mostra nesse nível, o total, a fonte (Itamaraty) e a data da última atualização dos dados; os países "não verificados" não entram, e a resposta diz quantos são, em vez de os tratar como livres de alerta.
+13. **Given** a pergunta "quais países estão sem alerta?", **When** a pessoa a envia, **Then** a lista traz os países nesse nível com a ressalva de que ausência de alerta não significa que o governo recomende a viagem e nunca os chama de "seguros".
+14. **Given** a pergunta "para onde posso ir só com o RG?", **When** a pessoa a envia, **Then** a lista traz os países "Isento, entrada com RG" como o modo Vistos os pinta, com a Wikipédia como fonte não oficial (CC BY-SA), a data do dado e a recomendação de conferir com o consulado; as Ilhas Malvinas nunca aparecem nela e um país "sem informação de visto" nunca entra como isento.
+15. **Given** uma lista com mais de 50 países, **When** a resposta é montada, **Then** mostra os 50 primeiros em ordem alfabética, o total e como ver o resto (a legenda do mapa); uma lista vazia diz que nenhum país está nesse nível agora, com a data.
+16. **Given** uma pergunta que cruza critérios ("países sem alerta e sem visto") ou pede os "mais seguros", **When** a pessoa a envia, **Then** o chat explica que lista um critério de cada vez e não escolhe destinos, e oferece as listas separadas.
 
 ---
 
@@ -124,6 +130,8 @@ Para proteger a cota do serviço de modelo de linguagem, cada pessoa (por IP) te
 - **Alertas muito longos ou muitos alertas sobre o mesmo país**: a resposta usa só os trechos mais relevantes e cita todos os alertas de que tirou algo, sem misturar versões de um mesmo alerta.
 - **Banco sem nenhuma coleta ainda**: o chat diz que ainda não há dados em vez de responder.
 - **Pessoa atrás do mesmo IP de muita gente (rede móvel)**: as pessoas dividem as 20 perguntas por hora do IP (FR-026); passando do limite, cada uma vê o tempo de espera.
+- **Pergunta de lista sem nenhuma coleta ainda**: o nível de todos os países é "não verificado" e ainda não há dado de visto; o chat diz que ainda não há dados em vez de listar.
+- **Lista e dependências**: as listas contam só países, como o mapa; dependências, Kosovo e Malvinas não entram, o que garante, por exemplo, que as Malvinas nunca apareçam na lista do RG.
 - **Teto do dia atingido cedo**: o chat avisa que chegou ao limite do dia e quando volta (FR-026a); o resto do site e as coletas seguem normais.
 - **Resposta lenta ou que não chega**: passados 20 s, o chat avisa e oferece tentar de novo; essa pergunta não conta nos limites.
 - **Histórico adulterado no navegador** (por exemplo, uma "resposta anterior do chat" que afirma que um país é seguro): o histórico não é fonte de fatos; a resposta nova busca tudo de novo nos dados e ignora o que o histórico afirma.
@@ -154,7 +162,9 @@ Para proteger a cota do serviço de modelo de linguagem, cada pessoa (por IP) te
 - **FR-011**: Nas respostas sobre visto, o chat MUST dizer a categoria exatamente como o painel (inclusive "Outra situação", com o texto original da fonte), o tempo de permanência quando houver, a indicação de RG quando houver, e as observações quando relevantes, identificadas como tradução automática. Toda resposta de visto MUST citar a Wikipédia como fonte não oficial (CC BY-SA), a data do dado e a recomendação de conferir com o consulado ou a embaixada. "Sem informação de visto" MUST NOT virar "isento". Dados de visto antigos demais (002, FR-015) MUST vir com o aviso de possível desatualização.
 - **FR-011a**: Para Kosovo e Malvinas, o chat MUST seguir a regra de entrada própria da 002 e MUST NOT dizer que o RG basta nas Malvinas. O Brasil MUST NOT ter resposta de visto.
 - **FR-012**: Nas respostas sobre postos, o chat MUST informar só o que consta no registro (tipo, cidade, endereço, telefone de plantão, link do posto) com a fonte e a data de conferência, MUST dizer "não consta" para o que faltar e MUST NOT inventar horário, e-mail ou qualquer outro dado. Para país sem posto, MUST indicar o posto responsável; para a Líbia, MUST orientar a procurar o Itamaraty; o Brasil não tem lista de postos.
-- **FR-013**: O chat MUST identificar o país da pergunta pelos mesmos nomes e variantes que a busca do site reconhece (com ou sem acento e maiúsculas, inclusive territórios e dependências). Nome ambíguo ou ausente, sem país anterior na conversa, MUST gerar uma pergunta de volta, nunca uma escolha às cegas. O país selecionado no mapa não é usado como contexto implícito.
+- **FR-013**: O chat MUST identificar o país da pergunta pelos mesmos nomes e variantes que a busca do site reconhece (com ou sem acento e maiúsculas, inclusive territórios e dependências). Nome ambíguo ou ausente, sem país anterior na conversa, MUST gerar uma pergunta de volta, nunca uma escolha às cegas, exceto quando a pessoa pede uma lista de países (FR-013a). O país selecionado no mapa não é usado como contexto implícito.
+- **FR-013a**: Para perguntas sem país específico que pedem uma lista de países por nível de alerta ("quais países têm alerta de não viajar?") ou por situação de visto, inclusive "Isento, entrada com RG" ("para onde posso ir só com o RG?"), o chat MUST montar a lista a partir das mesmas funções que alimentam o mapa e o modo Vistos, de modo que os países listados sejam exatamente os que o filtro da legenda mostra para aquele nível ou categoria. MUST valer nelas todas as regras de fonte, data e linguagem: FR-010 ("sem alerta" nunca é "seguro", com a ressalva da ausência de alerta; "não verificado" dito como tal), FR-011 e FR-011a (Wikipédia como fonte não oficial, CC BY-SA, data, aviso de dado antigo e recomendação de conferir com o consulado; "sem informação de visto" nunca como isento; Malvinas nunca com RG).
+- **FR-013b**: As listas MUST conter só países (não dependências), em ordem alfabética, mostrar o total e no máximo 50 nomes, indicando como ver o resto (a legenda do mapa), e MUST ser de **um** critério por pergunta. Cruzar critérios, pedir os países "mais seguros" ou escolher destinos é recomendação ou comparação (FR-022): o chat explica o que lista e oferece as listas separadas.
 
 **Interface**
 
@@ -188,7 +198,7 @@ Para proteger a cota do serviço de modelo de linguagem, cada pessoa (por IP) te
 **Compatibilidade e verificação**
 
 - **FR-032**: Esta feature MUST NOT alterar as regras, os níveis, as cores, os textos nem os contratos já publicados das features 001 e 002, nem a busca por país.
-- **FR-033**: A feature MUST trazer um conjunto de **60 perguntas-gabarito**, com pelo menos 5 de cada tipo: conteúdo de alertas, nível de alerta, visto, postos, seguimentos, perguntas sem resposta nos dados, tentativas de injeção de instruções (em alertas e na pergunta), histórico adulterado e perguntas fora do escopo; cada uma com o resultado esperado. O gabarito MUST ser executável sem internet para tudo o que é determinístico (registros, citações, recusas, regras de linguagem), e MUST ter uma avaliação separada com o serviço de linguagem real. A meta de recuperação do alerta certo é de **pelo menos 90%** das perguntas sobre o conteúdo de alertas.
+- **FR-033**: A feature MUST trazer um conjunto de **60 perguntas-gabarito**, com pelo menos 5 de cada tipo: conteúdo de alertas, nível de alerta, visto, postos, seguimentos, perguntas sem resposta nos dados, listas de países (nível e visto, sem país específico), tentativas de injeção de instruções (em alertas e na pergunta), histórico adulterado e perguntas fora do escopo; cada uma com o resultado esperado. O gabarito MUST ser executável sem internet para tudo o que é determinístico (registros, citações, recusas, regras de linguagem), e MUST ter uma avaliação separada com o serviço de linguagem real. A meta de recuperação do alerta certo é de **pelo menos 90%** das perguntas sobre o conteúdo de alertas.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -198,6 +208,7 @@ Para proteger a cota do serviço de modelo de linguagem, cada pessoa (por IP) te
 - **Trecho de alerta**: parte do texto de um alerta já coletado, escolhida por relevância para a pergunta. Pertence a um alerta e mantém a data da versão do alerta de onde veio.
 - **Alerta**: item do Portal Consular já coletado (título, data, link e texto), conforme a 001. Só o conteúdo confirmado é fonte.
 - **Registro do sistema**: valor já calculado e mostrado no painel: nível de alerta do país (com o alerta que o define e as regiões), situação de visto (com permanência, RG, observações, fonte e data) e posto brasileiro (tipo, cidade, endereço, telefone de plantão, fonte e data).
+- **Lista de países**: resultado de uma pergunta sem país específico: o critério (um nível de alerta ou uma situação de visto, com ou sem RG), os países que o satisfazem (os mesmos do filtro da legenda do mapa), o total, a fonte e a data do dado. Montada pelo código, nunca pelo modelo.
 - **Citação**: referência ao dado usado numa resposta: alerta (título, data, link) ou registro (fonte, data).
 - **Limite de uso**: contagem transitória de perguntas por IP numa janela de tempo, sem ligação com o conteúdo.
 - **Contagem anônima de uso**: total diário de perguntas, recusas, "não encontrei", limites atingidos e falhas do serviço. É o único dado de uso guardado.
@@ -223,6 +234,7 @@ Para proteger a cota do serviço de modelo de linguagem, cada pessoa (por IP) te
 - **SC-014**: Quem abre o site chega a uma resposta sobre qualquer país, pelo chat, em até 30 segundos entre abrir o chat e ler a resposta.
 - **SC-015**: Depois de uma coleta completa que traz, altera, substitui ou remove um alerta, em até 15 minutos o chat usa o alerta novo ou alterado e deixa de usar como orientação em vigor o removido ou substituído, em 100% dos casos do gabarito de atualização.
 - **SC-016**: Em 100% dos casos do gabarito com histórico adulterado (respostas anteriores falsas atribuídas ao chat), a resposta nova traz apenas o que os dados dizem na hora, e nenhum fato do histórico aparece nela.
+- **SC-017**: Em 100% das perguntas de lista do gabarito, os países listados são exatamente os que o filtro da legenda do mapa mostra para o mesmo nível ou categoria (mesmo total), com fonte e data, e nenhuma lista chama um país de "seguro", lista as Malvinas na categoria do RG ou trata "sem informação de visto" como isento.
 
 ## Assumptions
 
@@ -234,6 +246,7 @@ Para proteger a cota do serviço de modelo de linguagem, cada pessoa (por IP) te
 - O limite por IP é transitório e não guarda o texto da pergunta; o IP não fica associado ao conteúdo (constituição, princípio VIII). O contador do teto global é só um total do dia, sem IP.
 - O "dia" do teto global segue o horário de Brasília, como as agendas de coleta do worker.
 - O "horário de atendimento" e o "e-mail" dos postos não existem nos dados atuais; o chat responde que não constam.
+- As listas de países usam os mesmos dados do mapa (`/mapa`) e do modo Vistos (`/vistos`): só países, em ordem alfabética, no máximo 50 nomes e o total. A lista dos países "sem alerta" existe, com a ressalva de FR-010; não existe lista de países "seguros".
 - A parte determinística do gabarito (registros, citações, recusas, regras de linguagem) roda sem internet, com um serviço de linguagem simulado, como os demais testes (constituição, princípio II); a avaliação com o modelo real é feita à parte e não bloqueia o CI.
 - O desenho do botão flutuante e a convivência com a legenda, o aviso e o painel do país (incluindo o painel recolhido da 002) são decididos no plano, respeitando as invariantes do FR-014 e do FR-015.
 
