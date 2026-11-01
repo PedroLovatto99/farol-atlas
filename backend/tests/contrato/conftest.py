@@ -1,8 +1,9 @@
 """Base dos testes de contrato: o OpenAPI desenhado em specs/ e o gerado pelo FastAPI.
 
-O contrato é o COMPLETO da API v1.1 (feature 002), que contém o da 001 por inteiro mais a rota
-`/vistos` e o campo `Pais.visto`. O arquivo da 001 fica como histórico da v1.0, e o teste
-`test_contrato_002_preserva_001.py` falha se a parte da 001 mudar.
+O contrato é o COMPLETO da API v1.2 (feature 003): o da 002 (v1.1, que já contém o da 001) mais a
+rota `POST /chat` e os esquemas dela. Os arquivos da 001 e da 002 ficam como histórico, e os testes
+`test_contrato_002_preserva_001.py` e `test_contrato_003_preserva_002.py` falham se a parte antiga
+mudar.
 
 A comparação ignora o que não é contrato (títulos, descrições, exemplos) e escreve os dois lados
 na mesma forma: tipos, anulabilidade, formatos, enums, propriedades, obrigatórios e referências.
@@ -22,7 +23,7 @@ from farol.api.exportar_openapi import gerar_openapi
 CONTRATO = (
     Path(__file__).resolve().parents[3]
     / "specs"
-    / "002-visto-brasileiros"
+    / "003-chat-alertas-viagem"
     / "contracts"
     / "openapi.yaml"
 )
@@ -43,8 +44,10 @@ def esboco(schema: Documento) -> Documento:
     resultado: Documento = {}
     anulavel = False
 
-    if "anyOf" in schema:
-        partes = [esboco(p) for p in schema["anyOf"]]
+    # `oneOf` (o contrato) e `anyOf` (o FastAPI) dizem o mesmo aqui: "um destes", talvez nulo
+    alternativas = schema.get("anyOf", schema.get("oneOf"))
+    if alternativas is not None:
+        partes = [esboco(p) for p in alternativas]
         anulavel = any(p == {"tipos": ["null"]} for p in partes)
         restantes = [p for p in partes if p != {"tipos": ["null"]}]
         if len(restantes) != 1:

@@ -65,3 +65,67 @@ def test_ligadas_o_worker_monta_a_agenda_de_sempre(monkeypatch: pytest.MonkeyPat
         comando.servir_agenda()
 
     assert chamadas == ["banco"]
+
+
+# --------------------------------------------------------------------------- indexação (003)
+def _servir(monkeypatch: pytest.MonkeyPatch, **campos: Any) -> dict[str, Any]:
+    """Roda `servir_agenda` com tudo trocado e devolve o que `preparar_agendador` recebeu."""
+    recebido: dict[str, Any] = {}
+
+    class SessaoFalsa:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, *_: object) -> None: ...
+
+    class ExecucoesFalsas:
+        def __init__(self, _sessao: object) -> None: ...
+
+        def ultima_tentativa(self, _tipo: object) -> None:
+            return None
+
+    def preparar(rodada: object, **kwargs: Any) -> AgendadorFalso:
+        recebido.update(kwargs)
+        return AgendadorFalso()
+
+    monkeypatch.setattr(
+        comando,
+        "obter_configuracoes",
+        lambda: _configuracoes(coletas_automaticas=True, **campos),
+    )
+    monkeypatch.setattr(comando, "abrir_sessao", lambda: SessaoFalsa())
+    monkeypatch.setattr(comando, "ExecucaoRepositorio", ExecucoesFalsas)
+    monkeypatch.setattr(
+        comando,
+        "situacao_de_vistos_na_partida",
+        lambda _sessao: comando.SituacaoDeVistosNaPartida(None, False, None),
+    )
+    monkeypatch.setattr(comando, "preparar_agendador", preparar)
+    comando.servir_agenda()
+    return recebido
+
+
+def test_com_o_chat_pronto_o_worker_agenda_a_indexacao(monkeypatch: pytest.MonkeyPatch) -> None:
+    recebido = _servir(
+        monkeypatch,
+        chat_habilitado=True,
+        google_api_key_chat=SecretStr("chave-do-chat"),
+        indexacao_intervalo_minutos=7,
+    )
+
+    assert callable(recebido["rodada_de_indexacao"])
+    assert recebido["intervalo_da_indexacao_minutos"] == 7
+
+
+def test_com_o_chat_desligado_o_worker_nao_agenda_a_indexacao(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recebido = _servir(monkeypatch, chat_habilitado=False)
+    assert recebido.get("rodada_de_indexacao") is None
+
+
+def test_chat_ligado_sem_a_chave_do_chat_nao_agenda_a_indexacao(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recebido = _servir(monkeypatch, chat_habilitado=True)
+    assert recebido.get("rodada_de_indexacao") is None

@@ -15,8 +15,13 @@ rodada `adiada` (artigo editado há menos de 24 h) ou que `falhou` ganha uma nov
 do dia seguinte (`vistos-amanha`), até 3 falhas seguidas (O6); depois disso, só a próxima segunda.
 Ao subir, o worker retoma uma tentativa de amanhã que a parada dele deixou pendente.
 
-Os jobs rodam um de cada vez (um só fio de execução): o gov.br e a Wikipédia recebem uma requisição
-por vez, com a pausa do cliente educado, mesmo quando duas coletas caem juntas.
+Os jobs de coleta rodam um de cada vez (um só fio de execução): o gov.br e a Wikipédia recebem uma
+requisição por vez, com a pausa do cliente educado, mesmo quando duas coletas caem juntas.
+
+A indexação dos trechos dos alertas (chat, feature 003) roda a cada `INDEXACAO_INTERVALO_MINUTOS`
+(padrão 5) e uma vez na partida, num SEGUNDO executor de um fio só: ela não espera a coleta de
+postos (cerca de 45 minutos) e não atrasa nenhuma coleta, então um alerta novo chega ao chat dentro
+dos 15 minutos da spec. Ela só fala com o banco e com o serviço de embeddings, nunca com o gov.br.
 """
 
 from collections.abc import Callable
@@ -26,6 +31,7 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from farol.dominio import ResultadoDaColetaDeVistos
 from farol.infra import FUSO_DE_BRASILIA, Relogio, RelogioDoSistema
@@ -49,6 +55,9 @@ ID_DE_POSTOS_NA_PARTIDA = "postos-na-partida"
 ID_SEMANAL_DE_VISTOS = "vistos-semanais"
 ID_DE_VISTOS_NA_PARTIDA = "vistos-na-partida"
 ID_DE_VISTOS_AMANHA = "vistos-amanha"
+ID_DA_INDEXACAO = "indexacao-periodica"
+ID_DA_INDEXACAO_NA_PARTIDA = "indexacao-na-partida"
+EXECUTOR_DA_INDEXACAO = "indexacao"
 
 
 def deve_coletar_na_partida(
@@ -143,15 +152,22 @@ def preparar_agendador(
     ultima_tentativa_de_vistos_bloqueada: bool = False,
     retomada_de_vistos: datetime | None = None,
     relogio: Relogio | None = None,
+    rodada_de_indexacao: Callable[[], object] | None = None,
+    intervalo_da_indexacao_minutos: int = 5,
 ) -> BlockingScheduler:
     """Agendador pronto para `start()`: alertas todo dia, postos todo mês, vistos toda semana e,
     se for o caso, a coleta da partida de cada um (alertas primeiro).
 
     `rodada_de_vistos` devolve quando tentar de novo; `retomada_de_vistos` é a tentativa de
     "amanhã" que a parada do worker deixou pendente (veja `retomada_de_vistos` acima).
+    `rodada_de_indexacao`, se dada, agenda a indexação dos trechos dos alertas no executor próprio.
     """
     agendador = BlockingScheduler(
-        timezone=FUSO_DE_BRASILIA, executors={"default": ThreadPoolExecutor(1)}
+        timezone=FUSO_DE_BRASILIA,
+        executors={
+            "default": ThreadPoolExecutor(1),
+            EXECUTOR_DA_INDEXACAO: ThreadPoolExecutor(1),
+        },
     )
     agendador.add_job(
         rodada,
@@ -201,7 +217,38 @@ def preparar_agendador(
             retomada=retomada_de_vistos,
             relogio=relogio or RelogioDoSistema(),
         )
+    if rodada_de_indexacao is not None:
+        _agendar_indexacao(
+            agendador, rodada_de_indexacao, agora=agora, intervalo=intervalo_da_indexacao_minutos
+        )
     return agendador
+
+
+def _agendar_indexacao(
+    agendador: BlockingScheduler,
+    rodada_de_indexacao: Callable[[], object],
+    *,
+    agora: datetime,
+    intervalo: int,
+) -> None:
+    """A indexação a cada `intervalo` minutos e uma vez na partida, no executor dela."""
+    agendador.add_job(
+        rodada_de_indexacao,
+        IntervalTrigger(minutes=intervalo, timezone=FUSO_DE_BRASILIA),
+        id=ID_DA_INDEXACAO,
+        executor=EXECUTOR_DA_INDEXACAO,
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=intervalo * 60,
+    )
+    agendador.add_job(
+        rodada_de_indexacao,
+        DateTrigger(run_date=agora, timezone=FUSO_DE_BRASILIA),
+        id=ID_DA_INDEXACAO_NA_PARTIDA,
+        executor=EXECUTOR_DA_INDEXACAO,
+        max_instances=1,
+        misfire_grace_time=TOLERANCIA_DE_ATRASO_SEGUNDOS,
+    )
 
 
 def _agendar_vistos(

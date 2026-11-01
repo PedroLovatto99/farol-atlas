@@ -5,6 +5,11 @@ python -m farol.worker coletar --alertas    uma rodada agora (coleta + classific
 python -m farol.worker coletar --postos     coleta endereço e telefone dos postos agora e sai
 python -m farol.worker coletar --vistos     coleta os vistos da Wikipédia agora e sai
 python -m farol.worker reclassificar <id|url>   chama o modelo de novo para um alerta e sai
+python -m farol.worker indexar              indexa os trechos dos alertas para o chat e sai
+python -m farol.worker indexar --tudo       refaz todos os trechos do modelo configurado
+python -m farol.worker indexar --status     só olha: alertas indexados, modelo e dimensão no índice
+python -m farol.worker reindexar            troca de modelo ou de dimensão dos embeddings
+python -m farol.worker reindexar --manter-antigos   o mesmo, sem apagar os vetores antigos
 
 Meios do dono para os vistos (dentro do contêiner do worker; não há rota HTTP nem tela):
 
@@ -13,8 +18,13 @@ python -m farol.worker vistos confirmar <codigo>|--todos   aplica a(s) mudança(
 python -m farol.worker vistos rejeitar <codigo>            rejeita a mudança retida
 python -m farol.worker vistos ignorar-nome "<nome>" --motivo "<texto>"
 
-Códigos de saída: 0 feito (em `coletar`, coleta completa ou válida); 1 coleta que não foi completa
-ou válida; 2 uso errado ou configuração (por exemplo `CONTATO_COLETA` ausente).
+`coletar --alertas` e `reclassificar` terminam indexando (sem mudar o código de saída); `coletar
+--postos` e `--vistos` não.
+
+Códigos de saída: 0 feito (em `coletar`, coleta completa ou válida; em `indexar`, sem falhas; com
+`--status`, tudo em dia); 1 coleta que não foi completa ou válida, falha de indexação ou índice com
+pendência; 2 uso errado ou configuração (por exemplo `CONTATO_COLETA` ou `GOOGLE_API_KEY_CHAT`
+ausentes).
 """
 
 import argparse
@@ -28,6 +38,7 @@ from typing import Protocol, TextIO
 
 from sqlalchemy.orm import Session
 
+from farol.chat import ResumoDaIndexacao, ResumoDaReindexacao, SituacaoDoIndice
 from farol.classificacao import (
     AlertaNaoEncontrado,
     ResultadoDaReclassificacao,
@@ -62,11 +73,15 @@ from farol.worker.agenda import agendador_ocioso, preparar_agendador, retomada_d
 from farol.worker.jobs import (
     ClassificadorIndisponivel,
     ContatoInvalido,
+    IndexacaoIndisponivel,
     ResultadoDaRodada,
+    indexar_real,
     reclassificar_real,
+    reindexar_real,
     rodada_real,
     rodada_real_de_postos,
     rodada_real_de_vistos,
+    situacao_do_indice_real,
 )
 
 _log = obter_logger("farol.worker")
@@ -101,6 +116,19 @@ def _montar_parser() -> argparse.ArgumentParser:
     )
     reclassificar.add_argument("alerta", help="id do alerta no banco ou a URL dele")
 
+    indexar = comandos.add_parser(
+        "indexar", help="indexa os trechos dos alertas para o chat (não coleta nada)"
+    )
+    modo = indexar.add_mutually_exclusive_group()
+    modo.add_argument("--tudo", action="store_true", help="refaz todos os trechos")
+    modo.add_argument("--status", action="store_true", help="só olha; não indexa nada")
+    reindexar = comandos.add_parser(
+        "reindexar", help="troca de modelo ou de dimensão dos embeddings (não coleta nada)"
+    )
+    reindexar.add_argument(
+        "--manter-antigos", action="store_true", help="não apaga os vetores dos outros modelos"
+    )
+
     vistos = comandos.add_parser("vistos", help="meios do dono para os vistos (não coleta nada)")
     acoes = vistos.add_subparsers(dest="acao", required=True)
     acoes.add_parser("pendentes", help="lista tudo o que espera o dono")
@@ -126,7 +154,9 @@ def _resumo_da_reclassificacao(resultado: ResultadoDaReclassificacao) -> str:
 
 
 def _reclassificar(
-    referencia: str, reclassificar: Callable[[str], ResultadoDaReclassificacao]
+    referencia: str,
+    reclassificar: Callable[[str], ResultadoDaReclassificacao],
+    indexar: Callable[[bool], ResumoDaIndexacao] | None = None,
 ) -> int:
     try:
         resultado = reclassificar(referencia)
@@ -137,6 +167,8 @@ def _reclassificar(
         print(f"Não foi possível reclassificar: {erro}")
         return 2
     print(_resumo_da_reclassificacao(resultado))
+    if resultado.ok:
+        _indexar_ao_fim(indexar)
     return 0 if resultado.ok else 1
 
 
@@ -164,6 +196,88 @@ def _resumo_de_postos(resultado: ResultadoDaColetaDePostos) -> str:
     if resultado.motivo_interrupcao:
         linhas.insert(1, f"Motivo: {resultado.motivo_interrupcao}")
     return "\n".join(linhas)
+
+
+# --------------------------------------------------------------------------- indexação: texto
+def _resumo_da_indexacao(resumo: ResumoDaIndexacao) -> str:
+    return (
+        f"Indexação: novos: {resumo.novos} | atualizados: {resumo.atualizados} | "
+        f"inalterados: {resumo.inalterados} | só países ou vigor: {resumo.metadados} | "
+        f"apagados: {resumo.apagados}\n"
+        f"trechos gravados: {resumo.trechos} | falhas: {resumo.falhas}"
+    )
+
+
+def _resumo_da_reindexacao(resumo: ResumoDaReindexacao) -> str:
+    return (
+        f"Reindexação: refeitos: {resumo.refeitos} | já completos: {resumo.ja_completos} | "
+        f"apagados: {resumo.apagados}\n"
+        f"trechos novos: {resumo.trechos_novos} | "
+        f"vetores antigos apagados: {resumo.vetores_antigos_apagados} | falhas: {resumo.falhas}"
+    )
+
+
+def _situacao_do_indice(situacao: SituacaoDoIndice) -> str:
+    linhas = [f"Alertas elegíveis indexados: {situacao.indexados} de {situacao.elegiveis}"]
+    if not situacao.modelos:
+        linhas.append("O índice está vazio.")
+    for modelo in situacao.modelos:
+        linhas.append(
+            f"No índice: {modelo.modelo} ({modelo.dimensoes} dimensões): "
+            f"{modelo.trechos} trechos em {modelo.alertas} alertas"
+        )
+    linhas.extend(f"ATENÇÃO: {aviso}" for aviso in situacao.avisos)
+    return "\n".join(linhas)
+
+
+def _indexar_ao_fim(indexar: Callable[[bool], ResumoDaIndexacao] | None) -> None:
+    """Termina `coletar --alertas` e `reclassificar` indexando. Nunca muda o código de saída: o
+    varredor tenta de novo a cada ciclo."""
+    if indexar is None:
+        return
+    try:
+        print(_resumo_da_indexacao(indexar(False)))
+    except IndexacaoIndisponivel as erro:
+        print(f"Indexação não feita: {erro}")
+    except Exception:
+        _log.exception("a indexação ao fim do comando falhou")
+        print("Indexação falhou (veja o log); o varredor tenta de novo no próximo ciclo.")
+
+
+def _executar_indexacao(
+    escolhido: argparse.Namespace,
+    indexar: Callable[[bool], ResumoDaIndexacao] | None,
+    situacao_do_indice: Callable[[], SituacaoDoIndice] | None,
+) -> int:
+    try:
+        if escolhido.status:
+            if situacao_do_indice is None:
+                raise SystemExit(2)
+            situacao = situacao_do_indice()
+            print(_situacao_do_indice(situacao))
+            return 0 if situacao.em_dia else 1
+        if indexar is None:
+            raise SystemExit(2)
+        resumo = indexar(escolhido.tudo)
+    except IndexacaoIndisponivel as erro:
+        print(f"Não foi possível indexar: {erro}")
+        return 2
+    print(_resumo_da_indexacao(resumo))
+    return 0 if resumo.falhas == 0 else 1
+
+
+def _executar_reindexacao(
+    escolhido: argparse.Namespace, reindexar: Callable[[bool], ResumoDaReindexacao] | None
+) -> int:
+    if reindexar is None:
+        raise SystemExit(2)
+    try:
+        resumo = reindexar(escolhido.manter_antigos)
+    except IndexacaoIndisponivel as erro:
+        print(f"Não foi possível reindexar: {erro}")
+        return 2
+    print(_resumo_da_reindexacao(resumo))
+    return 0 if resumo.falhas == 0 else 1
 
 
 # --------------------------------------------------------------------------- vistos: texto
@@ -345,11 +459,18 @@ def executar_comando(
     reclassificar: Callable[[str], ResultadoDaReclassificacao] | None = None,
     rodada_de_vistos: Callable[[], ResumoDaColetaDeVistos] | None = None,
     dono: Callable[[], AbstractContextManager[MeiosDoDono]] | None = None,
+    indexar: Callable[[bool], ResumoDaIndexacao] | None = None,
+    reindexar: Callable[[bool], ResumoDaReindexacao] | None = None,
+    situacao_do_indice: Callable[[], SituacaoDoIndice] | None = None,
 ) -> int:
     """Executa um comando de execução única. Devolve o código de saída."""
     escolhido = _montar_parser().parse_args(list(argumentos))
     if escolhido.comando == "reclassificar" and reclassificar is not None:
-        return _reclassificar(escolhido.alerta, reclassificar)
+        return _reclassificar(escolhido.alerta, reclassificar, indexar)
+    if escolhido.comando == "indexar":
+        return _executar_indexacao(escolhido, indexar, situacao_do_indice)
+    if escolhido.comando == "reindexar":
+        return _executar_reindexacao(escolhido, reindexar)
     if escolhido.comando == "vistos" and dono is not None:
         return _executar_do_dono(escolhido, dono)
     if escolhido.comando != "coletar":
@@ -370,6 +491,7 @@ def executar_comando(
         print(f"Não foi possível coletar: {erro}")
         return 2
     print(_resumo(resultado))
+    _indexar_ao_fim(indexar)
     return 0 if resultado.coleta.completa else 1
 
 
@@ -446,6 +568,14 @@ def servir_agenda() -> None:
         _log.info("rodada de vistos concluída\n%s", _resumo_de_vistos(resumo))
         return resumo.proxima_tentativa
 
+    def rodada_de_indexacao() -> None:
+        resumo = indexar_real(configuracoes)
+        mudou = resumo.novos + resumo.atualizados + resumo.metadados + resumo.apagados
+        if mudou or resumo.falhas:
+            _log.info("indexação concluída\n%s", _resumo_da_indexacao(resumo))
+        else:
+            _log.debug("indexação: nada a fazer")
+
     agendador = preparar_agendador(
         rodada,
         ultima_tentativa=ultima,
@@ -457,11 +587,23 @@ def servir_agenda() -> None:
         ultima_coleta_valida_de_vistos=vistos.ultima_coleta_valida,
         ultima_tentativa_de_vistos_bloqueada=vistos.ultima_tentativa_bloqueada,
         retomada_de_vistos=vistos.retomada,
+        rodada_de_indexacao=rodada_de_indexacao if configuracoes.chat_disponivel else None,
+        intervalo_da_indexacao_minutos=configuracoes.indexacao_intervalo_minutos,
     )
     _log.info(
         "worker iniciado: alertas todo dia às 06:17, postos todo dia 1 às 05:43 e vistos "
         "toda segunda às 05:13 (America/Sao_Paulo)"
     )
+    if configuracoes.chat_disponivel:
+        _log.info(
+            "indexação dos trechos dos alertas a cada %s minutos, num executor próprio",
+            configuracoes.indexacao_intervalo_minutos,
+        )
+    else:
+        _log.info(
+            "indexação dos trechos dos alertas desligada (%s); `indexar` roda à mão",
+            configuracoes.motivo_chat_indisponivel,
+        )
     agendador.start()  # bloqueia até receber o sinal de parada
 
 
@@ -472,6 +614,10 @@ def configurar_saida_em_utf8(saida: TextIO) -> None:
     reconfigurar = getattr(saida, "reconfigure", None)
     if callable(reconfigurar):
         reconfigurar(encoding="utf-8", errors="replace")
+
+
+def _mostrar_andamento(posicao: int, total: int, alerta_id: int, resultado: str) -> None:
+    print(f"[{posicao}/{total}] alerta {alerta_id}: {resultado}", flush=True)
 
 
 def main(argumentos: Sequence[str]) -> int:
@@ -491,4 +637,9 @@ def main(argumentos: Sequence[str]) -> int:
         reclassificar=lambda referencia: reclassificar_real(configuracoes, referencia),
         rodada_de_vistos=lambda: rodada_real_de_vistos(configuracoes),
         dono=_dono_real,
+        indexar=lambda tudo: indexar_real(configuracoes, tudo=tudo),
+        reindexar=lambda manter: reindexar_real(
+            configuracoes, manter_antigos=manter, andamento=_mostrar_andamento
+        ),
+        situacao_do_indice=lambda: situacao_do_indice_real(configuracoes),
     )

@@ -5,10 +5,12 @@ from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
+from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.job import Job
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from farol.classificacao import (
     AlertaNaoEncontrado,
@@ -22,6 +24,7 @@ from farol.worker import (
     ClassificadorIndisponivel,
     ContatoInvalido,
     ResultadoDaRodada,
+    agendador_ocioso,
     deve_coletar_na_partida,
     deve_coletar_postos_na_partida,
     deve_coletar_vistos_na_partida,
@@ -786,3 +789,107 @@ def test_agendador_sem_partida_de_vistos_quando_a_ultima_tentativa_foi_bloqueada
     )
 
     assert {j.id for j in agendador.get_jobs() if j.id.startswith("vistos")} == {"vistos-semanais"}
+
+
+# --------------------------------------------------------------------------- indexação (003)
+def agendador_com_indexacao(
+    rodada_de_indexacao: Callable[[], object] | None = lambda: None,
+    *,
+    intervalo: int = 5,
+    **extra: object,
+) -> BlockingScheduler:
+    return preparar_agendador(
+        lambda: None,
+        ultima_tentativa=AGORA,
+        agora=AGORA,
+        limite_horas=20,
+        rodada_de_indexacao=rodada_de_indexacao,
+        intervalo_da_indexacao_minutos=intervalo,
+        **extra,  # type: ignore[arg-type]
+    )
+
+
+def test_indexacao_roda_a_cada_n_minutos_em_um_executor_proprio() -> None:
+    agendador = agendador_com_indexacao(intervalo=5)
+
+    periodica = job(agendador, "indexacao-periodica")
+
+    assert isinstance(periodica.trigger, IntervalTrigger)
+    assert periodica.trigger.interval == timedelta(minutes=5)
+    assert periodica.executor == "indexacao"
+    assert periodica.coalesce is True
+    assert periodica.max_instances == 1
+
+
+def test_o_intervalo_da_indexacao_vem_das_configuracoes() -> None:
+    periodica = job(agendador_com_indexacao(intervalo=12), "indexacao-periodica")
+    assert isinstance(periodica.trigger, IntervalTrigger)
+    assert periodica.trigger.interval == timedelta(minutes=12)
+
+
+def test_indexacao_roda_tambem_na_partida() -> None:
+    na_partida = job(agendador_com_indexacao(), "indexacao-na-partida")
+
+    assert isinstance(na_partida.trigger, DateTrigger)
+    assert na_partida.trigger.run_date == AGORA
+    assert na_partida.executor == "indexacao"
+    assert na_partida.max_instances == 1
+
+
+def test_o_executor_da_indexacao_e_separado_e_de_um_fio_so() -> None:
+    agendador = agendador_com_indexacao()
+
+    de_indexacao = agendador._lookup_executor("indexacao")
+    padrao = agendador._lookup_executor("default")
+
+    assert de_indexacao is not padrao
+    for executor in (de_indexacao, padrao):
+        assert isinstance(executor, ThreadPoolExecutor)
+        assert executor._pool._max_workers == 1
+
+
+def test_a_coleta_de_postos_nao_disputa_o_executor_da_indexacao() -> None:
+    agendador = agendador_com_indexacao(
+        rodada_de_postos=lambda: None,
+        ultima_tentativa_de_postos=None,
+        rodada_de_vistos=lambda: ProximaTentativa.PROXIMA_SEGUNDA,
+    )
+
+    coletas = [j for j in agendador.get_jobs() if not j.id.startswith("indexacao")]
+    assert {"alertas-diarios", "postos-mensais", "postos-na-partida", "vistos-semanais"} <= {
+        j.id for j in coletas
+    }
+    assert {j.executor for j in coletas} == {"default"}  # todas as coletas, um fio só
+    assert {j.executor for j in agendador.get_jobs() if j.id.startswith("indexacao")} == {
+        "indexacao"
+    }
+
+
+def test_cada_job_de_indexacao_roda_a_rodada_recebida() -> None:
+    chamadas: list[int] = []
+    agendador = agendador_com_indexacao(lambda: chamadas.append(1))
+
+    for id_do_job in ("indexacao-periodica", "indexacao-na-partida"):
+        job(agendador, id_do_job).func()
+
+    assert chamadas == [1, 1]
+
+
+def test_sem_rodada_de_indexacao_nao_ha_job_de_indexacao() -> None:
+    agendador = agendador_com_indexacao(None)
+    assert not [j.id for j in agendador.get_jobs() if j.id.startswith("indexacao")]
+
+
+def test_os_jobs_de_coleta_nao_mudam_com_a_indexacao() -> None:
+    sem = preparar_agendador(lambda: None, ultima_tentativa=AGORA, agora=AGORA, limite_horas=20)
+    com = agendador_com_indexacao()
+
+    def resumo(agendador: BlockingScheduler) -> dict[str, str]:
+        return {j.id: str(j.trigger) for j in agendador.get_jobs() if "indexacao" not in j.id}
+
+    assert resumo(com) == resumo(sem)
+    assert {j.executor for j in sem.get_jobs()} == {"default"}
+
+
+def test_agendador_ocioso_continua_sem_nenhum_job() -> None:
+    assert agendador_ocioso().get_jobs() == []

@@ -8,7 +8,14 @@ from farol.dominio.repositorios.execucoes import ExecucaoRepositorio
 from farol.dominio.repositorios.fontes import FonteDadosRepositorio
 from farol.dominio.repositorios.postos import PostoRepositorio
 from farol.dominio.repositorios.territorios import TerritorioRepositorio
-from farol.dominio.repositorios.trechos_alerta import TrechoAlertaRepositorio
+from farol.dominio.repositorios.trechos_alerta import (
+    AlertaCitado,
+    AlertaElegivel,
+    NovoTrecho,
+    TrechoAlertaRepositorio,
+    TrechoGravado,
+    TrechoRecuperado,
+)
 from farol.dominio.repositorios.vistos import (
     ColetaVistosRepositorio,
     ItemParaRevisaoRepositorio,
@@ -17,6 +24,8 @@ from farol.dominio.repositorios.vistos import (
 )
 
 __all__ = [
+    "AlertaCitado",
+    "AlertaElegivel",
     "AlertaRepositorio",
     "BancoRepositorio",
     "ClassificacaoRepositorio",
@@ -26,9 +35,12 @@ __all__ = [
     "FonteDadosRepositorio",
     "ItemParaRevisaoRepositorio",
     "MudancaRetidaRepositorio",
+    "NovoTrecho",
     "PostoRepositorio",
     "RequisitoVistoRepositorio",
     "TerritorioRepositorio",
     "TrechoAlertaRepositorio",
+    "TrechoGravado",
+    "TrechoRecuperado",
     "dia_em_brasilia",
 ]

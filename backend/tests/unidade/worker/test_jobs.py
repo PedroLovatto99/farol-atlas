@@ -133,3 +133,127 @@ def test_modelo_que_nao_existe_tambem_deixa_o_tradutor_ausente(
     configuracoes.llm_tradutor = "provedor_que_nao_existe:modelo"
     rodada_real_de_vistos(configuracoes)
     assert servico_falso.criados[0].tradutor is None
+
+
+# --------------------------------------------------------------------------- indexação (003)
+class EmbeddadorDeMentira:
+    modelo = "falso:modelo"
+    dimensoes = 8
+
+
+class MeiosDaIndexacao:
+    """Troca as peças que `indexar_real` e companhia ligam: banco, mapa, chat e embeddador."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.chamadas: list[tuple[str, Any]] = []
+        self.embeddador = EmbeddadorDeMentira()
+
+        @contextmanager
+        def sessao_falsa(**_: Any) -> Iterator[str]:
+            self.chamadas.append(("sessao", None))
+            yield "sessao"
+
+        def vigor(sessao: str) -> dict[int, frozenset[str]]:
+            self.chamadas.append(("vigor", sessao))
+            return {7: frozenset({"IL"})}
+
+        def indexar(sessao: str, embeddador: object, vigor: object, **opcoes: Any) -> str:
+            self.chamadas.append(("indexar", (sessao, embeddador, vigor, opcoes)))
+            return "resumo-da-indexacao"
+
+        def reindexar(sessao: str, embeddador: object, vigor: object, **opcoes: Any) -> str:
+            self.chamadas.append(("reindexar", (sessao, embeddador, vigor, opcoes)))
+            return "resumo-da-reindexacao"
+
+        def situacao(sessao: str, **opcoes: Any) -> str:
+            self.chamadas.append(("situacao", (sessao, opcoes)))
+            return "situacao"
+
+        def criar(configuracoes: Configuracoes) -> EmbeddadorDeMentira:
+            self.chamadas.append(("criar_embeddador", configuracoes))
+            return self.embeddador
+
+        for nome, valor in {
+            "abrir_sessao": sessao_falsa,
+            "alertas_que_definem_nivel": vigor,
+            "indexar_pendentes": indexar,
+            "reindexar": reindexar,
+            "consultar_situacao": situacao,
+            "criar_embeddador": criar,
+        }.items():
+            monkeypatch.setattr(modulo_de_jobs, nome, valor)
+
+    def chamou(self, nome: str) -> Any:
+        [achada] = [dados for chamado, dados in self.chamadas if chamado == nome]
+        return achada
+
+
+@pytest.fixture
+def meios(monkeypatch: pytest.MonkeyPatch) -> MeiosDaIndexacao:
+    return MeiosDaIndexacao(monkeypatch)
+
+
+def test_indexar_real_calcula_o_vigor_pelo_mapa_e_entrega_ao_chat(
+    meios: MeiosDaIndexacao,
+) -> None:
+    configuracoes = configuracao("contato@exemplo.org")
+
+    resumo: object = modulo_de_jobs.indexar_real(configuracoes)
+
+    assert resumo == "resumo-da-indexacao"
+    sessao, embeddador, vigor, opcoes = meios.chamou("indexar")
+    assert (sessao, embeddador) == ("sessao", meios.embeddador)
+    assert vigor == {7: frozenset({"IL"})}
+    assert opcoes == {"modelo": "falso:modelo", "dimensoes": 8, "tudo": False}
+    assert meios.chamou("criar_embeddador") is configuracoes
+
+
+def test_indexar_real_com_tudo_repassa_a_opcao(meios: MeiosDaIndexacao) -> None:
+    modulo_de_jobs.indexar_real(configuracao(None), tudo=True)
+    assert meios.chamou("indexar")[3]["tudo"] is True
+
+
+def test_reindexar_real_repassa_manter_antigos(meios: MeiosDaIndexacao) -> None:
+    resumo: object = modulo_de_jobs.reindexar_real(configuracao(None), manter_antigos=True)
+    assert resumo == "resumo-da-reindexacao"
+    _, embeddador, vigor, opcoes = meios.chamou("reindexar")
+    assert vigor == {7: frozenset({"IL"})} and embeddador is meios.embeddador
+    assert opcoes == {
+        "modelo": "falso:modelo",
+        "dimensoes": 8,
+        "manter_antigos": True,
+        "andamento": None,
+    }
+
+
+def test_situacao_do_indice_real_usa_o_modelo_das_configuracoes_e_nao_precisa_de_chave(
+    meios: MeiosDaIndexacao,
+) -> None:
+    configuracoes = Configuracoes(
+        database_url=SecretStr("postgresql+psycopg://x:y@banco-que-nao-existe/z"),
+        embeddings_modelo="google_genai:outro-modelo",
+        embeddings_dimensoes=512,
+    )
+
+    situacao: object = modulo_de_jobs.situacao_do_indice_real(configuracoes)
+    assert situacao == "situacao"
+
+    assert meios.chamou("situacao")[1] == {"modelo": "google_genai:outro-modelo", "dimensoes": 512}
+    assert not [c for c, _ in meios.chamadas if c == "criar_embeddador"]
+
+
+def test_sem_chave_do_chat_a_indexacao_nem_abre_o_banco(monkeypatch: pytest.MonkeyPatch) -> None:
+    def sem_banco(**_: Any) -> None:
+        raise AssertionError("não devia abrir o banco sem a chave do chat")
+
+    monkeypatch.setattr(modulo_de_jobs, "abrir_sessao", sem_banco)
+    sem_chave = Configuracoes(
+        _env_file=None,
+        database_url=SecretStr("postgresql+psycopg://x:y@banco-que-nao-existe/z"),
+        google_api_key=SecretStr("chave-da-coleta"),
+    )
+
+    with pytest.raises(modulo_de_jobs.IndexacaoIndisponivel, match="GOOGLE_API_KEY_CHAT"):
+        modulo_de_jobs.indexar_real(sem_chave)
+    with pytest.raises(modulo_de_jobs.IndexacaoIndisponivel, match="GOOGLE_API_KEY_CHAT"):
+        modulo_de_jobs.reindexar_real(sem_chave)

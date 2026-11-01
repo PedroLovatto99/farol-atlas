@@ -68,6 +68,7 @@ Chave primária `(dia, chave)`.
 | `limite_por_hora` | Tentativas barradas pelo limite por IP |
 | `limite_do_dia` | Tentativas barradas pelo teto global |
 | `falhas_servico` | Serviço de linguagem fora do ar ou sem cota |
+| `erros_internos` | Falha do nosso código (ferramenta, banco, verificador); a pessoa vê a mesma mensagem de indisponível, com o código `erro_interno` |
 | `estouros_de_tempo` | Passou de 20 s |
 | `travas` | A trava do código descartou e refez uma resposta |
 | `pais_invalido_pedido` | O modelo pediu uma ferramenta para país fora da lista do código |

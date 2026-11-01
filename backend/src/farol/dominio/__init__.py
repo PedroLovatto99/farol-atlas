@@ -33,6 +33,8 @@ from farol.dominio.modelos import (
 )
 from farol.dominio.regioes import e_nivel_do_pais, separar_nivel_do_pais
 from farol.dominio.repositorios import (
+    AlertaCitado,
+    AlertaElegivel,
     AlertaRepositorio,
     BancoRepositorio,
     ClassificacaoRepositorio,
@@ -42,16 +44,21 @@ from farol.dominio.repositorios import (
     FonteDadosRepositorio,
     ItemParaRevisaoRepositorio,
     MudancaRetidaRepositorio,
+    NovoTrecho,
     PostoRepositorio,
     RequisitoVistoRepositorio,
     TerritorioRepositorio,
     TrechoAlertaRepositorio,
+    TrechoGravado,
+    TrechoRecuperado,
     dia_em_brasilia,
 )
 
 __all__ = [
     "CODIGO_DO_BRASIL",
     "Alerta",
+    "AlertaCitado",
+    "AlertaElegivel",
     "AlertaRepositorio",
     "BancoRepositorio",
     "Base",
@@ -75,6 +82,7 @@ __all__ = [
     "MudancaRetidaRepositorio",
     "NivelAlerta",
     "NivelTerritorio",
+    "NovoTrecho",
     "Posto",
     "PostoRepositorio",
     "RequisitoVisto",
@@ -89,6 +97,8 @@ __all__ = [
     "TipoTerritorio",
     "TrechoAlerta",
     "TrechoAlertaRepositorio",
+    "TrechoGravado",
+    "TrechoRecuperado",
     "VersaoDosDados",
     "dia_em_brasilia",
     "e_nivel_do_pais",

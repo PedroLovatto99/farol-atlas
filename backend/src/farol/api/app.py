@@ -1,30 +1,34 @@
 """Fábrica do app FastAPI.
 
-Princípios (constituição): a API só devolve JSON; todas as rotas públicas são de leitura; o CORS
-aceita só as origens configuradas; a documentação interativa (/docs e /redoc) só existe em
+Princípios (constituição): a API devolve JSON, e a única rota que não é de leitura é a pergunta
+do chat (`POST /chat`, que responde em fluxo de eventos); o CORS aceita só as origens configuradas,
+e o POST só na rota do chat; a documentação interativa (/docs e /redoc) só existe em
 desenvolvimento, por variável de ambiente.
 
-Camadas de middleware, de fora para dentro: CORS, IP real (atrás do proxy), limite de pedidos,
-compressão e cache de leitura. O 429 do limite sai com os cabeçalhos do CORS; o cache guarda o corpo
-sem comprimir.
+Camadas de middleware, de fora para dentro: CORS (por rota), IP real (atrás do proxy), limite de
+pedidos, compressão e cache de leitura. O 429 do limite sai com os cabeçalhos do CORS; o cache
+guarda o corpo sem comprimir; o fluxo do chat não é comprimido (`text/event-stream`) nem guardado.
 """
 
 import os
 import time
 from collections.abc import Callable
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
+from pydantic.json_schema import models_json_schema
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from farol.api.cache import CacheDeLeitura, VersaoMemorizada
+from farol.api.chat import CorsPorRota
 from farol.api.dependencias import sessao_da_requisicao
+from farol.api.dtos import Erro, ErroDoChat, EventoErro, EventoProgresso, EventoResposta
 from farol.api.ip_real import IpReal
 from farol.api.limite import LimiteDePedidos
-from farol.api.rotas import mapa, paises, saude, vistos
+from farol.api.rotas import chat, mapa, paises, saude, vistos
 from farol.infra import (
     Configuracoes,
     configurar_logs,
@@ -56,15 +60,16 @@ def criar_app(
     docs = config.api_docs_habilitada
     app = FastAPI(
         title="Farol Atlas API",
-        version="1.1.0",
+        version="1.2.0",
         description=(
-            "Mapa de alertas de viagem do Itamaraty e requisitos de visto para brasileiros."
-            " Serviço não oficial."
+            "Dados do mapa de alertas de viagem do Itamaraty para brasileiros, e um chat que"
+            " responde só com base nesses dados. Serviço não oficial."
         ),
         docs_url="/docs" if docs else None,
         redoc_url="/redoc" if docs else None,
         openapi_url=f"{PREFIXO}/openapi.json",
     )
+    app.state.configuracoes = config
 
     def ler_versao() -> int:
         # Usa a mesma fonte de sessão das rotas (os testes a trocam por uma sessão deles)
@@ -94,13 +99,11 @@ def criar_app(
             relogio=relogio_monotonico,
         )
     app.add_middleware(IpReal, redes_confiaveis=config.redes_confiaveis)
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=config.cors_origens,
-        allow_methods=["GET"],
-        allow_headers=[],
-        allow_credentials=False,
-    )
+    app.add_middleware(CorsPorRota, origens=config.cors_origens)
+
+    @app.exception_handler(chat.ChatDesligado)
+    async def chat_desligado(_: Request, __: chat.ChatDesligado) -> JSONResponse:
+        return chat.resposta_do_chat_desligado()
 
     @app.exception_handler(StarletteHTTPException)
     async def erro_http(_: Request, erro: StarletteHTTPException) -> JSONResponse:
@@ -122,4 +125,33 @@ def criar_app(
     app.include_router(paises.roteador, prefix=PREFIXO)
     app.include_router(vistos.roteador, prefix=PREFIXO)
     app.include_router(saude.roteador, prefix=PREFIXO)
+    app.include_router(chat.roteador, prefix=PREFIXO)
+    _publicar_os_eventos_do_chat(app)
     return app
+
+
+def _publicar_os_eventos_do_chat(app: FastAPI) -> None:
+    """Acrescenta ao OpenAPI os esquemas dos eventos do fluxo do chat e dos erros dele.
+
+    O FastAPI descreve o `data` de cada evento só como texto; o contrato v1.2 traz os esquemas
+    `EventoProgresso`, `EventoResposta` e `EventoErro` em `components`, e os erros antes do fluxo
+    (`ErroDoChat`, `Erro`) são citados por referência.
+    """
+    gerar = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        if app.openapi_schema is None:
+            esquema = gerar()
+            _, definicoes = models_json_schema(
+                [
+                    (m, "serialization")
+                    for m in (EventoProgresso, EventoResposta, EventoErro, ErroDoChat, Erro)
+                ],
+                ref_template="#/components/schemas/{model}",
+            )
+            componentes = esquema.setdefault("components", {}).setdefault("schemas", {})
+            for nome, definicao in definicoes.get("$defs", {}).items():
+                componentes.setdefault(nome, definicao)
+        return app.openapi_schema or {}
+
+    app.openapi = openapi  # type: ignore[method-assign]

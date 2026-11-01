@@ -9,6 +9,17 @@ desfaz a coleta já gravada.
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from farol.chat import (
+    Andamento,
+    EmbeddadorGoogle,
+    ResumoDaIndexacao,
+    ResumoDaReindexacao,
+    SituacaoDoIndice,
+    consultar_situacao,
+    criar_embeddador,
+    indexar_pendentes,
+    reindexar,
+)
 from farol.classificacao import (
     ClassificadorDeAlertas,
     ResultadoDaClassificacao,
@@ -23,12 +34,14 @@ from farol.coleta import (
     ServicoDeColetaDePostos,
 )
 from farol.infra import (
+    ChaveDoChatAusente,
     ClienteEducado,
     Configuracoes,
     RelogioDoSistema,
     abrir_sessao,
     obter_logger,
 )
+from farol.mapa import alertas_que_definem_nivel
 from farol.vistos import (
     ResumoDaColetaDeVistos,
     ServicoDeColetaDeVistos,
@@ -48,6 +61,10 @@ class ContatoInvalido(RuntimeError):
 
 class ClassificadorIndisponivel(RuntimeError):
     """Sem chave ou sem modelo configurado: não há como reclassificar."""
+
+
+class IndexacaoIndisponivel(RuntimeError):
+    """Sem a chave do chat ou com o modelo de embeddings mal configurado: não há como indexar."""
 
 
 @dataclass(frozen=True)
@@ -142,3 +159,56 @@ def rodada_real(configuracoes: Configuracoes) -> ResultadoDaRodada:
             return servico.classificar_pendentes()
 
     return rodada_de_alertas(coletar, classificar)
+
+
+# --------------------------------------------------------------------------- indexação do chat
+def _embeddador(configuracoes: Configuracoes) -> EmbeddadorGoogle:
+    """O embeddador do chat. Falha antes de abrir o banco se faltar a chave ou o modelo."""
+    try:
+        return criar_embeddador(configuracoes)
+    except (ChaveDoChatAusente, ValueError) as erro:
+        raise IndexacaoIndisponivel(str(erro)) from erro
+
+
+def indexar_real(configuracoes: Configuracoes, *, tudo: bool = False) -> ResumoDaIndexacao:
+    """Uma passada de indexação: o `vigor` vem do `mapa` e o embeddador, da chave do chat."""
+    embeddador = _embeddador(configuracoes)
+    with abrir_sessao() as sessao:
+        return indexar_pendentes(
+            sessao,
+            embeddador,
+            alertas_que_definem_nivel(sessao),
+            modelo=embeddador.modelo,
+            dimensoes=embeddador.dimensoes,
+            tudo=tudo,
+        )
+
+
+def reindexar_real(
+    configuracoes: Configuracoes,
+    *,
+    manter_antigos: bool = False,
+    andamento: Andamento | None = None,
+) -> ResumoDaReindexacao:
+    """Troca de modelo ou de dimensão: refaz os vetores e, por alerta, apaga os antigos."""
+    embeddador = _embeddador(configuracoes)
+    with abrir_sessao() as sessao:
+        return reindexar(
+            sessao,
+            embeddador,
+            alertas_que_definem_nivel(sessao),
+            modelo=embeddador.modelo,
+            dimensoes=embeddador.dimensoes,
+            manter_antigos=manter_antigos,
+            andamento=andamento,
+        )
+
+
+def situacao_do_indice_real(configuracoes: Configuracoes) -> SituacaoDoIndice:
+    """Só olha o índice; não vetoriza nada, então não precisa da chave."""
+    with abrir_sessao() as sessao:
+        return consultar_situacao(
+            sessao,
+            modelo=configuracoes.embeddings_modelo,
+            dimensoes=configuracoes.embeddings_dimensoes,
+        )

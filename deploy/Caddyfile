@@ -11,30 +11,16 @@
 		timeouts {
 			read_header 10s
 			read_body 10s
+			# acima dos 20 s do chat: a resposta em fluxo termina antes de o Caddy desistir
 			write 30s
 			idle 2m
 		}
 	}
 }
 
-{$DOMINIO} {
-	encode zstd gzip
-
-	# A API só tem GET: um corpo de pedido nunca precisa passar de 1 KB
-	request_body {
-		max_size 1KB
-	}
-
-	header {
-		# Sem includeSubDomains nem preload: o domínio é um subdomínio do DuckDNS
-		Strict-Transport-Security "max-age=31536000"
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "no-referrer"
-		# A API só devolve JSON: nada a carregar, nada a embutir
-		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
-		-Server
-	}
-
+# O caminho até a API, igual para todas as rotas. Os argumentos do `import` viram uma linha a mais
+# no bloco (o chat passa `flush_interval -1`); sem argumentos, não acrescentam nada.
+(api) {
 	reverse_proxy api:8000 {
 		# O visitante nunca escolhe o próprio IP: o que ele mandar em X-Forwarded-For é
 		# descartado e o Caddy escreve só o endereço que viu na conexão
@@ -54,5 +40,38 @@
 		# 250 ms por até 10 s, em vez de devolver 503 na hora. Passou disso, devolve 503.
 		lb_try_duration 10s
 		lb_try_interval 250ms
+
+		{args[:]}
+	}
+}
+
+{$DOMINIO} {
+	header {
+		# Sem includeSubDomains nem preload: o domínio é um subdomínio do DuckDNS
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		# A API só devolve JSON: nada a carregar, nada a embutir
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		-Server
+	}
+
+	# A pergunta do chat, a única escrita da API: corpo de até 16 KB (pergunta de 500 caracteres e
+	# 6 mensagens de histórico, com folga) e resposta em fluxo de eventos, repassada evento a
+	# evento (flush_interval -1) e sem compressão, que reteria o fluxo
+	handle /api/v1/chat {
+		request_body {
+			max_size 16KB
+		}
+		import api flush_interval -1
+	}
+
+	# Todo o resto só tem GET: um corpo de pedido nunca precisa passar de 1 KB
+	handle {
+		encode zstd gzip
+		request_body {
+			max_size 1KB
+		}
+		import api
 	}
 }

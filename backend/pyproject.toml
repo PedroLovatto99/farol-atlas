@@ -81,6 +81,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --import-mode=importlib"
+pythonpath = ["."]  # os testes dividem módulos de apoio (por exemplo, `tests.falsos_chat`)
 filterwarnings = ["error::DeprecationWarning:farol.*"]
 
 # --------------------------------------------------------------------------- import-linter

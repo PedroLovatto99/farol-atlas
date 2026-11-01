@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from farol.dominio import (
     AlertaRepositorio,
+    ExecucaoColeta,
     ExecucaoRepositorio,
     PostoRepositorio,
     Territorio,
@@ -19,7 +20,13 @@ from farol.dominio import (
     TipoTerritorio,
 )
 from farol.infra import Relogio, obter_logger
-from farol.mapa.nivel import AlertaParaNivel, TerritorioParaNivel, calcular_niveis, titulo_cita
+from farol.mapa.nivel import (
+    AlertaParaNivel,
+    NivelDoTerritorio,
+    TerritorioParaNivel,
+    calcular_niveis,
+    titulo_cita,
+)
 from farol.mapa.preparo import alerta_para_nivel, grupo_do_posto, nomes_para_titulo
 from farol.mapa.visoes import PaisSemPosto, PostoNoMapa, TerritorioNoMapa, VisaoDoMapa
 
@@ -28,16 +35,16 @@ LIMITE_DE_DADOS_ANTIGOS = timedelta(days=3)  # FR-041
 _log = obter_logger("farol.mapa")
 
 
-def montar_mapa(sessao: Session, relogio: Relogio) -> VisaoDoMapa:
-    agora = relogio.agora()
+def _calcular(
+    sessao: Session,
+) -> tuple[ExecucaoColeta | None, list[Territorio], dict[str, NivelDoTerritorio]]:
+    """A última coleta completa, os territórios do mapa e o nível resolvido de cada um."""
     ultima = ExecucaoRepositorio(sessao).ultima_completa(TipoExecucao.ALERTAS)
     territorios = [
         t
         for t in TerritorioRepositorio(sessao).listar_todos()
         if t.tipo is not TipoTerritorio.NEUTRO
     ]
-    postos = PostoRepositorio(sessao).listar_todos()
-
     dados_obtidos = ultima is not None
     alertas = (
         [alerta_para_nivel(a) for a in AlertaRepositorio(sessao).listar_confirmados_ativos()]
@@ -55,6 +62,28 @@ def montar_mapa(sessao: Session, relogio: Relogio) -> VisaoDoMapa:
         houve_coleta_completa=dados_obtidos,
     )
     _registrar_pendentes_sem_pais(alertas, territorios)
+    return ultima, territorios, niveis
+
+
+def alertas_que_definem_nivel(sessao: Session) -> dict[int, frozenset[str]]:
+    """Id do alerta -> códigos dos territórios cujo nível ele rege (o alerta "em vigor").
+
+    É o mesmo alerta que o painel marca com `define_nivel` e que `calcular_niveis` usa para colorir
+    o mapa. O worker calcula isto e entrega ao chat, que não importa o `mapa`.
+    """
+    _, _, niveis = _calcular(sessao)
+    regentes: dict[int, set[str]] = {}
+    for codigo, nivel in niveis.items():
+        if nivel.alerta_id is not None:
+            regentes.setdefault(nivel.alerta_id, set()).add(codigo)
+    return {alerta_id: frozenset(codigos) for alerta_id, codigos in regentes.items()}
+
+
+def montar_mapa(sessao: Session, relogio: Relogio) -> VisaoDoMapa:
+    agora = relogio.agora()
+    ultima, territorios, niveis = _calcular(sessao)
+    postos = PostoRepositorio(sessao).listar_todos()
+    dados_obtidos = ultima is not None
 
     atualizado_em = ultima.finalizada_em if ultima is not None else None
     return VisaoDoMapa(

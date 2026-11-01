@@ -1,5 +1,5 @@
-"""Segurança da API (constituição, princípio VIII): só leitura, CORS fechado, sem segredos
-vazados e texto de alerta sempre como texto.
+"""Segurança da API (constituição, princípio VIII): só leitura (a única escrita é a pergunta do
+chat), CORS fechado, sem segredos vazados e texto de alerta sempre como texto.
 """
 
 import json
@@ -45,6 +45,7 @@ ROTAS = [
 
 SENHA_DO_BANCO = "senha-secreta-do-banco-9f3a"
 CHAVE_DO_LLM = "chave-secreta-do-llm-71cd"
+CHAVE_DO_CHAT = "chave-secreta-do-chat-4be2"
 URL_DO_BANCO = f"postgresql+psycopg://usuario-secreto:{SENHA_DO_BANCO}@127.0.0.1:1/farol"
 
 
@@ -52,6 +53,7 @@ def configuracoes() -> Configuracoes:
     return Configuracoes(
         database_url=SecretStr(URL_DO_BANCO),
         google_api_key=SecretStr(CHAVE_DO_LLM),
+        google_api_key_chat=SecretStr(CHAVE_DO_CHAT),
         cors_origens=[ORIGEM_PERMITIDA],
         api_docs_habilitada=True,
     )
@@ -113,13 +115,19 @@ def alerta_com_html(sessao: Session, titulo: str, corpo_html: str) -> None:
 
 
 # --------------------------------------------------------------------------- só leitura
-def test_nenhuma_rota_da_api_aceita_escrita() -> None:
+def test_a_unica_escrita_da_api_e_a_pergunta_do_chat() -> None:
     """Varre as rotas pelo OpenAPI, que lista todas as que a API publica."""
     rotas = criar_app(configuracoes()).openapi()["paths"]
     assert "/api/v1/mapa" in rotas  # a varredura enxerga as rotas de verdade
     assert "/api/v1/vistos" in rotas
-    for caminho, operacoes in rotas.items():
-        assert set(operacoes) == {"get"}, f"{caminho} aceita {set(operacoes)}"
+    escritas = sorted(
+        f"{metodo.upper()} {caminho}"
+        for caminho, operacoes in rotas.items()
+        for metodo in operacoes
+        if metodo != "get"
+    )
+    assert escritas == ["POST /api/v1/chat"]
+    assert set(rotas["/api/v1/chat"]) == {"post"}
 
 
 @pytest.mark.parametrize("metodo", ["post", "put", "patch", "delete"])
@@ -198,7 +206,7 @@ def test_nenhum_segredo_aparece_nas_respostas_nem_no_openapi(
 ) -> None:
     executar(sessao, DADOS, AGORA)
     saida = tudo_o_que_a_api_devolve(cliente_com_sessao(sessao, relogio))
-    for segredo in (SENHA_DO_BANCO, CHAVE_DO_LLM, "usuario-secreto"):
+    for segredo in (SENHA_DO_BANCO, CHAVE_DO_LLM, CHAVE_DO_CHAT, "usuario-secreto"):
         assert segredo not in saida
 
 
@@ -207,6 +215,24 @@ def test_os_segredos_da_configuracao_nao_aparecem_em_repr_str_nem_json() -> None
     for texto in (repr(config), str(config), config.model_dump_json()):
         assert SENHA_DO_BANCO not in texto
         assert CHAVE_DO_LLM not in texto
+        assert CHAVE_DO_CHAT not in texto
+
+
+def test_a_chave_do_chat_nao_vaza_nas_respostas_da_rota_do_chat() -> None:
+    """Chat ligado e com chave, mas sem banco: o que a rota devolve não traz a chave."""
+    config = configuracoes().model_copy(update={"chat_habilitado": True})
+    cliente = TestClient(criar_app(config), raise_server_exceptions=False)
+    respostas = [
+        cliente.post("/api/v1/chat", json={"pergunta": "Irã?", "historico": []}),
+        cliente.post("/api/v1/chat", json={"pergunta": ""}),
+        cliente.options(
+            "/api/v1/chat",
+            headers={"Origin": ORIGEM_PERMITIDA, "Access-Control-Request-Method": "POST"},
+        ),
+    ]
+    for resposta in respostas:
+        texto = resposta.text + json.dumps(dict(resposta.headers))
+        assert CHAVE_DO_CHAT not in texto and CHAVE_DO_LLM not in texto
 
 
 def test_falha_real_do_banco_nao_vaza_senha_nem_na_resposta_nem_no_log(
