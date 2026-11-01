@@ -1,8 +1,10 @@
 """Recuperação dos trechos que respondem a uma pergunta (busca vetorial, com plano B por texto).
 
 Devolve poucos trechos (quatro, por padrão), filtrados pelo país da pergunta quando há um. Por
-padrão só entram alertas em vigor: com país, os em vigor para ele; sem país, os em vigor para algum
-país. Um alerta anterior (que não rege mais nível nenhum) não ocupa vaga numa pergunta normal. Com
+padrão só entram alertas em vigor, isto é, da lista atual e que regem o nível de algum país ou não
+definem nível nenhum (os avisos gerais: fraude, aliciamento, saúde pública). Com país, entram os
+que regem aquele país e os avisos gerais que o citam. O alerta substituído (define níveis, mas não
+rege nenhum) não ocupa vaga numa pergunta normal. Com
 `so_em_vigor=False` os anteriores voltam, e então o alerta que rege o nível do país entra se for
 parecido o bastante com a pergunta, para a resposta não ficar só com avisos antigos. Se o serviço
 de embeddings falhar, a busca por texto (sem diferença de acento) responde no lugar (o chat segue
@@ -37,9 +39,10 @@ class TrechoEncontrado:
     posicao: int
     inicio: int  # o trecho é sempre `alerta.texto[inicio:fim]`
     fim: int
-    em_vigor: bool  # o alerta rege o nível do país da pergunta
+    em_vigor: bool  # o alerta rege o nível do país da pergunta ou é aviso geral
     origem: str  # "vetorial" ou "textual"
     distancia: float | None = None  # cosseno; só na busca vetorial
+    aviso_geral: bool = False  # não define nível nenhum (fraude, aliciamento, saúde pública)
 
 
 def _de(trecho: TrechoRecuperado, origem: str) -> TrechoEncontrado:
@@ -51,6 +54,7 @@ def _de(trecho: TrechoRecuperado, origem: str) -> TrechoEncontrado:
         em_vigor=trecho.em_vigor,
         origem=origem,
         distancia=trecho.distancia if origem == "vetorial" else None,
+        aviso_geral=trecho.aviso_geral,
     )
 
 

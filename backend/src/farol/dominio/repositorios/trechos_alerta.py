@@ -26,11 +26,12 @@ class AlertaElegivel:
 
     id: int
     hash: str
+    titulo: str
     texto: str
     html_corpo: str | None
     classificacao_id: int
     classificado_em: datetime
-    paises: tuple[str, ...]
+    paises: tuple[str, ...]  # os da classificação; vazio num aviso geral (não define nível)
 
 
 @dataclass(frozen=True)
@@ -75,7 +76,9 @@ class TrechoRecuperado:
     inicio: int
     fim: int
     paises: tuple[str, ...]
-    em_vigor: bool  # o alerta rege o nível do país pedido (ou de algum país, se não houve pedido)
+    # o alerta rege o nível do país pedido (ou de algum país, se não houve pedido) ou é aviso geral
+    em_vigor: bool
+    aviso_geral: bool = False  # a classificação não define nível nenhum (fraude, aliciamento…)
     distancia: float = 0.0  # cosseno (0 = igual); só na busca por similaridade
     pontuacao: float = 0.0  # `ts_rank`; só na busca por texto
 
@@ -128,6 +131,7 @@ class TrechoAlertaRepositorio:
             _elegiveis(
                 Alerta.id,
                 Alerta.confirmado_hash,
+                Alerta.titulo,
                 Alerta.texto,
                 Alerta.html_corpo,
                 Classificacao.id,
@@ -138,7 +142,7 @@ class TrechoAlertaRepositorio:
         if linhas:
             consulta = (
                 select(NivelTerritorio.classificacao_id, NivelTerritorio.territorio_codigo)
-                .where(NivelTerritorio.classificacao_id.in_([linha[4] for linha in linhas]))
+                .where(NivelTerritorio.classificacao_id.in_([linha[5] for linha in linhas]))
                 .order_by(NivelTerritorio.territorio_codigo)
             )
             for classificacao_id, codigo in self._sessao.execute(consulta):
@@ -147,13 +151,16 @@ class TrechoAlertaRepositorio:
             AlertaElegivel(
                 id=alerta_id,
                 hash=hash_,
+                titulo=titulo,
                 texto=texto or "",
                 html_corpo=html_corpo,
                 classificacao_id=classificacao_id,
                 classificado_em=classificado_em,
                 paises=tuple(paises.get(classificacao_id, [])),
             )
-            for alerta_id, hash_, texto, html_corpo, classificacao_id, classificado_em in linhas
+            for alerta_id, hash_, titulo, texto, html_corpo, classificacao_id, classificado_em in (
+                linhas
+            )
         ]
 
     def trechos_gravados(self, modelo: str, dimensoes: int) -> dict[int, list[TrechoGravado]]:
@@ -328,12 +335,23 @@ class TrechoAlertaRepositorio:
         }
 
     @staticmethod
-    def _em_vigor(em_vigor_para: Sequence[str], paises: Sequence[str] | None) -> bool:
-        return bool(set(em_vigor_para) & set(paises)) if paises else bool(em_vigor_para)
+    def _em_vigor(
+        em_vigor_para: Sequence[str], paises: Sequence[str] | None, aviso_geral: bool
+    ) -> bool:
+        rege = bool(set(em_vigor_para) & set(paises)) if paises else bool(em_vigor_para)
+        return rege or aviso_geral
 
     def _consulta(
         self, paises: Sequence[str] | None, so_em_vigor: bool, *colunas: Any
     ) -> Select[Any]:
+        """Os trechos de alertas ativos, do país pedido (se houver) e, com `so_em_vigor`, só de
+        alerta em vigor: o que rege o nível (do país pedido, ou de algum país) ou o aviso geral.
+        Fica de fora o alerta que define níveis mas não rege nenhum (foi substituído)."""
+        aviso_geral = ~(
+            select(NivelTerritorio.classificacao_id)
+            .where(NivelTerritorio.classificacao_id == TrechoAlerta.classificacao_id)
+            .exists()
+        )
         consulta = (
             select(
                 TrechoAlerta.alerta_id,
@@ -342,6 +360,7 @@ class TrechoAlertaRepositorio:
                 TrechoAlerta.fim,
                 TrechoAlerta.paises,
                 TrechoAlerta.em_vigor_para,
+                aviso_geral.label("aviso_geral"),
                 *colunas,
             )
             .select_from(TrechoAlerta)
@@ -356,11 +375,12 @@ class TrechoAlertaRepositorio:
         if paises:
             consulta = consulta.where(TrechoAlerta.paises.overlap(list(paises)))
         if so_em_vigor:
-            consulta = consulta.where(
+            rege = (
                 TrechoAlerta.em_vigor_para.overlap(list(paises))
                 if paises
                 else func.cardinality(TrechoAlerta.em_vigor_para) > 0
             )
+            consulta = consulta.where(or_(rege, aviso_geral))
         return consulta
 
     def recuperar_por_similaridade(
@@ -392,10 +412,11 @@ class TrechoAlertaRepositorio:
                 inicio=i,
                 fim=f,
                 paises=tuple(ps),
-                em_vigor=self._em_vigor(vigor, paises),
+                em_vigor=self._em_vigor(vigor, paises, geral),
+                aviso_geral=geral,
                 distancia=float(d),
             )
-            for a, p, i, f, ps, vigor, d in self._sessao.execute(consulta)
+            for a, p, i, f, ps, vigor, geral, d in self._sessao.execute(consulta)
         ]
 
     def _sem_vetor_do_modelo(self, modelo: str, dimensoes: int) -> Any:
@@ -479,8 +500,9 @@ class TrechoAlertaRepositorio:
                 inicio=i,
                 fim=f,
                 paises=tuple(ps),
-                em_vigor=self._em_vigor(vigor, paises),
+                em_vigor=self._em_vigor(vigor, paises, geral),
+                aviso_geral=geral,
                 pontuacao=float(r),
             )
-            for a, p, i, f, ps, vigor, r in self._sessao.execute(ordenado)
+            for a, p, i, f, ps, vigor, geral, r in self._sessao.execute(ordenado)
         ]

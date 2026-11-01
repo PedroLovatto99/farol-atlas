@@ -19,7 +19,7 @@ from tests.falsos_chat import (
 
 from farol.chat import RecuperadorDeTrechos, indexar_pendentes
 from farol.dominio import Alerta
-from farol.mapa import alertas_que_definem_nivel
+from farol.mapa import ProcuradorDeTerritorios, alertas_que_definem_nivel
 
 if TYPE_CHECKING:
     from tests.conftest import ContadorDeConsultas
@@ -45,6 +45,7 @@ def indexado(sessao: Session, ids: dict[str, int], embeddador: EmbeddadorFalso) 
         vigor_do_arquivo(ids),
         modelo=embeddador.modelo,
         dimensoes=embeddador.dimensoes,
+        citados=ProcuradorDeTerritorios(sessao).codigos_citados,
         relogio=RelogioFixo(),
     )
     return sessao
@@ -183,14 +184,58 @@ def test_alerta_anterior_nao_ocupa_vaga_numa_pergunta_normal(
     assert ids["A-05"] in {a.alerta_id for a in anteriores}  # os anteriores só a pedido
 
 
-def test_com_pais_so_entram_os_em_vigor_para_aquele_pais(
+AVISOS_GERAIS = {a["id"] for a in ler_alertas_json() if not a["niveis"]}
+
+
+def test_com_pais_entram_os_que_o_regem_e_os_avisos_gerais_que_o_citam(
     indexado: Session, embeddador: EmbeddadorFalso, ids: dict[str, int]
 ) -> None:
     vigor = vigor_do_arquivo(ids)
+    gerais = {ids[g] for g in AVISOS_GERAIS}
     for falhar in (False, True):
         embeddador.falhar_na_pergunta = falhar
         achados = _recuperador(indexado, embeddador).recuperar(PERGUNTA_IRA, ["IR"])
-        assert achados and all("IR" in vigor[a.alerta_id] for a in achados)
+        assert achados
+        for a in achados:
+            rege_o_ira = "IR" in vigor.get(a.alerta_id, ())
+            assert rege_o_ira or (a.alerta_id in gerais and a.aviso_geral)
+
+
+@pytest.mark.parametrize("falhar_na_pergunta", [False, True], ids=["vetorial", "textual"])
+@pytest.mark.parametrize(
+    ("pergunta", "paises", "esperados"),
+    [
+        ("aliciamento nas Filipinas", ["PH"], {"A-14"}),
+        ("aliciamento nas Filipinas", None, {"A-14"}),
+        ("golpe em nome do consulado nos EUA", ["US"], {"A-03", "A-06"}),
+        ("golpe em nome do consulado nos EUA", None, {"A-03", "A-06"}),
+    ],
+)
+def test_aviso_geral_e_encontrado(
+    indexado: Session,
+    embeddador: EmbeddadorFalso,
+    ids: dict[str, int],
+    falhar_na_pergunta: bool,
+    pergunta: str,
+    paises: list[str] | None,
+    esperados: set[str],
+) -> None:
+    """Aviso geral (fraude, aliciamento) não define nível, mas está em vigor e entra na busca."""
+    embeddador.falhar_na_pergunta = falhar_na_pergunta
+
+    achados = _recuperador(indexado, embeddador).recuperar(pergunta, paises)
+
+    encontrados = {a.alerta_id for a in achados}
+    assert encontrados & {ids[e] for e in esperados}
+    assert all(a.em_vigor for a in achados)
+
+
+def test_aviso_geral_nao_entra_em_pergunta_de_pais_que_ele_nao_cita(
+    indexado: Session, embeddador: EmbeddadorFalso, ids: dict[str, int]
+) -> None:
+    achados = _recuperador(indexado, embeddador).recuperar("aliciamento nas Filipinas", ["IR"])
+
+    assert ids["A-14"] not in {a.alerta_id for a in achados}
 
 
 def test_busca_por_texto_ignora_acentos(
@@ -226,9 +271,7 @@ def test_alerta_sem_vetor_do_modelo_configurado_entra_pela_busca_por_texto(
     """Troca de modelo no meio do caminho: o índice só tem o modelo antigo."""
     novo = EmbeddadorFalso(dimensoes=32, modelo="falso:v2")
 
-    achados = _recuperador(indexado, novo).recuperar(
-        "Filipinas aliciamento contratos de trabalho", so_em_vigor=False
-    )
+    achados = _recuperador(indexado, novo).recuperar("Filipinas aliciamento contratos de trabalho")
 
     assert achados
     assert all(a.origem == "textual" for a in achados)

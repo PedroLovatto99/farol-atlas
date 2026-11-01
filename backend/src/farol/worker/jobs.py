@@ -41,7 +41,7 @@ from farol.infra import (
     abrir_sessao,
     obter_logger,
 )
-from farol.mapa import alertas_que_definem_nivel
+from farol.mapa import ProcuradorDeTerritorios, alertas_que_definem_nivel
 from farol.vistos import (
     ResumoDaColetaDeVistos,
     ServicoDeColetaDeVistos,
@@ -180,6 +180,7 @@ def indexar_real(configuracoes: Configuracoes, *, tudo: bool = False) -> ResumoD
             alertas_que_definem_nivel(sessao),
             modelo=embeddador.modelo,
             dimensoes=embeddador.dimensoes,
+            citados=ProcuradorDeTerritorios(sessao).codigos_citados,
             tudo=tudo,
         )
 
@@ -199,6 +200,7 @@ def reindexar_real(
             alertas_que_definem_nivel(sessao),
             modelo=embeddador.modelo,
             dimensoes=embeddador.dimensoes,
+            citados=ProcuradorDeTerritorios(sessao).codigos_citados,
             manter_antigos=manter_antigos,
             andamento=andamento,
         )

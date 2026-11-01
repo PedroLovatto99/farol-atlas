@@ -10,7 +10,14 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 import anyio
+import httpx
 import pytest
+from langchain_core.exceptions import (
+    ModelAPIError,
+    ModelConnectionError,
+    ModelInvalidRequestError,
+    ModelRateLimitError,
+)
 from langchain_core.messages import BaseMessage, ToolMessage
 from sqlalchemy.orm import Session
 from tests.falsos_chat import (
@@ -37,7 +44,9 @@ from farol.chat import (
     com_prazo,
     indexar_pendentes,
 )
+from farol.chat.pipeline import MENSAGEM_SERVICO_INDISPONIVEL
 from farol.dominio import Alerta, TrechoAlertaRepositorio
+from farol.mapa import ProcuradorDeTerritorios
 
 if TYPE_CHECKING:
     from tests.conftest import ContadorDeConsultas
@@ -59,6 +68,7 @@ def ids(sessao: Session) -> dict[str, int]:
         vigor_do_arquivo(ids),
         modelo=embeddador.modelo,
         dimensoes=embeddador.dimensoes,
+        citados=ProcuradorDeTerritorios(sessao).codigos_citados,
         relogio=RelogioFixo(),
     )
     return ids
@@ -299,7 +309,7 @@ def test_injecao_no_texto_do_alerta_nao_muda_o_comportamento(
 def test_servico_fora_do_ar_vira_erro_servico_indisponivel(
     sessao: Session, ids: dict[str, int]
 ) -> None:
-    chat, _ = pipeline(sessao, [RuntimeError("503 do provedor")])
+    chat, _ = pipeline(sessao, [ModelAPIError("503 do provedor")])
 
     eventos = perguntar(chat, PERGUNTA_IRA)
 
@@ -308,16 +318,46 @@ def test_servico_fora_do_ar_vira_erro_servico_indisponivel(
     assert "503" not in eventos[-1].mensagem  # o detalhe técnico não vai à pessoa
 
 
-def test_falha_do_modelo_conta_como_falha_do_servico(
-    sessao: Session, ids: dict[str, int], caplog: pytest.LogCaptureFixture
+@pytest.mark.parametrize(
+    "falha",
+    [
+        ModelAPIError("503 do provedor"),
+        ModelRateLimitError("429: cota esgotada"),
+        ModelConnectionError("sem rede"),
+        httpx.ConnectError("sem rede"),
+    ],
+    ids=type,
+)
+def test_falha_do_provedor_conta_como_falha_do_servico(
+    sessao: Session, ids: dict[str, int], caplog: pytest.LogCaptureFixture, falha: Exception
 ) -> None:
     contados: list[str] = []
-    chat, _ = pipeline(sessao, [RuntimeError("503 do provedor")], contados)
+    chat, _ = pipeline(sessao, [falha], contados)
 
-    perguntar(chat, PERGUNTA_IRA)
+    eventos = perguntar(chat, PERGUNTA_IRA)
 
+    assert isinstance(eventos[-1], EventoDeErro) and eventos[-1].codigo == "servico_indisponivel"
     assert "falhas_servico" in contados and "erros_internos" not in contados
     assert "erro interno" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "falha",
+    [RuntimeError("bug"), ValueError("bug"), ModelInvalidRequestError("400: pedido malformado")],
+    ids=type,
+)
+def test_qualquer_outra_falha_na_chamada_ao_modelo_e_erro_interno(
+    sessao: Session, ids: dict[str, int], falha: Exception
+) -> None:
+    """Só a exceção do adaptador é "serviço indisponível"; o tipo decide, não a origem."""
+    contados: list[str] = []
+    chat, _ = pipeline(sessao, [falha], contados)
+
+    eventos = perguntar(chat, PERGUNTA_IRA)
+
+    assert isinstance(eventos[-1], EventoDeErro) and eventos[-1].codigo == "erro_interno"
+    assert eventos[-1].mensagem == MENSAGEM_SERVICO_INDISPONIVEL  # a pessoa vê o mesmo
+    assert contados == ["erros_internos"]
 
 
 def test_falha_no_nosso_codigo_e_erro_interno_e_nao_servico_fora_do_ar(

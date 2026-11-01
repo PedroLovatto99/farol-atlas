@@ -4,19 +4,35 @@ O modelo só escreve a prosa e declara a situação e os assuntos (`RespostaDoMo
 "Ver trecho", avisos e links são do código (`montador.py`), e a prosa passa pelo verificador antes
 de chegar à pessoa (`verificador.py`). Limites por pergunta: 4 chamadas ao modelo e 6 de
 ferramenta; o prazo de 20 s é do pipeline.
+
+Toda chamada ao provedor passa pelo `AdaptadorDoProvedor`, que troca as falhas do provedor (rede,
+cota, fora do ar, chave recusada) por `ServicoDoModeloIndisponivel`. Só essa exceção é "serviço
+indisponível" para o pipeline; qualquer outra é erro nosso.
 """
 
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Any, Literal
 
+import httpx
 from langchain.agents import create_agent
 from langchain.agents.middleware import (
     AgentMiddleware,
     ModelCallLimitMiddleware,
     ModelFallbackMiddleware,
+    ModelRequest,
+    ModelResponse,
     ToolCallLimitMiddleware,
 )
+from langchain_core.exceptions import (
+    ModelAPIError,
+    ModelAuthenticationError,
+    ModelConnectionError,
+    ModelPermissionDeniedError,
+    ModelRateLimitError,
+    ModelTimeoutError,
+)
 from langchain_core.tools import BaseTool
+from ollama import ResponseError
 from pydantic import BaseModel, Field
 
 from farol.chat.modelo import ModeloDoChat
@@ -58,8 +74,52 @@ class RespostaDoModelo(BaseModel):
     situacao: Literal["resposta", "nao_encontrei", "recusa"]
 
 
+class ServicoDoModeloIndisponivel(RuntimeError):
+    """O provedor do modelo falhou (rede, cota, fora do ar): a única falha que é do serviço."""
+
+
+# Os tipos padronizados do `langchain_core` (o adaptador do Google já levanta esses, 5xx
+# incluído) e o que ainda escapa cru: a rede (`httpx`, dos dois clientes) e o erro do Ollama.
+# Pedido inválido, contexto estourado e modelo inexistente ficam de fora: são erro nosso.
+FALHAS_DO_PROVEDOR: tuple[type[Exception], ...] = (
+    ModelAPIError,
+    ModelRateLimitError,
+    ModelConnectionError,
+    ModelTimeoutError,
+    ModelAuthenticationError,
+    ModelPermissionDeniedError,
+    httpx.TransportError,
+    ConnectionError,
+    ResponseError,
+)
+
+
+class AdaptadorDoProvedor(AgentMiddleware[Any, Any]):
+    """Converte as falhas do provedor em `ServicoDoModeloIndisponivel`; o resto passa como veio."""
+
+    def wrap_model_call(
+        self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
+    ) -> ModelResponse:
+        try:
+            return handler(request)
+        except FALHAS_DO_PROVEDOR as erro:
+            raise ServicoDoModeloIndisponivel(type(erro).__name__) from erro
+
+    async def awrap_model_call(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+    ) -> ModelResponse:
+        try:
+            return await handler(request)
+        except FALHAS_DO_PROVEDOR as erro:
+            raise ServicoDoModeloIndisponivel(type(erro).__name__) from erro
+
+
 def middlewares_do_agente(modelo: ModeloDoChat) -> list[AgentMiddleware[Any, Any]]:
     middlewares: list[AgentMiddleware[Any, Any]] = [
+        # o primeiro é o mais de fora: o plano B ainda vê a falha original do principal
+        AdaptadorDoProvedor(),
         ModelCallLimitMiddleware(run_limit=LIMITE_DE_CHAMADAS_AO_MODELO, exit_behavior="end"),
         ToolCallLimitMiddleware(run_limit=LIMITE_DE_CHAMADAS_DE_FERRAMENTA),
     ]

@@ -1,8 +1,5 @@
 """`ResolvedorDePaises` e `ConsultaDeNivel` do chat, sobre as mesmas funções do painel e do mapa."""
 
-import re
-import unicodedata
-
 from sqlalchemy.orm import Session
 
 from farol.chat import (
@@ -15,88 +12,29 @@ from farol.dominio import (
     AlertaRepositorio,
     ExecucaoRepositorio,
     Territorio,
-    TerritorioRepositorio,
     TipoExecucao,
-    TipoTerritorio,
 )
-from farol.mapa import montar_painel, nomes_para_titulo
-
-# Nomes que, sozinhos, servem a mais de um território: o chat nunca escolhe, pergunta qual deles
-_AMBIGUOS: dict[str, tuple[str, ...]] = {
-    "congo": ("CG", "CD"),
-    "guine": ("GN", "GQ", "GW"),
-    "coreia": ("KP", "KR"),
-    "ilhas virgens": ("VG", "VI"),
-}
-
-
-def _normalizar(texto: str) -> str:
-    """Sem acento, em minúsculas e com um espaço entre as palavras (como o `titulo_cita`)."""
-    sem_acento = "".join(
-        c for c in unicodedata.normalize("NFKD", texto) if not unicodedata.combining(c)
-    )
-    return " ".join(sem_acento.lower().split())
-
-
-def _padrao(nome: str) -> re.Pattern[str]:
-    return re.compile(rf"(?<![a-z0-9]){re.escape(nome)}(?![a-z0-9])")
+from farol.mapa import ProcuradorDeTerritorios, montar_painel
 
 
 class ResolvedorDePaisesDoSite:
-    """Acha países e territórios em um texto, com os nomes da busca do site.
-
-    Usa `nomes_para_titulo` (nome base, `termos_busca` e `rotulo_busca`), sem acento, sem diferença
-    de maiúscula e por palavra inteira. Quando mais de um nome casa no mesmo trecho, vale o mais
-    longo ("Guiné-Bissau" não é "Guiné"). Lê os territórios uma vez, ao nascer.
-    """
+    """Acha países e territórios num texto com o `ProcuradorDeTerritorios` (nomes da busca do site,
+    sem acento, por palavra inteira, o nome mais longo vence e um nome ambíguo nunca escolhe)."""
 
     def __init__(self, sessao: Session) -> None:
-        territorios = [
-            t
-            for t in TerritorioRepositorio(sessao).listar_todos()
-            if t.tipo is not TipoTerritorio.NEUTRO
-        ]
-        self._territorios = {t.codigo: t for t in territorios}
-        self._nomes = {
-            t.codigo: sorted(
-                # um nome ambíguo nunca resolve sozinho para um território, mesmo se for termo dele
-                {_normalizar(n) for n in nomes_para_titulo(t) if n} - _AMBIGUOS.keys(),
-                key=len,
-                reverse=True,
-            )
-            for t in territorios
-        }
+        self._procurador = ProcuradorDeTerritorios(sessao)
 
-    def _achado(self, territorio: Territorio) -> PaisEncontrado:
+    @staticmethod
+    def _achado(territorio: Territorio) -> PaisEncontrado:
         return PaisEncontrado(
             codigo=territorio.codigo, nome=territorio.nome_pt, soberano=territorio.soberano_codigo
         )
 
     def resolver(self, texto: str) -> ResultadoDaResolucao:
-        restante = _normalizar(texto)
-        # nomes mais longos primeiro; o trecho já usado sai do texto para não casar de novo
-        casamentos: list[tuple[int, str]] = []
-        for codigo, nomes in self._nomes.items():
-            for nome in nomes:
-                if nome and _padrao(nome).search(restante):
-                    casamentos.append((len(nome), codigo))
-                    break
-        encontrados: list[str] = []
-        for _, codigo in sorted(casamentos, key=lambda c: (-c[0], c[1])):
-            for nome in self._nomes[codigo]:
-                padrao = _padrao(nome)
-                if padrao.search(restante):
-                    restante = padrao.sub(" ", restante)
-                    encontrados.append(codigo)
-                    break
-        ambiguos = tuple(
-            tuple(self._achado(self._territorios[c]) for c in candidatos if c in self._territorios)
-            for palavra, candidatos in _AMBIGUOS.items()
-            if _padrao(palavra).search(restante)
-        )
+        citados = self._procurador.procurar(texto)
         return ResultadoDaResolucao(
-            encontrados=tuple(self._achado(self._territorios[c]) for c in sorted(encontrados)),
-            ambiguos=ambiguos,
+            encontrados=tuple(self._achado(t) for t in citados.encontrados),
+            ambiguos=tuple(tuple(self._achado(t) for t in grupo) for grupo in citados.ambiguos),
         )
 
 

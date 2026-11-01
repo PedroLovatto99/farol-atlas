@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from langchain_core.exceptions import ModelAPIError
 from langchain_core.messages import BaseMessage
 from pydantic import SecretStr
 from sqlalchemy.orm import Session
@@ -30,6 +31,7 @@ from farol.api.dtos import EventoErro, EventoProgresso, EventoResposta
 from farol.chat import ModeloDoChat, PipelineDoChat, RecuperadorDeTrechos, indexar_pendentes
 from farol.dominio import TrechoAlertaRepositorio
 from farol.infra import Configuracoes
+from farol.mapa import ProcuradorDeTerritorios
 
 ROTA = "/api/v1/chat"
 PERGUNTA = "o que o Itamaraty recomenda para quem está no Irã?"
@@ -46,6 +48,7 @@ def indexado(sessao: Session) -> Session:
         vigor_do_arquivo(ids),
         modelo=embeddador.modelo,
         dimensoes=embeddador.dimensoes,
+        citados=ProcuradorDeTerritorios(sessao).codigos_citados,
         relogio=RelogioFixo(),
     )
     return sessao
@@ -166,7 +169,7 @@ def test_o_historico_da_pessoa_da_o_pais_do_seguimento(indexado: Session) -> Non
 
 
 def test_servico_fora_do_ar_vira_evento_de_erro(indexado: Session) -> None:
-    montagem = Montagem(indexado, [RuntimeError("fora do ar")])
+    montagem = Montagem(indexado, [ModelAPIError("fora do ar")])
 
     resposta = montagem.cliente.post(ROTA, json=corpo())
 

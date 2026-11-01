@@ -115,7 +115,8 @@ def criar_ferramentas(contexto: ContextoDaPergunta) -> list[BaseTool]:
                     titulo=alerta.titulo,
                     data=alerta.modificado_em or alerta.publicado_em,
                     url=alerta.url,
-                    vigor="em_vigor" if alerta.id in regentes else "anterior",
+                    # o aviso geral não rege nível, mas vale hoje: está na lista atual
+                    vigor="em_vigor" if alerta.id in regentes or achado.aviso_geral else "anterior",
                     inicio=achado.inicio,
                     fim=achado.fim,
                     trecho=alerta.texto[achado.inicio : achado.fim],

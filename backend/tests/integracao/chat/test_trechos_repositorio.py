@@ -26,8 +26,13 @@ TEXTO = (
 )
 
 
+NIVEL_IL = [{"territorio": "IL", "nivel_pais": "evitar", "regioes": []}]
+
+
 def _alerta(sessao: Session, n: int = 1, *, texto: str = TEXTO, **extra: Any) -> Alerta:
+    """Um alerta que define nível (Israel), salvo `niveis=[]`: aí é um aviso geral."""
     semear_territorios(sessao)
+    extra.setdefault("niveis", NIVEL_IL)
     return gravar_alerta(
         sessao,
         execucao_completa(sessao),
@@ -185,6 +190,7 @@ def test_filtra_por_vigor_e_marca_o_trecho_em_vigor(sessao: Session) -> None:
         url="https://www.gov.br/mre/velho",
         titulo="Velho",
         texto=TEXTO,
+        niveis=NIVEL_IL,  # define nível, mas não rege mais: foi substituído
     )
     _gravar(sessao, novo, [[1.0, 0.0, 0.0]], paises=["IL"], em_vigor_para=["IL"])
     _gravar(sessao, anterior, [[1.0, 0.0, 0.0]], paises=["IL"], em_vigor_para=[])
@@ -210,6 +216,28 @@ def test_vigor_de_outro_pais_nao_conta(sessao: Session) -> None:
     )
 
     assert achados == []
+
+
+def test_aviso_geral_esta_em_vigor_para_os_paises_que_cita(sessao: Session) -> None:
+    aviso = _alerta(sessao, 1, niveis=[])
+    substituido = _alerta(sessao, 2)
+    _gravar(sessao, aviso, [[1.0, 0.0, 0.0]], paises=["IL"], em_vigor_para=[])
+    _gravar(sessao, substituido, [[1.0, 0.0, 0.0]], paises=["IL"], em_vigor_para=[])
+    repo = _repo(sessao)
+
+    for paises in (["IL"], None):
+        achados = repo.recuperar_por_similaridade(
+            [1.0, 0.0, 0.0], modelo=A, dimensoes=3, limite=5, paises=paises, so_em_vigor=True
+        )
+        assert [(t.alerta_id, t.em_vigor, t.aviso_geral) for t in achados] == [
+            (aviso.id, True, True)
+        ]
+    assert (
+        repo.recuperar_por_similaridade(
+            [1.0, 0.0, 0.0], modelo=A, dimensoes=3, limite=5, paises=["JO"], so_em_vigor=True
+        )
+        == []
+    )  # não cita a Jordânia
 
 
 def test_busca_por_texto_ordena_por_ts_rank_e_usa_so_a_fatia_do_trecho(sessao: Session) -> None:

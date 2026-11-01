@@ -12,6 +12,7 @@ from farol.mapa.nivel import (
     calcular_niveis,
     titulo_cita,
 )
+from farol.mapa.nomes import ProcuradorDeTerritorios, TerritoriosCitados
 from farol.mapa.painel import TerritorioNaoEncontrado, montar_painel
 from farol.mapa.preparo import nomes_para_titulo
 from farol.mapa.saude import EstadoDeSaude, consultar_saude
@@ -41,11 +42,13 @@ __all__ = [
     "PaisSemPosto",
     "PostoNoMapa",
     "PostoNoPainel",
+    "ProcuradorDeTerritorios",
     "Regiao",
     "RegiaoDoAlerta",
     "TerritorioNaoEncontrado",
     "TerritorioNoMapa",
     "TerritorioParaNivel",
+    "TerritoriosCitados",
     "VisaoDoMapa",
     "VisaoDoPainel",
     "alertas_que_definem_nivel",

@@ -7,11 +7,14 @@ a sessão (`abrir_sessao`) confirma. Cada alerta é gravado num SAVEPOINT própr
 vem antes da escrita, então uma falha de rede ou de cota num alerta nunca estraga os trechos bons
 dele nem atrapalha os outros.
 
-O chat não importa o `mapa`: o `vigor` (alerta -> territórios cujo nível ele rege) chega pronto.
+O chat não importa o `mapa`: o `vigor` (alerta -> territórios cujo nível ele rege) chega pronto,
+e os países que um aviso geral cita vêm de `citados` (texto -> códigos), também de fora. O aviso
+geral é o alerta cuja classificação não define nível nenhum (fraude, aliciamento, saúde pública):
+os países dele no índice são os que ele cita; os de um alerta de nível são os da classificação.
 """
 
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, replace
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -29,6 +32,7 @@ from farol.infra import Relogio, RelogioDoSistema, obter_logger
 _log = obter_logger("farol.chat")
 
 Vigor = Mapping[int, frozenset[str]]
+Citados = Callable[[str], Iterable[str]]
 # (posição, total, id do alerta, "refeito" | "completo" | "falhou"), a cada alerta do `reindexar`
 Andamento = Callable[[int, int, int, str], None]
 
@@ -79,6 +83,14 @@ class SituacaoDoIndice:
 
 
 # --------------------------------------------------------------------------- peças
+def _com_os_citados(alerta: AlertaElegivel, citados: Citados | None) -> AlertaElegivel:
+    """Num aviso geral, os países do índice são os que o título e o texto citam."""
+    if alerta.paises or citados is None:
+        return alerta
+    citados_no_alerta = citados(f"{alerta.titulo}\n{alerta.texto}")
+    return replace(alerta, paises=tuple(sorted(set(citados_no_alerta))))
+
+
 def _vigor_do_alerta(alerta: AlertaElegivel, vigor: Vigor) -> tuple[str, ...]:
     return tuple(sorted(vigor.get(alerta.id, frozenset())))
 
@@ -166,6 +178,7 @@ def indexar_pendentes(
     *,
     modelo: str,
     dimensoes: int,
+    citados: Citados | None = None,
     tudo: bool = False,
     relogio: Relogio | None = None,
 ) -> ResumoDaIndexacao:
@@ -188,6 +201,7 @@ def indexar_pendentes(
     gravados = repo.trechos_gravados(modelo, dimensoes)
 
     for alerta in repo.alertas_elegiveis():
+        alerta = _com_os_citados(alerta, citados)
         atuais = gravados.get(alerta.id, [])
         do_vigor = _vigor_do_alerta(alerta, vigor)
         try:
@@ -225,6 +239,7 @@ def reindexar(
     *,
     modelo: str,
     dimensoes: int,
+    citados: Citados | None = None,
     manter_antigos: bool = False,
     relogio: Relogio | None = None,
     andamento: Andamento | None = None,
@@ -241,7 +256,7 @@ def reindexar(
     apagados = repo.apagar_dos_que_nao_sao_elegiveis()
     gravados = repo.trechos_gravados(modelo, dimensoes)
 
-    elegiveis = repo.alertas_elegiveis()
+    elegiveis = [_com_os_citados(a, citados) for a in repo.alertas_elegiveis()]
     for posicao, alerta in enumerate(elegiveis, 1):
         atuais = gravados.get(alerta.id, [])
         do_vigor = _vigor_do_alerta(alerta, vigor)

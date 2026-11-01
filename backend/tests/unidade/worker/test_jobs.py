@@ -165,6 +165,13 @@ class MeiosDaIndexacao:
             self.chamadas.append(("reindexar", (sessao, embeddador, vigor, opcoes)))
             return "resumo-da-reindexacao"
 
+        class ProcuradorFalso:
+            def __init__(self, sessao: str) -> None:
+                self.sessao = sessao
+
+            def codigos_citados(self, texto: str) -> frozenset[str]:
+                return frozenset({"PH"})
+
         def situacao(sessao: str, **opcoes: Any) -> str:
             self.chamadas.append(("situacao", (sessao, opcoes)))
             return "situacao"
@@ -180,6 +187,7 @@ class MeiosDaIndexacao:
             "reindexar": reindexar,
             "consultar_situacao": situacao,
             "criar_embeddador": criar,
+            "ProcuradorDeTerritorios": ProcuradorFalso,
         }.items():
             monkeypatch.setattr(modulo_de_jobs, nome, valor)
 
@@ -204,6 +212,7 @@ def test_indexar_real_calcula_o_vigor_pelo_mapa_e_entrega_ao_chat(
     sessao, embeddador, vigor, opcoes = meios.chamou("indexar")
     assert (sessao, embeddador) == ("sessao", meios.embeddador)
     assert vigor == {7: frozenset({"IL"})}
+    assert opcoes.pop("citados")("Filipinas") == {"PH"}  # os países dos avisos gerais
     assert opcoes == {"modelo": "falso:modelo", "dimensoes": 8, "tudo": False}
     assert meios.chamou("criar_embeddador") is configuracoes
 
@@ -218,6 +227,7 @@ def test_reindexar_real_repassa_manter_antigos(meios: MeiosDaIndexacao) -> None:
     assert resumo == "resumo-da-reindexacao"
     _, embeddador, vigor, opcoes = meios.chamou("reindexar")
     assert vigor == {7: frozenset({"IL"})} and embeddador is meios.embeddador
+    assert opcoes.pop("citados")("Filipinas") == {"PH"}
     assert opcoes == {
         "modelo": "falso:modelo",
         "dimensoes": 8,

@@ -10,10 +10,10 @@ Os eventos de progresso saem nos pontos reais (quando a ferramenta é de fato ch
 de 20 s é de `com_prazo`, que corta a pergunta no meio e devolve `tempo_esgotado`. Nada da
 pergunta nem da resposta vai a log: só códigos de evento e tipos de erro.
 
-Falha do provedor do modelo e falha do nosso código (ferramenta, banco, verificador) chegam à pessoa
-com a mesma mensagem, mas não se confundem: a primeira é `servico_indisponivel` e conta em
-`falhas_servico`; a segunda é `erro_interno`, conta em `erros_internos` e vai ao log como erro, com
-o lugar do código onde estourou.
+Falha do provedor do modelo e falha do nosso código chegam à pessoa com a mesma mensagem, mas não
+se confundem, e a decisão é pelo tipo: só `ServicoDoModeloIndisponivel` (do `AdaptadorDoProvedor`)
+é `servico_indisponivel` e conta em `falhas_servico`; qualquer outra exceção é `erro_interno`,
+conta em `erros_internos` e vai ao log como erro, com o lugar do código onde estourou.
 """
 
 import traceback
@@ -26,7 +26,7 @@ import anyio
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 import farol
-from farol.chat.agente import RespostaDoModelo, criar_agente
+from farol.chat.agente import RespostaDoModelo, ServicoDoModeloIndisponivel, criar_agente
 from farol.chat.entendimento import MensagemAnterior, entender
 from farol.chat.ferramentas import (
     ContextoDaPergunta,
@@ -104,10 +104,10 @@ def _progresso(etapa: Etapa) -> EventoDeProgresso:
 
 
 def _onde_no_nosso_codigo(erro: BaseException) -> str | None:
-    """`arquivo:linha` do ponto mais fundo do pacote `farol` por onde o erro passou, sem contar o
-    quadro que o pegou; nulo se ele veio só de fora (o provedor do modelo, a rede)."""
+    """`arquivo:linha` do ponto mais fundo do pacote `farol` por onde o erro passou (só para o
+    log; o que decide se é erro interno é o tipo)."""
     onde = None
-    for quadro, linha in list(traceback.walk_tb(erro.__traceback__))[1:]:
+    for quadro, linha in traceback.walk_tb(erro.__traceback__):
         arquivo = Path(quadro.f_code.co_filename)
         if arquivo.is_relative_to(_PACOTE):
             onde = f"{arquivo.relative_to(_PACOTE).as_posix()}:{linha}"
@@ -210,11 +210,9 @@ class PipelineDoChat:
                                     yield _progresso(etapa)
                         elif isinstance(mensagem, ToolMessage) and mensagem.artifact:
                             trechos.extend(mensagem.artifact)
-        except Exception as erro:
-            if _onde_no_nosso_codigo(erro) is not None:
-                raise  # estourou numa ferramenta nossa: erro interno, não o modelo fora do ar
+        except ServicoDoModeloIndisponivel as erro:
             # só o tipo vai ao log: a mensagem do provedor pode repetir a pergunta
-            _log.warning("o serviço de linguagem falhou: %s", type(erro).__name__)
+            _log.warning("o serviço de linguagem falhou: %s", erro)
             self._contar("falhas_servico")
             yield EventoDeErro("servico_indisponivel", MENSAGEM_SERVICO_INDISPONIVEL, True)
             return

@@ -6,7 +6,7 @@ uma pergunta (entendimento, agente, verificador e montador). O chat não importa
 em `farol.api`) ou como argumento (o `vigor` da indexação, calculado pelo `worker`).
 """
 
-from farol.chat.agente import RespostaDoModelo
+from farol.chat.agente import RespostaDoModelo, ServicoDoModeloIndisponivel
 from farol.chat.embeddador import EmbeddadorGoogle, criar_embeddador
 from farol.chat.entendimento import MensagemAnterior
 from farol.chat.fatiamento import fatiar
@@ -60,6 +60,7 @@ __all__ = [
     "ResultadoDaResolucao",
     "ResumoDaIndexacao",
     "ResumoDaReindexacao",
+    "ServicoDoModeloIndisponivel",
     "SituacaoDoIndice",
     "TrechoEncontrado",
     "com_prazo",
