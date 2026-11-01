@@ -49,7 +49,7 @@ Os alertas de teste vivem em `backend/tests/fixtures/chat/alertas.json` (id lóg
 
 Em `backend/tests/gabarito/chat/test_gabarito.py` (pytest, parametrizado pelas 60 entradas):
 
-1. **Recuperação** (só `alertas` e `seguimento`): com os vetores pré-calculados, o alerta esperado está **entre os 4 primeiros** em **≥ 90%** das perguntas de conteúdo (meta de SC-002). Mostra a lista dos que falharam.
+1. **Recuperação** (só `alertas` e `seguimento`): com os vetores pré-calculados, o alerta esperado está **entre os 4 primeiros** em **≥ 90%** das perguntas de conteúdo (meta de SC-002). Contam os tipos `alertas` e `seguimento` sobre conteúdo de alerta: no gabarito final são 12 perguntas e o mínimo é **11**; na primeira entrega (só as 6 de `alertas`) o mínimo é **5**. Mostra a lista dos que falharam.
 2. **País, intenção e ferramenta**: o código detecta os `paises` esperados (e a intenção de lista nas perguntas do tipo `lista`); com um **modelo falso roteirizado** (um roteiro por entrada: o que o modelo "decide" chamar e escrever), o pipeline chama as `ferramentas` esperadas. Variante: o roteiro **omite** a ferramenta obrigatória nas entradas de `nivel`, `visto` e `postos`, e o teste exige que a trava refaça com a ferramenta correta (ou caia na contingência).
 3. **Situação**: `situacao` esperada (recusa, "não encontrei", pergunta de volta, resposta).
 4. **Montagem**: cartões e citações vêm dos dados; `trecho == alerta.texto[inicio:fim]`; "em vigor" × "anterior" corretos.

@@ -66,7 +66,7 @@ Detalhes: [research.md](research.md), [data-model.md](data-model.md), [contracts
 
 As três decisões que você pediu (1.1 a 1.3 do `research.md`) e estas posições, que **diferem ou acrescentam** ao pedido original, foram aprovadas:
 
-1. **Fallback de modelo**: você indicou `with_fallbacks`. Para o agente com ferramentas, recomendo o `ModelFallbackMiddleware` do LangChain 1.x, e `with_fallbacks` fica para as chamadas sem ferramentas. A primeira tarefa é um teste de 15 minutos que confirma se o `create_agent` aceita `with_fallbacks`; se aceitar, uso só ele.
+1. **Fallback de modelo**: você indicou `with_fallbacks`. Para o agente com ferramentas, recomendo o `ModelFallbackMiddleware` do LangChain 1.x, e `with_fallbacks` fica para as chamadas sem ferramentas. O último item da Fundação (T026) é um teste de 15 minutos, feito antes de o agente existir, que confirma se o `create_agent` aceita `with_fallbacks`; se aceitar, uso só ele.
 2. **País decidido pelo código, não pelo modelo**: a detecção de país (e a pergunta de volta em caso de ambiguidade) acontece antes do modelo, e as ferramentas só aceitam países que o código detectou. Poupa cota e fecha uma porta de injeção; custa pouca flexibilidade (um país citado de forma muito indireta não é achado).
 3. **Streaming só de progresso e resultado, sem tokens**: a trava pode descartar e refazer a resposta; mostrar tokens ao vivo exporia texto que seria jogado fora.
 4. **Metadados do índice**: guardo `paises` e `em_vigor_para` como você pediu, mas a **verdade na hora da resposta** é a ferramenta de nível (a do painel), e a consulta já exclui, por `JOIN`, o que saiu da lista ou mudou de hash. Assim um descompasso de minutos nos metadados nunca vira afirmação errada.
@@ -113,6 +113,7 @@ backend/
 │   │   ├── __init__.py
 │   │   ├── protocolos.py                    # ResolvedorDePaises, ConsultaDeNivel/Visto/Postos, Embeddador + valores
 │   │   ├── fatiamento.py                    # texto do alerta → intervalos [inicio, fim)
+│   │   ├── embeddador.py                    # EmbeddadorGoogle (o Protocol fica em protocolos.py)
 │   │   ├── indexador.py                     # indexar_pendentes (idempotente) e reindexar (troca de modelo/dimensão)
 │   │   ├── recuperacao.py                   # RecuperadorDeTrechos (vetorial + textual)
 │   │   ├── entendimento.py                  # país, ambiguidade, intenção de lista e histórico (só mensagens da pessoa)

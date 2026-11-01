@@ -82,7 +82,7 @@ Observações:
 
 | Variável | Padrão | Uso |
 |---|---|---|
-| `CHAT_HABILITADO` | `true` | `false` → `POST /chat` responde `503 chat_desligado` |
+| `CHAT_HABILITADO` | `false` | `false` → `POST /chat` responde `503 chat_desligado`. Só é ligado depois dos limites (T133a). Com `AMBIENTE=producao` e o chat ligado, a partida falha se `CHAT_LIMITE_POR_HORA_POR_IP` ou `CHAT_LIMITE_POR_DIA` forem ≤ 0 |
 | `CHAT_LIMITE_POR_HORA_POR_IP` | `20` | Passo 2 |
 | `CHAT_LIMITE_POR_DIA` | `500` | Passo 3 |
 | `CHAT_TEMPO_MAXIMO_SEGUNDOS` | `20` | Passo 4 |
