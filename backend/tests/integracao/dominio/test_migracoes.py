@@ -21,15 +21,18 @@ TABELAS = {
     "mudanca_retida",
     "item_para_revisao",
     "versao_dados",
+    "trecho_alerta",
+    "contagem_chat",
 }
-TABELAS_DA_001 = TABELAS - {
+TABELAS_DA_003 = {"trecho_alerta", "contagem_chat"}
+TABELAS_DA_002 = {
     "coleta_vistos",
     "requisito_visto",
     "mudanca_retida",
     "item_para_revisao",
     "versao_dados",
 }
-TABELAS_DA_002 = TABELAS - TABELAS_DA_001
+TABELAS_DA_001 = TABELAS - TABELAS_DA_002 - TABELAS_DA_003
 
 
 def test_subir_e_descer_sem_erro(engine_teste: Engine, configuracao_alembic: Config) -> None:
@@ -79,6 +82,55 @@ def test_downgrade_para_0002_remove_so_as_tabelas_de_vistos(
         assert set(inspect(engine_teste).get_table_names()) >= TABELAS_DA_002
         with engine_teste.connect() as conexao:
             assert conexao.execute(text("select count(*) from territorio")).scalar_one() == 1
+    finally:
+        command.upgrade(configuracao_alembic, "head")
+        with engine_teste.begin() as conexao:
+            conexao.execute(text("delete from territorio where codigo = 'ZZ'"))
+
+
+def test_a_0005_cria_a_extensao_vector_e_as_duas_tabelas(engine_teste: Engine) -> None:
+    with engine_teste.connect() as conexao:
+        extensao = conexao.execute(
+            text("select count(*) from pg_extension where extname = 'vector'")
+        ).scalar_one()
+    assert extensao == 1
+    assert set(inspect(engine_teste).get_table_names()) >= TABELAS_DA_003
+
+
+def test_downgrade_para_0004_remove_so_as_tabelas_do_chat_e_deixa_a_extensao(
+    engine_teste: Engine, configuracao_alembic: Config
+) -> None:
+    """A 0005 só acrescenta: descer apaga as duas tabelas, mantém a extensão e a 001 e a 002."""
+    command.upgrade(configuracao_alembic, "head")
+    with engine_teste.begin() as conexao:
+        conexao.execute(
+            text("insert into territorio (codigo, nome_pt, tipo) values ('ZZ', 'Teste', 'pais')")
+        )
+    colunas_antes = {
+        tabela: [c["name"] for c in inspect(engine_teste).get_columns(tabela)]
+        for tabela in TABELAS_DA_001 | TABELAS_DA_002
+    }
+    try:
+        command.downgrade(configuracao_alembic, "0004")
+
+        tabelas = set(inspect(engine_teste).get_table_names())
+        assert TABELAS_DA_003.isdisjoint(tabelas)
+        assert tabelas >= TABELAS_DA_001 | TABELAS_DA_002
+        colunas_depois = {
+            tabela: [c["name"] for c in inspect(engine_teste).get_columns(tabela)]
+            for tabela in TABELAS_DA_001 | TABELAS_DA_002
+        }
+        assert colunas_depois == colunas_antes
+        with engine_teste.connect() as conexao:
+            assert conexao.execute(text("select count(*) from territorio")).scalar_one() == 1
+            extensao = conexao.execute(
+                text("select count(*) from pg_extension where extname = 'vector'")
+            ).scalar_one()
+        assert extensao == 1  # outra coisa pode usá-la: o downgrade a deixa
+
+        command.upgrade(configuracao_alembic, "head")
+
+        assert set(inspect(engine_teste).get_table_names()) >= TABELAS_DA_003
     finally:
         command.upgrade(configuracao_alembic, "head")
         with engine_teste.begin() as conexao:

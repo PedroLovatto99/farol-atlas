@@ -15,12 +15,15 @@ x-backend: &backend
   environment:
     DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://farol:farol@postgres:5432/farol}
     DIRETORIO_DADOS: /app/dados
+    # Rastreamento externo desligado: nada da conversa do chat sai para terceiros
+    LANGSMITH_TRACING: "false"
+    LANGCHAIN_TRACING_V2: "false"
   extra_hosts:
     - "host.docker.internal:host-gateway"
 
 services:
   postgres:
-    image: postgres:18
+    image: pgvector/pgvector:0.8.7-pg18-trixie
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-farol}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-farol}
@@ -37,7 +40,7 @@ services:
 
   # Banco dos testes do backend: só sobe com --profile teste; dados em memória
   postgres-teste:
-    image: postgres:18
+    image: pgvector/pgvector:0.8.7-pg18-trixie
     profiles: ["teste"]
     environment:
       POSTGRES_USER: farol
@@ -84,6 +87,8 @@ services:
       DIRETORIO_DADOS: /app/dados
       # Windows: os eventos de arquivo não chegam ao container, então usa polling
       WATCHFILES_FORCE_POLLING: "true"
+      LANGSMITH_TRACING: "false"
+      LANGCHAIN_TRACING_V2: "false"
     ports:
       - "8000:8000"
     volumes:

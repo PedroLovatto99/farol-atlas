@@ -3,10 +3,12 @@
 from farol.dominio.repositorios.alertas import AlertaRepositorio
 from farol.dominio.repositorios.banco import BancoRepositorio
 from farol.dominio.repositorios.classificacoes import ClassificacaoRepositorio
+from farol.dominio.repositorios.contagens_chat import ContagemChatRepositorio, dia_em_brasilia
 from farol.dominio.repositorios.execucoes import ExecucaoRepositorio
 from farol.dominio.repositorios.fontes import FonteDadosRepositorio
 from farol.dominio.repositorios.postos import PostoRepositorio
 from farol.dominio.repositorios.territorios import TerritorioRepositorio
+from farol.dominio.repositorios.trechos_alerta import TrechoAlertaRepositorio
 from farol.dominio.repositorios.vistos import (
     ColetaVistosRepositorio,
     ItemParaRevisaoRepositorio,
@@ -19,6 +21,7 @@ __all__ = [
     "BancoRepositorio",
     "ClassificacaoRepositorio",
     "ColetaVistosRepositorio",
+    "ContagemChatRepositorio",
     "ExecucaoRepositorio",
     "FonteDadosRepositorio",
     "ItemParaRevisaoRepositorio",
@@ -26,4 +29,6 @@ __all__ = [
     "PostoRepositorio",
     "RequisitoVistoRepositorio",
     "TerritorioRepositorio",
+    "TrechoAlertaRepositorio",
+    "dia_em_brasilia",
 ]

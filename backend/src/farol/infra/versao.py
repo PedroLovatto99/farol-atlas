@@ -3,7 +3,8 @@
 O cache da API compara a versão guardada com a atual: se mudou, a resposta velha é descartada.
 Nenhum job nem comando precisa lembrar de chamar nada: toda sessão aberta por `abrir_sessao` que
 gravou algo (objeto novo, alterado, apagado ou UPDATE/DELETE em massa) sobe o contador antes de
-confirmar. Leituras e transações desfeitas não sobem.
+confirmar. Leituras e transações desfeitas não sobem. Uma sessão aberta com
+`abrir_sessao(..., versiona=False)` nunca sobe (contagens do chat, que não mudam o site).
 """
 
 from sqlalchemy import event, text
@@ -38,6 +39,11 @@ def subir_se_escreveu(sessao: Session) -> bool:
         return False
     sessao.execute(_SUBIR)
     return True
+
+
+def esquecer_escrita(sessao: Session) -> None:
+    """Descarta a marca de escrita sem subir o contador (sessões abertas com `versiona=False`)."""
+    sessao.info.pop(_MARCA, None)
 
 
 def ler_versao_dos_dados(sessao: Session) -> int:

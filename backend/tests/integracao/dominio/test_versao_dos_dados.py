@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from farol.coleta import ServicoDeColetaDeAlertas
 from farol.dominio import (
     Alerta,
+    ContagemChat,
     EstadoDoItem,
     ExecucaoColeta,
     ItemParaRevisao,
@@ -25,7 +26,9 @@ if TYPE_CHECKING:
     from tests.conftest import GovBrFalso, RelogioFalso
 
 AGORA = datetime(2026, 10, 30, 12, 0, tzinfo=UTC)
-TABELAS_ESCRITAS = "alerta, execucao_coleta, item_para_revisao, classificacao, nivel_territorio"
+TABELAS_ESCRITAS = (
+    "alerta, execucao_coleta, item_para_revisao, classificacao, nivel_territorio, contagem_chat"
+)
 
 
 @pytest.fixture
@@ -144,3 +147,36 @@ def test_um_comando_do_dono_sobe_a_versao(
     with abrir_sessao(fabrica) as sessao:
         ServicoDoDono(sessao, relogio).ignorar_nome("Atlantis", "não é um país")
     assert versao(fabrica) == antes + 1
+
+
+def test_sessao_sem_versionar_nao_sobe_a_versao(fabrica: sessionmaker[Session]) -> None:
+    """O chat grava contagens a cada pergunta sem invalidar o cache de leitura."""
+    antes = versao(fabrica)
+    with abrir_sessao(fabrica, versiona=False) as sessao:
+        sessao.add(ContagemChat(dia=AGORA.date(), chave="perguntas", valor=1))
+    assert versao(fabrica) == antes
+    with abrir_sessao(fabrica, versiona=False) as sessao:
+        sessao.execute(update(ContagemChat).values(valor=ContagemChat.valor + 1))
+    assert versao(fabrica) == antes
+    with abrir_sessao(fabrica) as sessao:  # confirma que a gravação de fato aconteceu
+        assert sessao.get_one(ContagemChat, (AGORA.date(), "perguntas")).valor == 2
+
+
+def test_sessao_versionando_por_padrao_continua_subindo_a_versao(
+    fabrica: sessionmaker[Session],
+) -> None:
+    antes = versao(fabrica)
+    with abrir_sessao(fabrica, versiona=True) as sessao:
+        sessao.add(ContagemChat(dia=AGORA.date(), chave="perguntas", valor=1))
+    assert versao(fabrica) == antes + 1
+
+
+def test_a_marca_de_uma_sessao_sem_versionar_nao_vaza_para_a_seguinte(
+    fabrica: sessionmaker[Session],
+) -> None:
+    with abrir_sessao(fabrica, versiona=False) as sessao:
+        sessao.add(nova_execucao())
+    antes = versao(fabrica)
+    with abrir_sessao(fabrica) as sessao:
+        sessao.scalars(select(ExecucaoColeta)).all()
+    assert versao(fabrica) == antes

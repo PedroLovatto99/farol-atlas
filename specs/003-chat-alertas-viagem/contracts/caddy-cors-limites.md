@@ -90,7 +90,7 @@ Observações:
 | `CHAT_HISTORICO_MENSAGENS` | `6` | idem |
 | `CHAT_TRECHOS_POR_PERGUNTA` | `4` | Recuperação |
 | `LLM_CHAT`, `LLM_CHAT_ALTERNATIVO` | vazios | Modelo principal e alternativo (`provedor:modelo`); vazio = o do classificador |
-| `GOOGLE_API_KEY_CHAT` | ausente | Chave de projeto próprio (cota isolada); ausente = `GOOGLE_API_KEY` |
+| `GOOGLE_API_KEY_CHAT` | ausente | Chave de projeto próprio (cota isolada). Obrigatória com o chat ligado; nunca cai em `GOOGLE_API_KEY` (produção não parte sem ela) |
 | `EMBEDDINGS_MODELO`, `EMBEDDINGS_DIMENSOES` | `google_genai:gemini-embedding-001`, `768` | Embeddings |
 | `INDEXACAO_INTERVALO_MINUTOS` | `5` | Agenda do varredor |
 | `LANGSMITH_TRACING` | fixo `false` no compose | Rastreamento externo desligado |

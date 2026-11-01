@@ -50,7 +50,7 @@ sudo usermod -aG docker "$USER"     # saia e entre de novo na VM para valer
 docker run --rm hello-world         # deve funcionar sem sudo
 ```
 
-O `dpkg --print-architecture` devolve `arm64` sozinho. As imagens usadas (`caddy:2`, `postgres:18` e
+O `dpkg --print-architecture` devolve `arm64` sozinho. As imagens usadas (`caddy:2`, `pgvector/pgvector:0.8.7-pg18-trixie` e
 `python:3.13-slim`) têm versão `linux/arm64`, e as dependências Python do backend têm wheel para
 `aarch64` (o CI confere as duas coisas).
 
@@ -122,6 +122,7 @@ O `.env` **só existe no servidor** (`.gitignore` já o ignora). Variáveis de p
 | `COLETAS_AUTOMATICAS` | `true` em produção. **Obrigatória:** sem ela a API e o worker se recusam a subir |
 | `CONTATO_COLETA` | URL ou e-mail que vai no User-Agent da coleta (não deixe o valor de exemplo) |
 | `GOOGLE_API_KEY` | a chave do Gemini |
+| `GOOGLE_API_KEY_CHAT` | só se ligar o chat (`CHAT_HABILITADO=true`): chave de um projeto Google próprio. **Obrigatória** com o chat ligado, que nunca usa `GOOGLE_API_KEY` (sem ela a API se recusa a subir) |
 | `LLM_CLASSIFICADOR` / `LLM_TRADUTOR` | opcionais (padrão `google_genai:gemini-3.6-flash`) |
 | `LIMITE_PEDIDOS_POR_MINUTO` / `LIMITE_RAJADA` | opcionais (padrão 120 e 40) |
 

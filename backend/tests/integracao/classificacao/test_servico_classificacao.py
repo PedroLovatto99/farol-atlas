@@ -23,9 +23,13 @@ from farol.coleta import extrair_alerta, hash_do_alerta
 from farol.dominio import (
     Alerta,
     Classificacao,
+    ExecucaoColeta,
     NivelAlerta,
     NivelTerritorio,
     StatusClassificacao,
+    TipoExecucao,
+    TrechoAlerta,
+    TrechoAlertaRepositorio,
 )
 from farol.dominio.seed import executar
 
@@ -448,6 +452,46 @@ def test_reclassificar_por_id_refaz_a_classificacao_do_mesmo_hash(
     por_codigo = niveis(semeado, classificacao)
     assert set(por_codigo) == {"BO"}
     assert por_codigo["BO"].nivel_pais is NivelAlerta.NAO_VIAJAR
+
+
+def test_reclassificar_deixa_os_trechos_do_chat_defasados_para_o_varredor_refazer(
+    semeado: Session, relogio: "RelogioFalso"
+) -> None:
+    """A classificação é refeita na mesma linha (mesmo id): só `classificado_em` avisa o índice."""
+    alerta = alerta_da_fixture(semeado, "alerta_1")
+    execucao = ExecucaoColeta(tipo=TipoExecucao.ALERTAS, iniciada_em=AGORA, completa=True)
+    semeado.add(execucao)
+    semeado.flush()
+    alerta.confirmado_execucao_id = execucao.id
+    alerta.confirmado_hash = alerta.hash
+    classificador = servico(semeado, modelo_falso(BOLIVIA_EVITAR, BOLIVIA_NAO_VIAJAR), relogio)
+    classificador.classificar_pendentes()
+    [classificacao] = classificacoes(semeado, alerta)
+    modelo_vetores = "google_genai:gemini-embedding-001"
+    semeado.add(
+        TrechoAlerta(
+            alerta_id=alerta.id,
+            alerta_hash=classificacao.alerta_hash,
+            classificacao_id=classificacao.id,
+            posicao=0,
+            inicio=0,
+            fim=10,
+            paises=["BO"],
+            em_vigor_para=[],
+            modelo_embedding=modelo_vetores,
+            dimensoes=3,
+            embedding=[0.1, 0.2, 0.3],
+            indexado_em=relogio.agora(),
+        )
+    )
+    semeado.flush()
+    repositorio = TrechoAlertaRepositorio(semeado)
+    assert repositorio.alertas_a_indexar(modelo_vetores, 3) == []
+
+    relogio.avancar(minutes=1)
+    classificador.reclassificar(str(alerta.id))
+
+    assert repositorio.alertas_a_indexar(modelo_vetores, 3) == [alerta.id]
 
 
 def test_reclassificar_por_url(semeado: Session, relogio: "RelogioFalso") -> None:

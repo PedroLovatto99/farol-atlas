@@ -65,7 +65,7 @@ Regenerar os tipos do frontend depois de mudar o contrato: `cd frontend && npm r
 ```bash
 docker compose up -d --build api worker
 docker compose exec worker python -m farol.worker indexar --status   # antes: alertas elegíveis × indexados
-docker compose exec worker python -m farol.worker indexar            # vetoriza (precisa de GOOGLE_API_KEY_CHAT ou GOOGLE_API_KEY)
+docker compose exec worker python -m farol.worker indexar            # vetoriza (precisa de GOOGLE_API_KEY_CHAT)
 docker compose exec worker python -m farol.worker indexar --status   # depois: tudo em dia
 ```
 

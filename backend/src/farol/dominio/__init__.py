@@ -19,6 +19,7 @@ from farol.dominio.modelos import (
     Base,
     Classificacao,
     ColetaVistos,
+    ContagemChat,
     ExecucaoColeta,
     FonteDados,
     ItemParaRevisao,
@@ -27,6 +28,7 @@ from farol.dominio.modelos import (
     Posto,
     RequisitoVisto,
     Territorio,
+    TrechoAlerta,
     VersaoDosDados,
 )
 from farol.dominio.regioes import e_nivel_do_pais, separar_nivel_do_pais
@@ -35,6 +37,7 @@ from farol.dominio.repositorios import (
     BancoRepositorio,
     ClassificacaoRepositorio,
     ColetaVistosRepositorio,
+    ContagemChatRepositorio,
     ExecucaoRepositorio,
     FonteDadosRepositorio,
     ItemParaRevisaoRepositorio,
@@ -42,6 +45,8 @@ from farol.dominio.repositorios import (
     PostoRepositorio,
     RequisitoVistoRepositorio,
     TerritorioRepositorio,
+    TrechoAlertaRepositorio,
+    dia_em_brasilia,
 )
 
 __all__ = [
@@ -55,6 +60,8 @@ __all__ = [
     "ClassificacaoRepositorio",
     "ColetaVistos",
     "ColetaVistosRepositorio",
+    "ContagemChat",
+    "ContagemChatRepositorio",
     "EstadoDaRetencao",
     "EstadoDoItem",
     "ExecucaoColeta",
@@ -80,7 +87,10 @@ __all__ = [
     "TipoExecucao",
     "TipoPosto",
     "TipoTerritorio",
+    "TrechoAlerta",
+    "TrechoAlertaRepositorio",
     "VersaoDosDados",
+    "dia_em_brasilia",
     "e_nivel_do_pais",
     "separar_nivel_do_pais",
 ]

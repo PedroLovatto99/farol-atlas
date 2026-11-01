@@ -18,6 +18,7 @@ dependencies = [
     "langchain",
     "langchain-google-genai",
     "langchain-ollama",
+    "pgvector>=0.5.1",
 ]
 
 [dependency-groups]
@@ -93,7 +94,7 @@ name = "Camadas do backend"
 type = "layers"
 layers = [
     "farol.api | farol.worker",
-    "farol.mapa | farol.coleta | farol.classificacao | farol.vistos",
+    "farol.mapa | farol.coleta | farol.classificacao | farol.vistos | farol.chat",
     "farol.dominio",
     "farol.infra",
 ]
@@ -101,7 +102,7 @@ layers = [
 [[tool.importlinter.contracts]]
 name = "Casos de uso independentes entre si"
 type = "independence"
-modules = ["farol.mapa", "farol.coleta", "farol.classificacao", "farol.vistos"]
+modules = ["farol.mapa", "farol.coleta", "farol.classificacao", "farol.vistos", "farol.chat"]
 
 [[tool.importlinter.contracts]]
 name = "So a interface publica de dominio"
@@ -114,6 +115,7 @@ source_modules = [
     "farol.classificacao",
     "farol.vistos",
     "farol.infra",
+    "farol.chat",
 ]
 forbidden_modules = ["farol.dominio.*"]
 allow_indirect_imports = true
@@ -129,6 +131,7 @@ source_modules = [
     "farol.classificacao",
     "farol.vistos",
     "farol.dominio",
+    "farol.chat",
 ]
 forbidden_modules = ["farol.infra.*"]
 allow_indirect_imports = true
@@ -144,6 +147,7 @@ source_modules = [
     "farol.vistos",
     "farol.dominio",
     "farol.infra",
+    "farol.chat",
 ]
 forbidden_modules = ["farol.coleta.*"]
 allow_indirect_imports = true
@@ -159,6 +163,7 @@ source_modules = [
     "farol.vistos",
     "farol.dominio",
     "farol.infra",
+    "farol.chat",
 ]
 forbidden_modules = ["farol.classificacao.*"]
 allow_indirect_imports = true
@@ -174,6 +179,7 @@ source_modules = [
     "farol.vistos",
     "farol.dominio",
     "farol.infra",
+    "farol.chat",
 ]
 forbidden_modules = ["farol.mapa.*"]
 allow_indirect_imports = true
@@ -189,8 +195,25 @@ source_modules = [
     "farol.classificacao",
     "farol.dominio",
     "farol.infra",
+    "farol.chat",
 ]
 forbidden_modules = ["farol.vistos.*"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "So a interface publica de chat"
+type = "forbidden"
+source_modules = [
+    "farol.api",
+    "farol.worker",
+    "farol.mapa",
+    "farol.coleta",
+    "farol.classificacao",
+    "farol.vistos",
+    "farol.dominio",
+    "farol.infra",
+]
+forbidden_modules = ["farol.chat.*"]
 allow_indirect_imports = true
 
 # --------------------------------------------------------------------------- tarefas (poe)

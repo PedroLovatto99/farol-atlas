@@ -213,9 +213,10 @@ def test_hsts_sem_preload_nem_subdominios(caddyfile: str) -> None:
 
 
 # --------------------------------------------------------------------------- arm64
+IMAGEM_DO_BANCO = "pgvector/pgvector:0.8.7-pg18-trixie"
 IMAGENS_MULTIARQUITETURA = {
     "caddy:2",  # imagem oficial, publicada para linux/arm64
-    "postgres:18",  # idem
+    IMAGEM_DO_BANCO,  # PostgreSQL 18 (Debian trixie) com pgvector; amd64 e arm64
 }
 
 
@@ -259,3 +260,28 @@ def test_toda_dependencia_de_producao_tem_wheel_para_linux_arm64() -> None:
         if not arquivos:
             sem_wheel_arm.append(f"{nome} (só código-fonte)")
     assert sem_wheel_arm == []
+
+
+# --------------------------------------------------------------------------- imagem do banco (003)
+def test_a_mesma_imagem_do_banco_em_todo_lugar() -> None:
+    """Desenvolvimento, teste, produção e CI usam a mesma tag (pgvector sobre o mesmo Debian)."""
+    desenvolvimento = yaml.safe_load((RAIZ / "docker-compose.yml").read_text(encoding="utf-8"))
+    producao = yaml.safe_load((RAIZ / "docker-compose.prod.yml").read_text(encoding="utf-8"))
+    ci_texto = (RAIZ / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    ci = yaml.safe_load(ci_texto)
+
+    assert desenvolvimento["services"]["postgres"]["image"] == IMAGEM_DO_BANCO
+    assert desenvolvimento["services"]["postgres-teste"]["image"] == IMAGEM_DO_BANCO
+    assert producao["services"]["postgres"]["image"] == IMAGEM_DO_BANCO
+    assert ci["jobs"]["backend"]["services"]["postgres"]["image"] == IMAGEM_DO_BANCO
+    laco = re.search(r"for imagem in ([^;\n]+); do", ci_texto)
+    assert laco is not None
+    assert IMAGEM_DO_BANCO in laco.group(1).split()
+    assert "postgres:18" not in ci_texto.replace(IMAGEM_DO_BANCO, "")
+
+
+def test_o_compose_de_producao_deixa_o_chat_desligado_por_padrao(
+    servicos: dict[str, dict[str, Any]],
+) -> None:
+    """O chat só liga por decisão explícita, depois dos limites (T133a)."""
+    assert str(servicos["api"]["environment"]["CHAT_HABILITADO"]) == "false"

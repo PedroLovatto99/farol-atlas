@@ -33,6 +33,19 @@ def ambiente_limpo(monkeypatch: pytest.MonkeyPatch) -> None:
         "CACHE_MAX_AGE_NAVEGADOR_SEGUNDOS",
         "COLETAS_AUTOMATICAS",
         "DIRETORIO_LOGS",
+        "CHAT_HABILITADO",
+        "LLM_CHAT",
+        "LLM_CHAT_ALTERNATIVO",
+        "GOOGLE_API_KEY_CHAT",
+        "EMBEDDINGS_MODELO",
+        "EMBEDDINGS_DIMENSOES",
+        "CHAT_LIMITE_POR_HORA_POR_IP",
+        "CHAT_LIMITE_POR_DIA",
+        "CHAT_TEMPO_MAXIMO_SEGUNDOS",
+        "CHAT_PERGUNTA_MAX_CARACTERES",
+        "CHAT_HISTORICO_MENSAGENS",
+        "CHAT_TRECHOS_POR_PERGUNTA",
+        "INDEXACAO_INTERVALO_MINUTOS",
     ):
         monkeypatch.delenv(nome, raising=False)
 
@@ -218,3 +231,131 @@ def test_limites_vem_do_ambiente(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LIMITE_RAJADA", "10")
     configuracao = criar()
     assert (configuracao.limite_pedidos_por_minuto, configuracao.limite_rajada) == (30, 10)
+
+
+# --------------------------------------------------------------------------- chat (003)
+def test_padroes_do_chat(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", URL)
+    configuracao = criar()
+    assert configuracao.chat_habilitado is False  # só liga por decisão explícita (T133a)
+    assert configuracao.llm_chat == configuracao.llm_classificador  # ausente = o do classificador
+    assert configuracao.llm_chat_alternativo == ""
+    assert configuracao.google_api_key_chat is None
+    assert configuracao.embeddings_modelo == "google_genai:gemini-embedding-001"
+    assert configuracao.embeddings_dimensoes == 768
+    assert configuracao.chat_limite_por_hora_por_ip == 20
+    assert configuracao.chat_limite_por_dia == 500
+    assert configuracao.chat_tempo_maximo_segundos == 20
+    assert configuracao.chat_pergunta_max_caracteres == 500
+    assert configuracao.chat_historico_mensagens == 6
+    assert configuracao.chat_trechos_por_pergunta == 4
+    assert configuracao.indexacao_intervalo_minutos == 5
+
+
+def test_llm_chat_vem_da_variavel(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", URL)
+    monkeypatch.setenv("LLM_CHAT", "google_genai:modelo-do-chat")
+    monkeypatch.setenv("LLM_CHAT_ALTERNATIVO", "google_genai:modelo-reserva")
+    configuracao = criar()
+    assert configuracao.llm_chat == "google_genai:modelo-do-chat"
+    assert configuracao.llm_chat_alternativo == "google_genai:modelo-reserva"
+
+
+def test_chave_do_chat_nunca_aparece_no_repr(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", URL)
+    monkeypatch.setenv("GOOGLE_API_KEY_CHAT", "chave-do-chat-secreta")
+    configuracao = criar()
+    assert configuracao.google_api_key_chat is not None
+    assert configuracao.google_api_key_chat.get_secret_value() == "chave-do-chat-secreta"
+    assert "chave-do-chat-secreta" not in repr(configuracao)
+    assert "chave-do-chat-secreta" not in str(configuracao)
+
+
+@pytest.mark.parametrize("variavel", ["CHAT_LIMITE_POR_HORA_POR_IP", "CHAT_LIMITE_POR_DIA"])
+@pytest.mark.parametrize("valor", ["0", "-1"])
+def test_producao_com_chat_ligado_exige_limites_positivos(
+    monkeypatch: pytest.MonkeyPatch, variavel: str, valor: str
+) -> None:
+    _producao(monkeypatch, CHAT_HABILITADO="true", GOOGLE_API_KEY_CHAT="chave", **{variavel: valor})
+    with pytest.raises(ValidationError, match=variavel):
+        criar()
+
+
+def test_producao_com_chat_ligado_e_limites_padrao_e_aceita(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _producao(monkeypatch, CHAT_HABILITADO="true", GOOGLE_API_KEY_CHAT="chave")
+    assert criar().chat_habilitado is True
+
+
+@pytest.mark.parametrize(
+    "ambiente",
+    [
+        {},  # LLM_CHAT vazio = o modelo do classificador, que é do Google
+        {"LLM_CHAT": "google_genai:modelo-do-chat"},
+        {"LLM_CHAT": "ollama:llama3", "LLM_CHAT_ALTERNATIVO": "google_genai:reserva"},
+        {"LLM_CHAT": "ollama:llama3"},  # o embedding padrão é do Google
+    ],
+)
+def test_producao_com_chat_ligado_exige_a_chave_propria_do_chat(
+    monkeypatch: pytest.MonkeyPatch, ambiente: dict[str, str]
+) -> None:
+    """A chave da coleta (GOOGLE_API_KEY) não serve: o chat nunca cai nela (FR-028)."""
+    _producao(monkeypatch, CHAT_HABILITADO="true", GOOGLE_API_KEY="chave-da-coleta", **ambiente)
+    with pytest.raises(ValidationError, match="GOOGLE_API_KEY_CHAT"):
+        criar()
+
+
+def test_producao_sem_google_no_chat_nao_exige_a_chave_do_chat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _producao(
+        monkeypatch,
+        CHAT_HABILITADO="true",
+        LLM_CHAT="ollama:llama3",
+        EMBEDDINGS_MODELO="ollama:nomic-embed-text",
+    )
+    assert criar().chat_disponivel is True
+
+
+def test_desenvolvimento_sem_chave_do_chat_deixa_o_chat_indisponivel_com_motivo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A partida segue (só o chat fica de fora) e o motivo diz o que falta."""
+    monkeypatch.setenv("DATABASE_URL", URL)
+    monkeypatch.setenv("CHAT_HABILITADO", "true")
+    monkeypatch.setenv("GOOGLE_API_KEY", "chave-da-coleta")
+    configuracao = criar()
+    assert configuracao.chat_disponivel is False
+    assert configuracao.motivo_chat_indisponivel is not None
+    assert "GOOGLE_API_KEY_CHAT" in configuracao.motivo_chat_indisponivel
+    assert "chave-da-coleta" not in configuracao.motivo_chat_indisponivel
+
+
+def test_chat_com_a_chave_propria_esta_disponivel_e_desligado_nao(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", URL)
+    monkeypatch.setenv("GOOGLE_API_KEY_CHAT", "chave")
+    assert criar().chat_disponivel is False  # chave sem CHAT_HABILITADO: segue desligado
+    monkeypatch.setenv("CHAT_HABILITADO", "true")
+    configuracao = criar()
+    assert configuracao.chat_disponivel is True
+    assert configuracao.motivo_chat_indisponivel is None
+
+
+@pytest.mark.parametrize("ambiente", [{"CHAT_HABILITADO": "false"}, {}])
+def test_producao_com_chat_desligado_nao_exige_limites(
+    monkeypatch: pytest.MonkeyPatch, ambiente: dict[str, str]
+) -> None:
+    _producao(monkeypatch, CHAT_LIMITE_POR_HORA_POR_IP="0", CHAT_LIMITE_POR_DIA="0", **ambiente)
+    assert criar().chat_habilitado is False
+
+
+def test_desenvolvimento_com_chat_ligado_nao_exige_limites(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", URL)
+    monkeypatch.setenv("CHAT_HABILITADO", "true")
+    monkeypatch.setenv("CHAT_LIMITE_POR_DIA", "0")
+    assert criar().chat_limite_por_dia == 0

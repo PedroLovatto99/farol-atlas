@@ -9,6 +9,7 @@ compressão e cache de leitura. O 429 do limite sai com os cabeçalhos do CORS; 
 sem comprimir.
 """
 
+import os
 import time
 from collections.abc import Callable
 
@@ -38,6 +39,8 @@ __all__ = ["criar_app", "sessao_da_requisicao"]
 
 _log = obter_logger("farol.api")
 
+_RASTREAMENTO_EXTERNO = ("LANGSMITH_TRACING", "LANGCHAIN_TRACING_V2")
+
 
 def criar_app(
     configuracoes: Configuracoes | None = None,
@@ -45,6 +48,10 @@ def criar_app(
     relogio_monotonico: Callable[[], float] = time.monotonic,
 ) -> FastAPI:
     config = configuracoes or obter_configuracoes()
+    # Rastreamento externo (LangSmith/LangChain) sempre desligado, mesmo se o ambiente trouxer true:
+    # nada da conversa do chat sai para terceiros
+    for variavel in _RASTREAMENTO_EXTERNO:
+        os.environ[variavel] = "false"
     configurar_logs()
     docs = config.api_docs_habilitada
     app = FastAPI(

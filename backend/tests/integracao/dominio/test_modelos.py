@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,10 +18,12 @@ from farol.dominio.enums import (
 from farol.dominio.modelos import (
     Alerta,
     Classificacao,
+    ContagemChat,
     ExecucaoColeta,
     NivelTerritorio,
     Posto,
     Territorio,
+    TrechoAlerta,
 )
 
 AGORA = datetime(2026, 10, 23, 12, 0, tzinfo=UTC)
@@ -207,3 +210,126 @@ def test_execucao_de_coleta_tem_valores_padrao(sessao: Session) -> None:
     assert execucao.completa is False
     assert execucao.paginas_esperadas == 0
     assert execucao.paginas_lidas == 0
+
+
+# --------------------------------------------------------------------------- chat (003)
+def _alerta_classificado(sessao: Session, url: str = "https://gov.br/chat1") -> tuple[Alerta, int]:
+    """Um alerta com hash confirmado e a classificação vigente dele (a base de um trecho)."""
+    registro = alerta(url)
+    registro.texto = "Texto do alerta para o índice de trechos."
+    registro.confirmado_hash = HASH
+    sessao.add(registro)
+    sessao.flush()
+    classificacao = Classificacao(
+        alerta_id=registro.id,
+        alerta_hash=HASH,
+        status=StatusClassificacao.OK,
+        e_alerta_de_viagem=True,
+        modelo="falso",
+        classificado_em=AGORA,
+    )
+    sessao.add(classificacao)
+    sessao.flush()
+    return registro, classificacao.id
+
+
+def _trecho(registro: Alerta, classificacao_id: int, **campos: object) -> TrechoAlerta:
+    base: dict[str, object] = {
+        "alerta_id": registro.id,
+        "alerta_hash": HASH,
+        "classificacao_id": classificacao_id,
+        "posicao": 0,
+        "inicio": 0,
+        "fim": 10,
+        "paises": ["BO"],
+        "em_vigor_para": [],
+        "modelo_embedding": "google_genai:gemini-embedding-001",
+        "dimensoes": 3,
+        "embedding": [0.1, 0.2, 0.3],
+        "indexado_em": AGORA,
+    }
+    base.update(campos)
+    return TrechoAlerta(**base)
+
+
+def test_trecho_unico_por_alerta_hash_modelo_dimensao_e_posicao(sessao: Session) -> None:
+    registro, classificacao_id = _alerta_classificado(sessao)
+    sessao.add(_trecho(registro, classificacao_id))
+    sessao.flush()
+    sessao.add(_trecho(registro, classificacao_id))
+    with pytest.raises(IntegrityError):
+        sessao.flush()
+
+
+def test_dois_modelos_de_dimensoes_diferentes_coexistem(sessao: Session) -> None:
+    registro, classificacao_id = _alerta_classificado(sessao)
+    sessao.add_all(
+        [
+            _trecho(registro, classificacao_id),
+            _trecho(
+                registro,
+                classificacao_id,
+                modelo_embedding="outro:modelo",
+                dimensoes=4,
+                embedding=[0.1, 0.2, 0.3, 0.4],
+            ),
+        ]
+    )
+    sessao.flush()
+    total = sessao.execute(text("select count(*) from trecho_alerta")).scalar_one()
+    assert total == 2
+
+
+@pytest.mark.parametrize(
+    "campos",
+    [
+        {"inicio": 5, "fim": 5},
+        {"inicio": 8, "fim": 3},
+        {"dimensoes": 0},
+        {"dimensoes": -3},
+        {"dimensoes": 4},  # o vetor tem 3
+    ],
+    ids=["fim-igual", "fim-menor", "dimensao-zero", "dimensao-negativa", "vetor-diferente"],
+)
+def test_trecho_recusa_intervalo_e_dimensao_invalidos(
+    sessao: Session, campos: dict[str, object]
+) -> None:
+    registro, classificacao_id = _alerta_classificado(sessao)
+    sessao.add(_trecho(registro, classificacao_id, **campos))
+    with pytest.raises(IntegrityError):
+        sessao.flush()
+
+
+def test_apagar_o_alerta_apaga_os_trechos(sessao: Session) -> None:
+    registro, classificacao_id = _alerta_classificado(sessao)
+    sessao.add(_trecho(registro, classificacao_id))
+    sessao.flush()
+    chaves = list(inspect(sessao.connection()).get_foreign_keys("trecho_alerta"))
+    do_alerta = next(fk for fk in chaves if fk["constrained_columns"] == ["alerta_id"])
+    assert do_alerta["options"]["ondelete"] == "CASCADE"
+    # a classificação do alerta também referencia o alerta; some junto, na mesma instrução
+    sessao.execute(
+        text(
+            "with c as (delete from classificacao where alerta_id = :id) "
+            "delete from alerta where id = :id"
+        ),
+        {"id": registro.id},
+    )
+    assert sessao.execute(text("select count(*) from trecho_alerta")).scalar_one() == 0
+
+
+def test_contagem_chat_tem_chave_dia_e_chave_e_valor_nao_negativo(sessao: Session) -> None:
+    dia = AGORA.date()
+    sessao.add(ContagemChat(dia=dia, chave="perguntas", valor=3))
+    sessao.add(ContagemChat(dia=dia, chave="recusas"))  # valor padrão 0
+    sessao.flush()
+    assert sessao.get_one(ContagemChat, (dia, "recusas")).valor == 0
+    sessao.add(ContagemChat(dia=dia, chave="perguntas", valor=1))
+    with pytest.raises(IntegrityError):
+        sessao.flush()
+
+
+def test_contagem_chat_recusa_valor_negativo(sessao: Session) -> None:
+    sessao.add(ContagemChat(dia=AGORA.date(), chave="perguntas", valor=-1))
+    with pytest.raises(IntegrityError):
+        sessao.flush()

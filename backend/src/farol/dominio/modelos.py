@@ -8,6 +8,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
@@ -410,3 +411,53 @@ class VersaoDosDados(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
     contador: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
+
+
+class TrechoAlerta(Base):
+    """Trecho de um alerta confirmado, com o vetor dele (índice do chat; é derivado).
+
+    O texto exibido é sempre `alerta.texto[inicio:fim]`, nunca uma cópia. A consulta exige
+    `alerta_hash = alerta.confirmado_hash` e só compara vetores do modelo e da dimensão
+    configurados (a coluna não tem dimensão fixa).
+    """
+
+    __tablename__ = "trecho_alerta"
+    __table_args__ = (
+        UniqueConstraint("alerta_id", "alerta_hash", "modelo_embedding", "dimensoes", "posicao"),
+        CheckConstraint("fim > inicio", name="intervalo_valido"),
+        CheckConstraint("dimensoes > 0", name="dimensoes_positivas"),
+        CheckConstraint("vector_dims(embedding) = dimensoes", name="dimensoes_do_vetor"),
+        Index("ix_trecho_alerta_paises", "paises", postgresql_using="gin"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    alerta_id: Mapped[int] = mapped_column(ForeignKey("alerta.id", ondelete="CASCADE"), index=True)
+    alerta_hash: Mapped[str] = mapped_column(String(64))
+    classificacao_id: Mapped[int] = mapped_column(
+        ForeignKey("classificacao.id", ondelete="CASCADE")
+    )
+    posicao: Mapped[int] = mapped_column(Integer)
+    inicio: Mapped[int] = mapped_column(Integer)
+    fim: Mapped[int] = mapped_column(Integer)
+    paises: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), default=list, server_default=text("'{}'")
+    )
+    em_vigor_para: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), default=list, server_default=text("'{}'")
+    )
+    modelo_embedding: Mapped[str] = mapped_column(Text)
+    dimensoes: Mapped[int] = mapped_column(Integer)
+    embedding: Mapped[Any] = mapped_column(Vector())
+    indexado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ContagemChat(Base):
+    """Um contador por dia (de Brasília) e por tipo de evento do chat. Nada que identifique
+    pessoa, pergunta ou resposta (FR-030)."""
+
+    __tablename__ = "contagem_chat"
+    __table_args__ = (CheckConstraint("valor >= 0", name="valor_nao_negativo"),)
+
+    dia: Mapped[date] = mapped_column(Date, primary_key=True)
+    chave: Mapped[str] = mapped_column(String(40), primary_key=True)
+    valor: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))

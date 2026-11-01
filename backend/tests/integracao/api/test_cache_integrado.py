@@ -11,7 +11,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from farol.api.app import criar_app, sessao_da_requisicao
-from farol.dominio import ExecucaoColeta, TipoExecucao
+from farol.dominio import ContagemChat, ExecucaoColeta, TipoExecucao
 from farol.infra import Configuracoes, abrir_sessao, criar_fabrica_de_sessoes
 
 if TYPE_CHECKING:
@@ -30,7 +30,7 @@ class Tempo:
 def fabrica(engine_teste: Engine) -> Iterator[sessionmaker[Session]]:
     yield criar_fabrica_de_sessoes(engine_teste)
     with engine_teste.begin() as conexao:
-        conexao.execute(text("TRUNCATE execucao_coleta RESTART IDENTITY CASCADE"))
+        conexao.execute(text("TRUNCATE execucao_coleta, contagem_chat RESTART IDENTITY CASCADE"))
 
 
 def _cliente(fabrica: sessionmaker[Session], tempo: Tempo) -> TestClient:
@@ -84,3 +84,21 @@ def test_sem_escrita_o_cache_so_expira_pelo_ttl(
     with contar_consultas as contador:
         http.get("/api/v1/vistos")
     assert contador.total > 1  # passou dos 5 minutos: refeito
+
+
+def test_gravar_contagem_do_chat_mantem_valido_o_cache_do_mapa(
+    fabrica: sessionmaker[Session], contar_consultas: "ContadorDeConsultas"
+) -> None:
+    """O chat grava uma contagem por pergunta (versiona=False): isso não pode esvaziar o cache."""
+    tempo = Tempo()
+    http = _cliente(fabrica, tempo)
+    assert http.get("/api/v1/mapa").status_code == 200  # enche o cache
+
+    with abrir_sessao(fabrica, versiona=False) as sessao:
+        sessao.add(ContagemChat(dia=datetime.now(UTC).date(), chave="perguntas", valor=1))
+
+    tempo.agora += 15  # a versão é consultada de novo, mas não mudou
+    with contar_consultas as contador:
+        resposta = http.get("/api/v1/mapa")
+    assert resposta.status_code == 200
+    assert contador.total == 1  # só a consulta da versão: a resposta saiu da memória

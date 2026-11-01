@@ -33,16 +33,23 @@ def obter_fabrica_de_sessoes() -> sessionmaker[Session]:
 
 
 @contextmanager
-def abrir_sessao(fabrica: sessionmaker[Session] | None = None) -> Iterator[Session]:
+def abrir_sessao(
+    fabrica: sessionmaker[Session] | None = None, *, versiona: bool = True
+) -> Iterator[Session]:
     """Abre uma sessão; confirma ao sair sem erro e desfaz se houver exceção.
 
-    Se a sessão gravou algo, sobe a versão dos dados na mesma transação (veja `versao.py`).
+    Se a sessão gravou algo, sobe a versão dos dados na mesma transação (veja `versao.py`). Com
+    `versiona=False` não sobe: é para o que não muda o que o site mostra (as contagens do chat),
+    para não esvaziar o cache de leitura a cada escrita.
     """
     sessao = (fabrica or obter_fabrica_de_sessoes())()
     try:
         yield sessao
         sessao.flush()
-        subir_se_escreveu(sessao)
+        if versiona:
+            subir_se_escreveu(sessao)
+        else:
+            sessao.info.pop("escreveu", None)
         sessao.commit()
     except Exception:
         sessao.rollback()

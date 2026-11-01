@@ -26,7 +26,7 @@ jobs:
       DATABASE_URL_TESTE: postgresql+psycopg://farol:farol@127.0.0.1:5432/farol_teste
     services:
       postgres:
-        image: postgres:18
+        image: pgvector/pgvector:0.8.7-pg18-trixie
         env:
           POSTGRES_USER: farol
           POSTGRES_PASSWORD: farol
@@ -126,7 +126,7 @@ jobs:
 
       - name: As imagens têm versão para linux/arm64 (VM Ampere)
         run: |
-          for imagem in caddy:2 postgres:18 python:3.13-slim; do
+          for imagem in caddy:2 pgvector/pgvector:0.8.7-pg18-trixie python:3.13-slim; do
             docker buildx imagetools inspect "$imagem" | grep -q 'linux/arm64' \
               || { echo "sem linux/arm64: $imagem"; exit 1; }
           done
