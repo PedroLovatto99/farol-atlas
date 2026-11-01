@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain (6 permanecem, de propósito; ver Notes)
+- [x] No [NEEDS CLARIFICATION] markers remain (6 permanecem, de propósito; ver Notes)
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,13 +31,13 @@
 
 ## Notes
 
-- **Marcadores [NEEDS CLARIFICATION] (6)**: o pedido listou exatamente estes seis pontos para ficarem em aberto, e o padrão do comando é no máximo 3. Mantidos os seis, a pedido, para serem resolvidos em `/speckit-clarify` (que faz até 5 perguntas por sessão, então serão duas sessões ou perguntas agrupadas):
-  1. **FR-026**: limite de perguntas por pessoa (IP) e janela de tempo; precisa tolerar vários usuários atrás do mesmo IP em redes móveis.
-  2. **FR-020**: quantas mensagens anteriores a memória da sessão considera.
-  3. **FR-027**: tempo máximo de resposta aceitável (também usado por SC-008 e SC-013).
-  4. **FR-008**: prazo para um alerta novo ou alterado valer no chat.
-  5. **FR-005a**: a resposta mostra os trechos citados ou só título, data e link.
-  6. **FR-033**: tamanho do conjunto de perguntas-gabarito e meta de acerto na recuperação de trechos (também usado por SC-002).
-- Os critérios que dependem desses marcadores (SC-002, SC-008, SC-013) apontam para o FR correspondente, sem repetir o marcador; ficam completos quando o clarify responder.
-- Decisões tomadas por padrão (registradas em Assumptions, podem ser revistas no clarify): tamanho máximo da pergunta de 500 caracteres (FR-024); o país selecionado no mapa não é contexto implícito (FR-013); perguntas que falham por indisponibilidade não contam para o limite; a conversa some ao recarregar a página.
-- O item incompleto exige resolver os seis marcadores em `/speckit-clarify` antes de `/speckit-plan`.
+- **Marcadores [NEEDS CLARIFICATION] (6)**: os seis pontos deixados em aberto na especificação inicial foram resolvidos em `/speckit-clarify` na sessão de 01/11/2026 (cinco perguntas; contexto da conversa e tempo máximo foram agrupados). Nenhum marcador permanece:
+  1. **FR-026, FR-026a, FR-026b**: 20 perguntas por hora por IP e teto global de 500 por dia (horário de Brasília); falhas por indisponibilidade não contam.
+  2. **FR-020**: contexto de 6 mensagens (3 pares), usado só para entender a pergunta e sempre tratado como não confiável.
+  3. **FR-027**: resposta em até 20 s, com indicação do que o chat está fazendo; passado o tempo, avisa e oferece tentar de novo.
+  4. **FR-008**: alerta novo, alterado, removido ou substituído vale (ou deixa de valer) no chat em até 15 minutos depois da coleta completa que confirmou a mudança.
+  5. **FR-005a**: título, data e link, mais um bloco "Ver trecho" recolhido, com o texto original do alerta, nunca reescrito.
+  6. **FR-033**: 60 perguntas-gabarito, ao menos 5 por tipo, e recuperação do alerta certo em pelo menos 90%.
+- Os critérios que dependiam desses pontos (SC-002, SC-008, SC-013) agora trazem os valores definidos; a sessão também acrescentou SC-015 e SC-016.
+- Decisões tomadas por padrão (registradas em Assumptions, revisáveis no plano): tamanho máximo da pergunta de 500 caracteres (FR-024); o país selecionado no mapa não é contexto implícito (FR-013); a conversa some ao recarregar a página.
+- Itens adiados para o plano: divisão da cota do serviço de linguagem com a coleta (FR-028); desenho do botão flutuante e convivência com a legenda, o aviso e o painel recolhido da 002; contagem do limite por IP sem guardar o texto da pergunta.
