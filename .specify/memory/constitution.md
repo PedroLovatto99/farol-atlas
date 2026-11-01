@@ -1,6 +1,14 @@
 <!--
 Relatório de Impacto da Sincronização
-- Mudança de versão: 1.0.2 → 1.0.3 (PATCH: esclarecimento sem mudar a intenção do princípio)
+- Mudança de versão: 1.0.3 → 1.0.4 (PATCH: esclarecimento sem mudar a intenção do princípio)
+- Princípio VIII (v1.0.4): onde a constituição citava o Chroma, passa a valer o armazenamento
+  vetorial no PostgreSQL já existente (extensão pgvector), conforme a decisão da feature 003
+  (specs/003-chat-alertas-viagem). A regra é a mesma: o banco, vetores incluídos, MUST NOT ficar
+  exposto na internet; em produção, só na rede interna do Docker, sem porta publicada; em
+  desenvolvimento, a porta do banco pode ligar só em 127.0.0.1. Não há serviço novo para expor.
+  Nenhum outro princípio muda.
+- Modelos conferidos em .specify/templates: nenhuma mudança necessária (nenhum cita o Chroma).
+  Specs históricas da feature 001 mencionam o Chroma como "fora do escopo" e não foram alteradas.
 - Princípio III (v1.0.3): o carregamento inicial do mapa continua numa única chamada; dados de um
   modo opcional do mapa ou de uma funcionalidade acionada pelo usuário (ex.: o modo "Vistos" e, no
   futuro, o chat) podem ser buscados sob demanda, quando a pessoa a aciona, desde que o
@@ -22,7 +30,8 @@ Relatório de Impacto da Sincronização
   tornou os testes obrigatórios no tasks-template; 1.0.1 (2026-10-23) esclareceu o princípio III
   (documentação automática da API e requisição ao selecionar um país); 1.0.2 (2026-10-23)
   esclareceu o princípio VIII (portas do banco em desenvolvimento); 1.0.3 (2026-10-28)
-  esclareceu o princípio III (dados de modo opcional buscados sob demanda).
+  esclareceu o princípio III (dados de modo opcional buscados sob demanda); 1.0.4 (2026-11-01)
+  esclareceu o princípio VIII (pgvector no PostgreSQL no lugar do Chroma).
 -->
 # Constituição do Farol Atlas
 
@@ -145,9 +154,10 @@ fornecedor garante que continue no ar.
 - Textos externos (alertas coletados, Wikipédia, respostas do LLM) MUST ser tratados como dados: o
   frontend MUST NOT inseri-los como HTML sem sanitizar, e o chat MUST NOT seguir instruções contidas
   neles.
-- O CORS MUST aceitar apenas o domínio do frontend. Banco e Chroma MUST NOT ficar expostos na
-  internet. Em produção, MUST ficar apenas na rede interna do Docker, sem porta publicada. Em
-  desenvolvimento, as portas do banco (e, no futuro, do Chroma) podem ligar só em `127.0.0.1`.
+- O CORS MUST aceitar apenas o domínio do frontend. O banco, inclusive o armazenamento vetorial
+  (pgvector, no PostgreSQL), MUST NOT ficar exposto na internet. Em produção, MUST ficar apenas
+  na rede interna do Docker, sem porta publicada. Em desenvolvimento, as portas do banco podem
+  ligar só em `127.0.0.1`.
 - Dados pessoais MUST ser limitados ao necessário: perguntas do chat MUST NOT ficar associadas ao IP
   de quem perguntou.
 - As dependências MUST ser conferidas contra vulnerabilidades conhecidas a cada mudança.
@@ -171,4 +181,4 @@ consagrados podem ficar em inglês.
   novo princípio ou ampliação material; PATCH para esclarecimentos e correções de redação.
 - Toda revisão de mudança MUST verificar a conformidade com os princípios acima.
 
-**Versão**: 1.0.3 | **Ratificada em**: 2026-10-22 | **Última emenda**: 2026-10-28
+**Versão**: 1.0.4 | **Ratificada em**: 2026-10-22 | **Última emenda**: 2026-11-01
