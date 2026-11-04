@@ -5,14 +5,22 @@ import {
   type ClienteDaApi,
   type Mapa,
   type Pais,
+  type RespostaDoChat,
   type VistosDoMapa,
 } from "../servicos/api/cliente";
-import { MAPA_EXEMPLO, PAIS_EXEMPLO, VISTOS_EXEMPLO } from "./dados-exemplo";
+import {
+  MAPA_EXEMPLO,
+  PAIS_EXEMPLO,
+  RESPOSTA_DO_CHAT_EXEMPLO,
+  VISTOS_EXEMPLO,
+} from "./dados-exemplo";
 
 export interface RespostasSimuladas {
   mapa?: Mapa | ErroDeApi;
   paises?: Readonly<Record<string, Pais | ErroDeApi>>;
   vistos?: VistosDoMapa | ErroDeApi;
+  /** A resposta do chat; um `ErroDeApi(429, ...)` simula o limite de perguntas. */
+  chat?: RespostaDoChat | ErroDeApi;
 }
 
 export function criarApiSimulada(respostas: RespostasSimuladas = {}) {
@@ -40,6 +48,11 @@ export function criarApiSimulada(respostas: RespostasSimuladas = {}) {
     }),
   );
 
-  const cliente: ClienteDaApi = { obterMapa, obterPais, obterVistos, obterSaude };
-  return { cliente, obterMapa, obterPais, obterVistos, obterSaude };
+  const chat = respostas.chat ?? RESPOSTA_DO_CHAT_EXEMPLO;
+  const perguntarAoChat = vi.fn<ClienteDaApi["perguntarAoChat"]>(() =>
+    chat instanceof ErroDeApi ? Promise.reject(chat) : Promise.resolve(chat),
+  );
+
+  const cliente: ClienteDaApi = { obterMapa, obterPais, obterVistos, obterSaude, perguntarAoChat };
+  return { cliente, obterMapa, obterPais, obterVistos, obterSaude, perguntarAoChat };
 }

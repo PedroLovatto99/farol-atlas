@@ -113,13 +113,14 @@ def alerta_com_html(sessao: Session, titulo: str, corpo_html: str) -> None:
 
 
 # --------------------------------------------------------------------------- só leitura
-def test_nenhuma_rota_da_api_aceita_escrita() -> None:
-    """Varre as rotas pelo OpenAPI, que lista todas as que a API publica."""
+def test_so_o_chat_aceita_post_e_nenhuma_rota_aceita_outra_escrita() -> None:
+    """Varre as rotas pelo OpenAPI, que lista todas as que a API publica. O chat só responde."""
     rotas = criar_app(configuracoes()).openapi()["paths"]
     assert "/api/v1/mapa" in rotas  # a varredura enxerga as rotas de verdade
     assert "/api/v1/vistos" in rotas
     for caminho, operacoes in rotas.items():
-        assert set(operacoes) == {"get"}, f"{caminho} aceita {set(operacoes)}"
+        esperados = {"post"} if caminho == "/api/v1/chat" else {"get"}
+        assert set(operacoes) == esperados, f"{caminho} aceita {set(operacoes)}"
 
 
 @pytest.mark.parametrize("metodo", ["post", "put", "patch", "delete"])

@@ -83,7 +83,8 @@ addopts = "-ra --import-mode=importlib"
 filterwarnings = ["error::DeprecationWarning:farol.*"]
 
 # --------------------------------------------------------------------------- import-linter
-# Camadas (de cima para baixo): api | worker  >  mapa | coleta | classificacao  >  dominio  >  infra.
+# Camadas (de cima para baixo): api | worker  >  mapa | coleta | classificacao | vistos | chat
+#   >  dominio  >  infra.
 # Um módulo só importa a interface pública (o __init__) dos módulos das camadas abaixo.
 [tool.importlinter]
 root_package = "farol"
@@ -93,7 +94,7 @@ name = "Camadas do backend"
 type = "layers"
 layers = [
     "farol.api | farol.worker",
-    "farol.mapa | farol.coleta | farol.classificacao | farol.vistos",
+    "farol.mapa | farol.coleta | farol.classificacao | farol.vistos | farol.chat",
     "farol.dominio",
     "farol.infra",
 ]
@@ -101,7 +102,7 @@ layers = [
 [[tool.importlinter.contracts]]
 name = "Casos de uso independentes entre si"
 type = "independence"
-modules = ["farol.mapa", "farol.coleta", "farol.classificacao", "farol.vistos"]
+modules = ["farol.mapa", "farol.coleta", "farol.classificacao", "farol.vistos", "farol.chat"]
 
 [[tool.importlinter.contracts]]
 name = "So a interface publica de dominio"
@@ -113,6 +114,7 @@ source_modules = [
     "farol.coleta",
     "farol.classificacao",
     "farol.vistos",
+    "farol.chat",
     "farol.infra",
 ]
 forbidden_modules = ["farol.dominio.*"]
@@ -129,6 +131,7 @@ source_modules = [
     "farol.classificacao",
     "farol.vistos",
     "farol.dominio",
+    "farol.chat",
 ]
 forbidden_modules = ["farol.infra.*"]
 allow_indirect_imports = true
@@ -144,6 +147,7 @@ source_modules = [
     "farol.vistos",
     "farol.dominio",
     "farol.infra",
+    "farol.chat",
 ]
 forbidden_modules = ["farol.coleta.*"]
 allow_indirect_imports = true
@@ -159,6 +163,7 @@ source_modules = [
     "farol.vistos",
     "farol.dominio",
     "farol.infra",
+    "farol.chat",
 ]
 forbidden_modules = ["farol.classificacao.*"]
 allow_indirect_imports = true
@@ -174,6 +179,7 @@ source_modules = [
     "farol.vistos",
     "farol.dominio",
     "farol.infra",
+    "farol.chat",
 ]
 forbidden_modules = ["farol.mapa.*"]
 allow_indirect_imports = true
@@ -189,8 +195,25 @@ source_modules = [
     "farol.classificacao",
     "farol.dominio",
     "farol.infra",
+    "farol.chat",
 ]
 forbidden_modules = ["farol.vistos.*"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "So a interface publica de chat"
+type = "forbidden"
+source_modules = [
+    "farol.api",
+    "farol.worker",
+    "farol.mapa",
+    "farol.coleta",
+    "farol.classificacao",
+    "farol.vistos",
+    "farol.dominio",
+    "farol.infra",
+]
+forbidden_modules = ["farol.chat.*"]
 allow_indirect_imports = true
 
 # --------------------------------------------------------------------------- tarefas (poe)
@@ -206,3 +229,4 @@ exportar-openapi = "python -m farol.api.exportar_openapi"
 [tool.poe.tasks.verificar]
 help = "Roda lint, formato, tipos, arquitetura, testes e auditoria de dependências"
 sequence = ["lint", "formato", "tipos", "arquitetura", "testes", "auditoria"]
+

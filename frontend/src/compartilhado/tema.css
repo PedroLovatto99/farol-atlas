@@ -160,6 +160,36 @@ body {
   bottom: calc(var(--rodape-ocupado) + 0.5rem);
 }
 
+/* Botão e caixa do chat: acima dos controles de zoom e, como eles, fora de baixo do painel. Com a
+   gaveta, o botão fica ao lado do zoom (acima dele bateria no "Sobre"); a caixa aberta cobre a
+   gaveta (FR-022) e desce até o rodapé para ter altura em 360 px. */
+.chat-flutuante {
+  --chat-direita: 0.5rem;
+  --chat-base: 7rem;
+  right: var(--chat-direita);
+  bottom: var(--chat-base);
+}
+.chat-caixa {
+  width: min(24rem, calc(100vw - var(--chat-direita) - 0.5rem));
+  height: min(34rem, calc(100dvh - var(--chat-base) - 4.5rem));
+}
+[data-painel-aberto="true"]:not([data-painel-recolhido="true"])[data-modo-do-painel="lateral"]
+  .chat-flutuante {
+  --chat-direita: 352px;
+}
+[data-painel-aberto="true"]:not([data-painel-recolhido="true"])[data-modo-do-painel="gaveta"]
+  .chat-flutuante[data-aberto="false"] {
+  --chat-direita: 3.5rem;
+  --chat-base: calc(55dvh + 0.5rem);
+}
+[data-painel-recolhido="true"][data-modo-do-painel="gaveta"] .chat-flutuante[data-aberto="false"] {
+  --chat-direita: 3.5rem;
+  --chat-base: calc(var(--rodape-ocupado) + 0.5rem);
+}
+[data-modo-do-painel="gaveta"] .chat-flutuante[data-aberto="true"] {
+  --chat-base: 0.5rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

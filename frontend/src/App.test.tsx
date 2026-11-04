@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -1276,5 +1276,85 @@ describe("App: painel recolhível (FR-030)", () => {
       await usuario.click(botaoDeExpandir());
       expect(propsDoMapa().camera).toBe(camera);
     });
+  });
+});
+
+describe("App: chat (FR-020, FR-022)", () => {
+  const botaoDeAbrir = () => screen.getByRole("button", { name: "Abrir chat" });
+
+  it("não chama a API do chat ao carregar", async () => {
+    const api = await abrir();
+    expect(api.perguntarAoChat).not.toHaveBeenCalled();
+  });
+
+  it.each(["Alertas", "Vistos"])(
+    "no modo %s, abrir e fechar não muda modo, seleção, câmera, legenda nem painel",
+    async (nomeDoModo) => {
+      const usuario = userEvent.setup();
+      await abrir();
+      await usuario.click(screen.getByRole("radio", { name: nomeDoModo }));
+      await tocar("DK");
+      await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+      const antes = propsDoMapa();
+      const legenda = document.querySelector(".legenda-flutuante")?.innerHTML;
+
+      await usuario.click(botaoDeAbrir());
+      expect(screen.getByRole("textbox", { name: "Sua pergunta" })).toHaveFocus();
+      await usuario.keyboard("{Escape}");
+
+      expect(botaoDeAbrir()).toHaveFocus();
+      expect(painel()).toBeInTheDocument();
+      expect(propsDoMapa().selecionado).toBe("DK");
+      expect(propsDoMapa().camera).toBe(antes.camera);
+      expect(propsDoMapa().modo).toBe(antes.modo);
+      expect(document.querySelector(".legenda-flutuante")?.innerHTML).toBe(legenda);
+    },
+  );
+
+  it("com o chat aberto antes do painel, o Esc fecha só o chat", async () => {
+    const usuario = userEvent.setup();
+    await abrir();
+    await usuario.click(botaoDeAbrir());
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    await usuario.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Chat" })).not.toBeInTheDocument();
+    expect(painel()).toBeInTheDocument();
+    await usuario.keyboard("{Escape}");
+    expect(painel()).not.toBeInTheDocument();
+  });
+
+  it("um Esc já tratado não fecha o painel", async () => {
+    await abrir();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    const tratar = (evento: Event) => evento.preventDefault();
+    window.addEventListener("keydown", tratar, { capture: true });
+    fireEvent.keyDown(document, { key: "Escape" });
+    window.removeEventListener("keydown", tratar, { capture: true });
+    expect(painel()).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(painel()).not.toBeInTheDocument();
+  });
+
+  it("com o Sobre aberto por cima do chat, o Esc fecha só o Sobre", async () => {
+    const usuario = userEvent.setup();
+    await abrir();
+    await usuario.click(botaoDeAbrir());
+    await usuario.click(screen.getByRole("button", { name: "Sobre" }));
+    await usuario.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Sobre o Farol Atlas" })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Chat" })).toBeInTheDocument();
+  });
+
+  it("uma resposta não seleciona país nem move o mapa", async () => {
+    const usuario = userEvent.setup();
+    await abrir();
+    const camera = propsDoMapa().camera;
+    await usuario.click(botaoDeAbrir());
+    await usuario.keyboard("visto Japão{Enter}");
+    await screen.findByText("Não, brasileiros não precisam de visto para o Japão.");
+    expect(propsDoMapa().selecionado).toBeNull();
+    expect(propsDoMapa().camera).toBe(camera);
   });
 });

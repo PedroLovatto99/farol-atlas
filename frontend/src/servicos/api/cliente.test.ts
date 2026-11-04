@@ -320,3 +320,76 @@ describe("GET /vistos (feature 002)", () => {
     await expect(semRede.obterVistos()).rejects.toMatchObject({ status: 0 });
   });
 });
+
+describe("cliente: perguntarAoChat", () => {
+  const RESPOSTA = {
+    tipo: "visto",
+    codigo: "JP",
+    paragrafos: [
+      [
+        { texto: "Fonte: ", url: null },
+        { texto: "Wikipédia", url: "https://en.wikipedia.org/wiki/Visto" },
+      ],
+    ],
+  };
+
+  it("envia POST /api/v1/chat com a pergunta em JSON", async () => {
+    const { cliente, fetchFalso } = clienteCom(respostaJson(RESPOSTA));
+    await cliente.perguntarAoChat("visto Japão");
+    const [url, opcoes] = fetchFalso.mock.calls[0] ?? [];
+    expect(url).toBe("http://api.exemplo/api/v1/chat");
+    expect(opcoes?.method).toBe("POST");
+    expect(opcoes?.headers).toEqual({ "Content-Type": "application/json" });
+    expect(opcoes?.body).toBe(JSON.stringify({ pergunta: "visto Japão" }));
+  });
+
+  it("o pedido tem prazo: não fica preso se a rede travar", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const { cliente, fetchFalso } = clienteCom(respostaJson(RESPOSTA));
+    await cliente.perguntarAoChat("visto Japão");
+    expect(timeout).toHaveBeenCalledWith(15_000);
+    expect(fetchFalso.mock.calls[0]?.[1]?.signal).toBe(timeout.mock.results[0]?.value);
+    timeout.mockRestore();
+  });
+
+  it("prazo esgotado vira ErroDeApi, como uma falha de rede", async () => {
+    const cliente = criarCliente("http://api.exemplo", () =>
+      Promise.reject(new DOMException("prazo", "TimeoutError")),
+    );
+    await expect(cliente.perguntarAoChat("x")).rejects.toMatchObject({ status: 0 });
+  });
+
+  it("200 devolve a RespostaDoChat", async () => {
+    const { cliente } = clienteCom(respostaJson(RESPOSTA));
+    await expect(cliente.perguntarAoChat("visto Japão")).resolves.toEqual(RESPOSTA);
+  });
+
+  it("resposta fora do contrato não passa", async () => {
+    const { cliente: tipoErrado } = clienteCom(respostaJson({ ...RESPOSTA, tipo: "outro" }));
+    await expect(tipoErrado.perguntarAoChat("x")).rejects.toThrow(/tipo/);
+    const { cliente: paragrafoErrado } = clienteCom(
+      respostaJson({ ...RESPOSTA, paragrafos: [{ texto: "x", url: null }] }),
+    );
+    await expect(paragrafoErrado.perguntarAoChat("x")).rejects.toThrow(/paragrafos/);
+    const { cliente: trechoErrado } = clienteCom(
+      respostaJson({ ...RESPOSTA, paragrafos: [[{ texto: 1, url: null }]] }),
+    );
+    await expect(trechoErrado.perguntarAoChat("x")).rejects.toThrow(/texto/);
+  });
+
+  it("429 devolve o detalhe do servidor", async () => {
+    const detalhe = "Você chegou ao limite de 20 perguntas por hora. Tente de novo em 3 min.";
+    const { cliente } = clienteCom(respostaJson({ detalhe }, 429));
+    await expect(cliente.perguntarAoChat("x")).rejects.toMatchObject({
+      status: 429,
+      message: detalhe,
+    });
+  });
+
+  it("5xx e falha de rede viram ErroDeApi", async () => {
+    const { cliente } = clienteCom(respostaJson({ detalhe: "indisponível" }, 503));
+    await expect(cliente.perguntarAoChat("x")).rejects.toMatchObject({ status: 503 });
+    const { cliente: semRede } = clienteCom(new TypeError("Failed to fetch"));
+    await expect(semRede.perguntarAoChat("x")).rejects.toMatchObject({ status: 0 });
+  });
+});

@@ -20,7 +20,7 @@
 {$DOMINIO} {
 	encode zstd gzip
 
-	# A API só tem GET: um corpo de pedido nunca precisa passar de 1 KB
+	# Só o POST do chat tem corpo (pergunta de até 300 caracteres): 1 KB basta
 	request_body {
 		max_size 1KB
 	}

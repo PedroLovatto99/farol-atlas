@@ -21,6 +21,8 @@ def ambiente_limpo(monkeypatch: pytest.MonkeyPatch) -> None:
         "LIMITE_HORAS_PARTIDA",
         "LLM_CLASSIFICADOR",
         "LLM_TRADUTOR",
+        "LLM_CHAT",
+        "CHAT_PERGUNTAS_POR_HORA",
         "GOOGLE_API_KEY",
         "OLLAMA_BASE_URL",
         "DIRETORIO_DADOS",
@@ -218,3 +220,40 @@ def test_limites_vem_do_ambiente(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LIMITE_RAJADA", "10")
     configuracao = criar()
     assert (configuracao.limite_pedidos_por_minuto, configuracao.limite_rajada) == (30, 10)
+
+
+# --------------------------------------------------------------------------- chat (feature 003)
+def test_chat_sem_modelo_e_com_20_perguntas_por_hora_por_padrao(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", URL)
+    configuracao = criar()
+    assert configuracao.llm_chat == ""  # vazia = o chat entende só pelo código
+    assert configuracao.chat_perguntas_por_hora == 20
+
+
+def test_modelo_do_chat_vem_do_ambiente(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", URL)
+    monkeypatch.setenv("LLM_CHAT", "google_genai:gemini-3.6-flash-lite")
+    monkeypatch.setenv("CHAT_PERGUNTAS_POR_HORA", "5")
+    configuracao = criar()
+    assert configuracao.llm_chat == "google_genai:gemini-3.6-flash-lite"
+    assert configuracao.chat_perguntas_por_hora == 5
+
+
+def test_chat_com_o_mesmo_modelo_do_classificador_recusa_subir(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A cota gratuita é por modelo: o chat não pode gastar a da classificação (FR-030)."""
+    monkeypatch.setenv("DATABASE_URL", URL)
+    monkeypatch.setenv("LLM_CLASSIFICADOR", "ollama:llama3")
+    monkeypatch.setenv("LLM_CHAT", " ollama:llama3 ")
+    with pytest.raises(ValidationError, match="LLM_CHAT"):
+        criar()
+
+
+def test_perguntas_por_hora_tem_de_ser_ao_menos_uma(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", URL)
+    monkeypatch.setenv("CHAT_PERGUNTAS_POR_HORA", "0")
+    with pytest.raises(ValidationError):
+        criar()
