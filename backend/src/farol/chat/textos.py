@@ -5,9 +5,14 @@ Os rótulos são os mesmos do painel (`compartilhado/niveis.ts` e `compartilhado
 
 from collections.abc import Sequence
 from datetime import datetime
+from functools import cache
+from pathlib import Path
+
+import yaml
 
 from farol.infra import FUSO_DE_BRASILIA
 
+ARTIGOS = Path(__file__).with_name("artigos.yaml")
 URL_DO_PORTAL_CONSULAR = "https://www.gov.br/mre/pt-br/assuntos/portal-consular"
 NOME_DO_PORTAL = "Portal Consular do Itamaraty"
 
@@ -55,7 +60,33 @@ def data(instante: datetime) -> str:
     return instante.astimezone(FUSO_DE_BRASILIA).strftime("%d/%m/%Y")
 
 
-def frase_do_alerta(nivel: str, pais: str, so_regional: bool, dados_obtidos: bool) -> str:
+@cache
+def artigos() -> dict[str, str]:
+    """Nome -> artigo ("" quando não leva nenhum)."""
+    grupos: dict[str, list[str]] = yaml.safe_load(ARTIGOS.read_text(encoding="utf-8"))
+    return {
+        nome: "" if grupo == "sem_artigo" else grupo
+        for grupo, nomes in grupos.items()
+        for nome in nomes
+    }
+
+
+def _artigo(nome: str) -> str:
+    return artigos().get(nome.split(" (")[0], "")
+
+
+def _com_artigo(nome: str) -> str:
+    artigo = _artigo(nome)
+    return f"{artigo} {nome}" if artigo else nome
+
+
+def _de(nome: str) -> str:
+    artigo = _artigo(nome)
+    return f"d{artigo} {nome}" if artigo else f"de {nome}"
+
+
+def frase_do_alerta(nivel: str, nome: str, so_regional: bool, dados_obtidos: bool) -> str:
+    pais = _com_artigo(nome)
     if nivel == "nao_viajar":
         return f'Para {pais}, o Itamaraty recomenda não viajar (nível "Não viaje").'
     if nivel == "evitar":
@@ -76,16 +107,17 @@ def frase_do_alerta(nivel: str, pais: str, so_regional: bool, dados_obtidos: boo
         )
     if dados_obtidos:
         return (
-            f"O nível de alerta de {pais} não foi verificado: ainda não temos informação "
+            f"O nível de alerta {_de(nome)} não foi verificado: ainda não temos informação "
             "confirmada do Itamaraty."
         )
     return (
-        f"Ainda não obtivemos os dados do Itamaraty, então o nível de alerta de {pais} não foi "
-        "verificado."
+        "Ainda não obtivemos os dados do Itamaraty, então o nível de alerta "
+        f"{_de(nome)} não foi verificado."
     )
 
 
-def frase_do_visto(situacao: str, pais: str, aceita_rg: bool) -> str:
+def frase_do_visto(situacao: str, nome: str, aceita_rg: bool) -> str:
+    pais = _com_artigo(nome)
     if situacao == "isento" and aceita_rg:
         return (
             f"Não, brasileiros não precisam de visto para {pais}, "
@@ -103,7 +135,7 @@ def frase_do_visto(situacao: str, pais: str, aceita_rg: bool) -> str:
     if situacao == "visto_exigido":
         return f"Sim, brasileiros precisam de visto para {pais}."
     if situacao == "outra_situacao":
-        return f"A situação de visto de {pais} não se encaixa nas categorias do site."
+        return f"A situação de visto {_de(nome)} não se encaixa nas categorias do site."
     return f"Sem informação de visto para {pais}. Isso não significa que a entrada seja livre."
 
 
@@ -119,7 +151,7 @@ def qual_dos_paises(nomes: Sequence[str]) -> str:
 
 def um_pais_por_vez(nomes: Sequence[str]) -> str:
     return (
-        f"Entendi que você perguntou sobre {_lista(nomes, 'e')}. "
+        f"Entendi que você perguntou sobre {_lista([_com_artigo(n) for n in nomes], 'e')}. "
         "Pergunte sobre um país de cada vez, por favor."
     )
 

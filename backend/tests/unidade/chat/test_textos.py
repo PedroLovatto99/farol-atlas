@@ -55,22 +55,22 @@ def test_portal_consular_igual_ao_do_frontend() -> None:
     ("nivel", "so_regional", "dados_obtidos", "esperado"),
     [
         ("nao_viajar", False, True,
-         'Para Síria, o Itamaraty recomenda não viajar (nível "Não viaje").'),
+         'Para a Síria, o Itamaraty recomenda não viajar (nível "Não viaje").'),
         ("evitar", False, True,
-         "Para Síria, o Itamaraty recomenda evitar viagens não essenciais "
+         "Para a Síria, o Itamaraty recomenda evitar viagens não essenciais "
          '(nível "Evite viagens não essenciais").'),
         ("sem_alerta", False, True,
-         "Não há alerta de viagem do Itamaraty para Síria. "
+         "Não há alerta de viagem do Itamaraty para a Síria. "
          "Isso não significa que o governo recomenda a viagem."),
         ("sem_alerta", True, True,
-         'Para Síria, há "Alerta só para parte do país": ele vale só para a região indicada, '
+         'Para a Síria, há "Alerta só para parte do país": ele vale só para a região indicada, '
          "não para o país inteiro. Para o restante do país, a ausência de alerta não significa "
          "que o governo recomenda a viagem."),
         ("nao_verificado", False, True,
-         "O nível de alerta de Síria não foi verificado: ainda não temos informação confirmada "
+         "O nível de alerta da Síria não foi verificado: ainda não temos informação confirmada "
          "do Itamaraty."),
         ("nao_verificado", False, False,
-         "Ainda não obtivemos os dados do Itamaraty, então o nível de alerta de Síria não foi "
+         "Ainda não obtivemos os dados do Itamaraty, então o nível de alerta da Síria não foi "
          "verificado."),
     ],
 )  # fmt: skip
@@ -88,19 +88,20 @@ def test_aviso_de_alerta_desatualizado() -> None:
 @pytest.mark.parametrize(
     ("situacao", "aceita_rg", "esperado"),
     [
-        ("isento", False, "Não, brasileiros não precisam de visto para Chile."),
+        ("isento", False, "Não, brasileiros não precisam de visto para o Chile."),
         ("isento", True,
-         "Não, brasileiros não precisam de visto para Chile, e a entrada pode ser feita com o RG."),
+         "Não, brasileiros não precisam de visto para o Chile, "
+         "e a entrada pode ser feita com o RG."),
         ("visto_na_chegada", False,
-         "Brasileiros precisam de visto para Chile, mas ele é obtido na chegada."),
+         "Brasileiros precisam de visto para o Chile, mas ele é obtido na chegada."),
         ("autorizacao_eletronica", False,
-         "Brasileiros precisam de uma autorização ou visto eletrônico para Chile, "
+         "Brasileiros precisam de uma autorização ou visto eletrônico para o Chile, "
          "obtido antes da viagem."),
-        ("visto_exigido", False, "Sim, brasileiros precisam de visto para Chile."),
+        ("visto_exigido", False, "Sim, brasileiros precisam de visto para o Chile."),
         ("outra_situacao", False,
-         "A situação de visto de Chile não se encaixa nas categorias do site."),
+         "A situação de visto do Chile não se encaixa nas categorias do site."),
         ("sem_informacao", False,
-         "Sem informação de visto para Chile. Isso não significa que a entrada seja livre."),
+         "Sem informação de visto para o Chile. Isso não significa que a entrada seja livre."),
     ],
 )  # fmt: skip
 def test_frase_do_visto(situacao: str, aceita_rg: bool, esperado: str) -> None:

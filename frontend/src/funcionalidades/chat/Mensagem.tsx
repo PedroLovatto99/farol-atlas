@@ -7,6 +7,9 @@ const ESTILO_DO_AUTOR: Record<MensagemDoChat["autor"], string> = {
   chat: "mr-4 bg-espaco text-texto",
 };
 
+/** A observação da fonte vem em várias linhas, como na seção de visto do painel. */
+const ESTILO_COM_QUEBRAS = { whiteSpace: "pre-line" } as const;
+
 function Trecho({ trecho }: { trecho: TrechoDoChat }) {
   // O texto vem como texto do React (nunca HTML) e a url é dado externo: só vira link se for web
   if (trecho.url === null || !ehUrlWeb(trecho.url)) return <span>{trecho.texto}</span>;
@@ -29,7 +32,7 @@ export function Mensagem({ mensagem }: { mensagem: MensagemDoChat }) {
     >
       <span className="sr-only">{mensagem.autor === "pessoa" ? "Você:" : "Chat:"}</span>
       {mensagem.paragrafos.map((trechos, indice) => (
-        <p key={indice}>
+        <p key={indice} style={ESTILO_COM_QUEBRAS}>
           {trechos.map((trecho, posicao) => (
             <Trecho key={posicao} trecho={trecho} />
           ))}

@@ -1,0 +1,254 @@
+# O artigo de cada nome nos textos fixos do chat: "para a França", "do Japão", "para Portugal".
+# O nome é o que o site mostra, sem o "(soberano)"; `textos.py` junta a preposição.
+# Onde o uso varia, vale o mais comum no Brasil. Um teste exige que todo território esteja aqui.
+
+o:
+  - Afeganistão
+  - Azerbaijão
+  - Bahrein
+  - Benin
+  - Brasil
+  - Burundi
+  - Butão
+  - Camboja
+  - Canadá
+  - Catar
+  - Cazaquistão
+  - Chade
+  - Chile
+  - Congo
+  - Djibuti
+  - Egito
+  - Equador
+  - Gabão
+  - Haiti
+  - Iêmen
+  - Iraque
+  - Irã
+  - Japão
+  - Kosovo
+  - Kuaite
+  - Laos
+  - Lesoto
+  - Líbano
+  - Malauí
+  - Mali
+  - Marrocos
+  - México
+  - Nepal
+  - Níger
+  - Panamá
+  - Paquistão
+  - Paraguai
+  - Peru
+  - Quirguistão
+  - Quênia
+  - Reino Unido
+  - Senegal
+  - Sri Lanka
+  - Sudão
+  - Sudão do Sul
+  - Suriname
+  - Tadjiquistão
+  - Togo
+  - Turcomenistão
+  - Uruguai
+  - Uzbequistão
+  - Vaticano
+  - Vietnã
+  - Zimbábue
+
+a:
+  - África do Sul
+  - Albânia
+  - Alemanha
+  - Arábia Saudita
+  - Argélia
+  - Argentina
+  - Armênia
+  - Austrália
+  - Áustria
+  - Bélgica
+  - Bolívia
+  - Bósnia e Herzegovina
+  - Bulgária
+  - China
+  - Colômbia
+  - Coreia
+  - Coreia do Norte
+  - Coreia do Sul
+  - Costa do Marfim
+  - Costa Rica
+  - Croácia
+  - Dinamarca
+  - Dominica
+  - Eritréia
+  - Eslovênia
+  - Espanha
+  - Estônia
+  - Etiópia
+  - Finlândia
+  - França
+  - Gâmbia
+  - Geórgia
+  - Grécia
+  - Groenlândia
+  - Guatemala
+  - Guiana
+  - Guiana Francesa
+  - Guiné
+  - Guiné Conacri
+  - Guiné Equatorial
+  - Guiné-Bissau
+  - Hungria
+  - Ilha Christmas e Ilhas Cocos
+  - Ilha de Clipperton
+  - Ilha de Man
+  - Ilha Norfolk
+  - Índia
+  - Indonésia
+  - Irlanda
+  - Islândia
+  - Itália
+  - Jamaica
+  - Jordânia
+  - Letônia
+  - Libéria
+  - Líbia
+  - Lituânia
+  - Macedônia
+  - Malásia
+  - Mauritânia
+  - Micronésia
+  - Moldova
+  - Mongólia
+  - Namíbia
+  - Nicarágua
+  - Nigéria
+  - Noruega
+  - Nova Caledônia
+  - Nova Zelândia
+  - Palestina
+  - Polinésia Francesa
+  - Polônia
+  - Rep. Centro-Africana
+  - Rep. Dem. do Congo
+  - Rep. do Congo
+  - República Dominicana
+  - República Eslovaca
+  - República Tcheca
+  - Romênia
+  - Rússia
+  - Samoa Americana
+  - Sérvia
+  - Síria
+  - Somália
+  - Suazilândia
+  - Suécia
+  - Suíça
+  - Tailândia
+  - Tanzânia
+  - Tunísia
+  - Turquia
+  - Ucrânia
+  - Venezuela
+  - Zâmbia
+
+os:
+  - Emirados Árabes Unidos
+  - Estados Unidos
+  - Países Baixos
+
+as:
+  - Bahamas
+  - Filipinas
+  - Ilhas Ashmore e Cartier
+  - Ilhas Cayman
+  - Ilhas Cook
+  - Ilhas do Mar de Coral
+  - Ilhas Faroe
+  - Ilhas Malvinas
+  - Ilhas Marianas do Norte
+  - Ilhas Marshall
+  - Ilhas Menores Distantes
+  - Ilhas Salomão
+  - Ilhas Turks e Caicos
+  - Ilhas Virgens Americanas
+  - Ilhas Virgens Britânicas
+  - Ilhas Åland
+  - Maldivas
+  - Malvinas
+
+sem_artigo:
+  - Andorra
+  - Angola
+  - Anguila
+  - Antígua e Barbuda
+  - Aruba
+  - Bangladesh
+  - Barbados
+  - Belarus
+  - Belize
+  - Bermuda
+  - Botsuana
+  - Brunei
+  - Burkina Faso
+  - Cabo Verde
+  - Camarões
+  - Chipre
+  - Comores
+  - Cuba
+  - Curaçao
+  - El Salvador
+  - Fiji
+  - Gana
+  - Gibraltar
+  - Granada
+  - Guam
+  - Guernsey
+  - Honduras
+  - Hong Kong
+  - Israel
+  - Jersey
+  - Kiribati
+  - Liechtenstein
+  - Luxemburgo
+  - Macau
+  - Madagascar
+  - Malta
+  - Maurício
+  - Moçambique
+  - Mônaco
+  - Montenegro
+  - Montserrat
+  - Myanmar
+  - Nauru
+  - Niue
+  - Omã
+  - Palau
+  - Papua Nova Guiné
+  - Pitcairn
+  - Porto Rico
+  - Portugal
+  - Ruanda
+  - Samoa
+  - San Marino
+  - Santa Helena
+  - Santa Lúcia
+  - São Bartolomeu
+  - São Cristovão e Névis
+  - São Martim
+  - São Pedro e Miquelon
+  - São Tomé e Príncipe
+  - São Vicente e Granadinas
+  - Serra Leoa
+  - Seycheles
+  - Singapura
+  - Taiwan
+  - Timor Leste
+  - Tonga
+  - Trinidad e Tobago
+  - Tuvalu
+  - Uganda
+  - Vanuatu
+  - Wallis e Futuna

@@ -150,6 +150,15 @@ describe("CaixaDoChat", () => {
     expect(screen.getByText("Primeiro.").closest("p")).not.toBe(ultimo);
   });
 
+  it("a observação da fonte mantém as quebras de linha (França)", () => {
+    const observacao =
+      "Observação da fonte (tradução automática): 90 dias dentro de qualquer período de 180 dias na Área Schengen\n30 dias dentro de qualquer período de 180 dias na Guiana Francesa, até 31 de janeiro de 2027";
+    abrir([resposta([[{ texto: observacao, url: null }]])]);
+    const paragrafo = screen.getByText(/Área Schengen/).closest("p");
+    expect(paragrafo?.textContent).toBe(observacao);
+    expect(paragrafo).toHaveStyle({ whiteSpace: "pre-line" });
+  });
+
   it("trecho com url web vira link que abre em outra aba", () => {
     abrir([resposta([[{ texto: "Alerta", url: "https://www.gov.br/alerta" }]])]);
     const link = screen.getByRole("link", { name: "Alerta" });

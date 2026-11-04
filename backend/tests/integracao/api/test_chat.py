@@ -354,7 +354,7 @@ def test_sem_nenhuma_coleta(sessao: Session, relogio: "RelogioFalso") -> None:
     conferir_paridade(http, "JP", "Japão")
     texto = texto_de(perguntar(http, "e o Japão?"))
     assert "Ainda não obtivemos os dados do Itamaraty" in texto
-    assert "Sem informação de visto para Japão." in texto
+    assert "Sem informação de visto para o Japão." in texto
 
 
 def test_dados_desatualizados(

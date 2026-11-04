@@ -105,7 +105,7 @@ def test_alerta_na_ordem_frase_dados_observacao_fonte_e_aviso() -> None:
         alertas=(Alerta(modificado_em=MODIFICADO),),
     )
     assert textos_de(paragrafos_do_alerta(painel, Mapa(desatualizado=True))) == [
-        "Para Síria, o Itamaraty recomenda evitar viagens não essenciais "
+        "Para a Síria, o Itamaraty recomenda evitar viagens não essenciais "
         '(nível "Evite viagens não essenciais").',
         'Regiões com nível próprio: Damasco ("Não viaje"); Alepo ("Evite viagens não essenciais").',
         "Alerta que define o nível: Alerta consular "
@@ -132,7 +132,7 @@ def test_so_o_alerta_que_define_o_nivel_aparece() -> None:
 
 def test_sem_alerta_sem_dados_extras() -> None:
     assert textos_de(paragrafos_do_alerta(Painel(), Mapa())) == [
-        "Não há alerta de viagem do Itamaraty para Síria. "
+        "Não há alerta de viagem do Itamaraty para a Síria. "
         "Isso não significa que o governo recomenda a viagem.",
         "Fonte: Portal Consular do Itamaraty, atualizado em 23/10/2026.",
     ]
@@ -141,7 +141,7 @@ def test_sem_alerta_sem_dados_extras() -> None:
 def test_so_regional() -> None:
     painel = Painel(regioes=(Regiao("Norte", "evitar"),), regiao_unica_do_alerta=True)
     resultado = textos_de(paragrafos_do_alerta(painel, Mapa()))
-    assert resultado[0].startswith('Para Síria, há "Alerta só para parte do país"')
+    assert resultado[0].startswith('Para a Síria, há "Alerta só para parte do país"')
     assert resultado[1] == 'Regiões com nível próprio: Norte ("Evite viagens não essenciais").'
 
 
@@ -149,7 +149,7 @@ def test_nao_verificado_com_coleta_e_alerta_pendente() -> None:
     painel = Painel(nivel="nao_verificado", alertas=(Alerta(pendente=True),))
     paragrafos = paragrafos_do_alerta(painel, Mapa())
     assert textos_de(paragrafos)[:2] == [
-        "O nível de alerta de Síria não foi verificado: ainda não temos informação confirmada "
+        "O nível de alerta da Síria não foi verificado: ainda não temos informação confirmada "
         "do Itamaraty.",
         "Confira o alerta original: Alerta consular",
     ]
@@ -159,7 +159,7 @@ def test_nao_verificado_com_coleta_e_alerta_pendente() -> None:
 def test_nao_verificado_sem_coleta_nao_tem_data_na_fonte() -> None:
     mapa = Mapa(dados_obtidos=False, atualizado_em=None)
     assert textos_de(paragrafos_do_alerta(Painel(nivel="nao_verificado"), mapa)) == [
-        "Ainda não obtivemos os dados do Itamaraty, então o nível de alerta de Síria não foi "
+        "Ainda não obtivemos os dados do Itamaraty, então o nível de alerta da Síria não foi "
         "verificado.",
         "Fonte: Portal Consular do Itamaraty.",
     ]
@@ -182,7 +182,7 @@ def test_visto_na_ordem_frase_dados_observacao_fonte_e_avisos() -> None:
         desatualizado=True,
     )
     assert textos_de(paragrafos_do_visto(visto, "Chile")) == [
-        "Sim, brasileiros precisam de visto para Chile.",
+        "Sim, brasileiros precisam de visto para o Chile.",
         'Categoria: "Visto exigido"',
         "Na fonte: Visa required",
         "Varia conforme o motivo da viagem",
@@ -223,7 +223,7 @@ def test_isento_com_rg() -> None:
 
 def test_kosovo_e_malvinas_usam_o_nome_do_territorio() -> None:
     visto = Visto(territorio_nome="Kosovo")
-    assert "para Kosovo" in textos_de(paragrafos_do_visto(visto, "Sérvia"))[0]
+    assert "para o Kosovo" in textos_de(paragrafos_do_visto(visto, "Sérvia"))[0]
 
 
 def test_origem_soberano() -> None:

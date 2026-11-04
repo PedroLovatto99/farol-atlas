@@ -7,6 +7,10 @@ painel mostra (no visto de Kosovo e Malvinas, `territorio_nome`). Datas em `dd/m
 aparecem como "Kosovo (Sérvia)" e "Malvinas (Argentina)" (`rotulo_busca`). Os rótulos entre aspas são **os mesmos** do
 painel (`compartilhado/niveis.ts` e `compartilhado/vistos.ts`); um teste fixa cada um.
 
+Nas frases, `{país}` entra com o artigo de `chat/artigos.yaml`: "para a França", "para o Afeganistão",
+"para os Estados Unidos", "para Portugal"; "de {país}" vira "da", "do", "dos" ou "das" quando há artigo.
+Em `um_pais_por_vez`, "sobre a França e a Itália". Em `qual_dos_paises`, as opções ficam sem artigo.
+
 Toda resposta é uma lista de parágrafos; cada parágrafo, uma lista de trechos `{texto, url}`
 ([openapi.yaml](openapi.yaml), `RespostaDoChat`). Ordem (FR-003): frase direta → dados → observação
 da fonte → fonte e data → avisos. Em `alerta_e_visto`, o bloco do alerta vem antes do do visto.
@@ -81,4 +85,5 @@ viagem." Desatualizado: "Estes dados podem estar desatualizados: foram lidos da 
   devem ser conferidas no Portal Consular" + link `URL_DO_PORTAL_CONSULAR`.
 - Botão flutuante: rótulo acessível "Abrir chat" / "Fechar chat". Campo: rótulo "Sua pergunta",
   `maxLength=300`, contador "{n}/300". Enquanto espera: "Respondendo…".
+- Os parágrafos mantêm as quebras de linha do texto (`white-space: pre-line`), como a `SecaoVisto`.
 - Falha de rede ou 5xx: "Não foi possível responder agora. Tente de novo em instantes."
