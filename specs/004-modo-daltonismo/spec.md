@@ -22,6 +22,7 @@ Uma pessoa com daltonismo abre o globo e não consegue separar alguns níveis s�
 
 1. **Given** a primeira visita ao site, **When** a página abre, **Then** o modo daltonismo está desligado e a aparência é exatamente a atual.
 2. **Given** o modo desligado, **When** o usuário aciona o botão, **Then** o globo, as bordas de alerta regional, a legenda e o selo do painel passam às paletas do modo daltonismo, sem recarregar a página.
+2a. **Given** o modo ligado e "Alertas" ativo, **When** o usuário olha o globo, **Then** o contorno dos países é o escuro do modo "Vistos", e um país "sem alerta" não se confunde com o oceano. Ao desligar, o contorno volta a ser o branco atual.
 3. **Given** o modo ligado, **When** o usuário troca entre "Alertas" e "Vistos", **Then** o modo continua ligado e cada um usa a sua paleta acessível.
 4. **Given** o modo ligado e "Alertas" ativo, **When** o usuário olha o globo em escala de cinza, **Then** distingue "não viaje" de "evite" pelos padrões, e os dois dos demais níveis, que ficam sem padrão.
 5. **Given** o modo ligado e "Alertas" ativo, **When** o usuário olha a legenda, **Then** as amostras de "não viaje" e "evite" mostram o mesmo padrão e as mesmas cores do mapa.
@@ -67,6 +68,10 @@ Uma pessoa com daltonismo abre o globo e não consegue separar alguns níveis s�
 - **FR-007**: Cada cor do FR-006 MUST ficar também a pelo menos 12 de distância do neutro (Brasil e áreas neutras) e do oceano, nas mesmas quatro visões. O neutro e o oceano não mudam com o modo.
 - **FR-008**: A borda de "não viaje" MUST continuar sendo percebida como vermelha e a de "evite" como marrom, para que a frase da legenda ("Borda vermelha… Borda marrom…") continue verdadeira com o modo ligado. Além da diferença de luminosidade, com o modo ligado as bordas regionais MUST ter estilos de linha diferentes no mapa: contínua para "não viaje" e tracejada para "evite". A amostra da legenda MUST mostrar o mesmo estilo, sem mudança no texto da legenda. Com o modo desligado, as bordas ficam como hoje.
 
+*Contorno*
+
+- **FR-008a**: Com o modo ligado, o modo "Alertas" MUST usar o contorno dos países do modo "Vistos", com a mesma cor e a mesma espessura, para que os países "sem alerta" não se confundam com o oceano. O contorno MUST ter contraste de pelo menos 3:1 contra as quatro cores de Alertas e contra o oceano. Com o modo desligado, o contorno fica como hoje.
+
 *Padrões*
 
 - **FR-009**: Com o modo ligado, no modo "Alertas", "não viaje" e "evite" MUST ter padrões diferentes entre si no mapa, distinguíveis em escala de cinza. "Sem alerta" e "não verificado" ficam sem padrão.
@@ -106,7 +111,7 @@ Uma pessoa com daltonismo abre o globo e não consegue separar alguns níveis s�
 - O critério de 12 vale também em visão normal, como na 002, porque quem não tem daltonismo também pode usar o modo.
 - O critério vale dentro de cada modo do globo, que é o que aparece junto. Entre cores de modos diferentes não há exigência: as exceções da 002 (Isento × evite; Sem informação × não verificado) são todas entre modos, e o modo ativo e a legenda continuam indicando o que se vê.
 - O par neutro × oceano fica fora do critério: as duas cores não mudam com o modo, ficam entre 9,0 e 10,7 de distância hoje e são separadas pelo contorno dos países.
-- O contorno dos países, a marca de seleção, a linha até o posto responsável e os ícones de postos não mudam com o modo.
+- A marca de seleção, a linha até o posto responsável e os ícones de postos não mudam com o modo. O contorno dos países muda só no modo "Alertas" com o modo ligado (FR-008a); no modo "Vistos" ele já é o escuro.
 - As bordas regionais não ganham hachura: distinguem-se pela luminosidade e pelo estilo de linha (FR-008). No painel, a borda de cada região muda só de cor e continua contínua, porque o nível está escrito ao lado.
 - O selo do painel é a amostra de cor ao lado do nível e não ganha padrão, porque o nível está escrito logo ao lado. A seção de visto do painel não tem selo colorido, então nada muda nela.
 - Na variação "Isento com RG", as listras continuam como são, só com as cores da paleta acessível.
