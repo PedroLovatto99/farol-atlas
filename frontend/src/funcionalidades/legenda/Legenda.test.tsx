@@ -2,6 +2,8 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { NIVEIS, ORDEM_DA_LEGENDA, type NivelId } from "../../compartilhado/niveis";
+import { paletaDe } from "../mapa/cor";
+import { amostraDaBorda, amostraDoPadrao } from "../mapa/padroes";
 import { Legenda } from "./Legenda";
 import { SemNiveisMarcados } from "./SemNiveisMarcados";
 
@@ -87,5 +89,64 @@ describe("SemNiveisMarcados", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/nenhum nível marcado/i);
     await userEvent.setup().click(screen.getByRole("button", { name: "Marcar todos os níveis" }));
     expect(aoMarcarTodos).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Legenda: modo daltonismo", () => {
+  const ligada = () =>
+    render(<Legenda niveisMarcados={ORDEM_DA_LEGENDA} onAlternarNivel={vi.fn()} daltonismo />);
+  const amostraDe = (nivel: NivelId) =>
+    screen
+      .getByText(NIVEIS[nivel].rotulo)
+      .closest("li")
+      ?.querySelector<HTMLElement>("[data-amostra]");
+  const amostraDaRegiao = () =>
+    screen
+      .getByText("Região mais grave")
+      .closest("li")
+      ?.querySelector<HTMLElement>("[data-amostra]");
+
+  it("as amostras usam as cores da paleta", () => {
+    ligada();
+    for (const nivel of ORDEM_DA_LEGENDA) {
+      expect(amostraDe(nivel)).toHaveStyle({ backgroundColor: paletaDe(true).niveis[nivel] });
+    }
+  });
+
+  it("'não viaje' e 'evite' mostram o padrão do mapa; os outros, nenhum", () => {
+    ligada();
+    expect(amostraDe("nao_viajar")?.style.backgroundImage).toBe(
+      amostraDoPadrao("nao_viajar").backgroundImage,
+    );
+    expect(amostraDe("evitar")?.style.backgroundImage).toBe(
+      amostraDoPadrao("evitar").backgroundImage,
+    );
+    expect(amostraDe("evitar")?.style.backgroundSize).toBe("8px 8px");
+    expect(amostraDe("sem_alerta")?.style.backgroundImage).toBe("");
+    expect(amostraDe("nao_verificado")?.style.backgroundImage).toBe("");
+  });
+
+  it("a amostra da borda vira o SVG com as duas linhas", () => {
+    ligada();
+    expect(amostraDaRegiao()?.style.backgroundImage).toBe(amostraDaBorda().backgroundImage);
+    expect(amostraDaRegiao()).toHaveStyle({ width: "30px", height: "12px" });
+  });
+
+  it("o texto é igual nos dois estados (FR-014)", () => {
+    const { container, unmount } = ligada();
+    const texto = container.textContent;
+    unmount();
+    const desligada = render(
+      <Legenda niveisMarcados={ORDEM_DA_LEGENDA} onAlternarNivel={vi.fn()} />,
+    );
+    expect(desligada.container.textContent).toBe(texto);
+  });
+
+  it("sem a prop, tudo fica como hoje", () => {
+    desenhar();
+    expect(amostraDe("nao_viajar")).toHaveStyle({ backgroundColor: NIVEIS.nao_viajar.cor });
+    expect(amostraDe("nao_viajar")?.style.backgroundImage).toBe("");
+    expect(amostraDaRegiao()?.style.backgroundImage).toBe("");
+    expect(amostraDaRegiao()?.style.borderTopColor).not.toBe("");
   });
 });

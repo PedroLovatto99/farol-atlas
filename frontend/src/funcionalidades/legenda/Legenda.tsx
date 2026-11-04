@@ -1,17 +1,30 @@
+import type { CSSProperties } from "react";
 import { NIVEIS, ORDEM_DA_LEGENDA, type NivelId } from "../../compartilhado/niveis";
-import { COR_DA_BORDA_REGIONAL } from "../mapa/cor";
+import { paletaDe } from "../mapa/cor";
+import { amostraDaBorda, amostraDoPadrao } from "../mapa/padroes";
 import { SobreFronteiras } from "./SobreFronteiras";
 
 interface Props {
   niveisMarcados: readonly NivelId[];
   onAlternarNivel(nivel: NivelId): void;
+  daltonismo?: boolean;
+}
+
+/** A cor do nível e, no modo daltonismo, o padrão de "não viaje" e "evite", iguais aos do mapa. */
+function estiloDaAmostra(nivel: NivelId, daltonismo: boolean): CSSProperties {
+  const backgroundColor = paletaDe(daltonismo).niveis[nivel];
+  if (daltonismo && (nivel === "nao_viajar" || nivel === "evitar")) {
+    return { backgroundColor, ...amostraDoPadrao(nivel) };
+  }
+  return { backgroundColor };
 }
 
 /**
  * Legenda em texto: a cor sozinha nunca é a informação (FR-003). Também é o filtro por nível: uma
  * caixa de marcar por nível, com o rótulo em texto (FR-024).
  */
-export function Legenda({ niveisMarcados, onAlternarNivel }: Props) {
+export function Legenda({ niveisMarcados, onAlternarNivel, daltonismo = false }: Props) {
+  const { bordas } = paletaDe(daltonismo);
   return (
     <section
       aria-label="Legenda"
@@ -31,24 +44,33 @@ export function Legenda({ niveisMarcados, onAlternarNivel }: Props) {
                 data-amostra
                 aria-hidden="true"
                 className="h-3 w-[18px] shrink-0 rounded-sm"
-                style={{ backgroundColor: NIVEIS[nivel].cor }}
+                style={estiloDaAmostra(nivel, daltonismo)}
               />
               <span>{NIVEIS[nivel].rotulo}</span>
             </label>
           </li>
         ))}
         <li className="flex items-start gap-2">
-          <span
-            data-amostra
-            aria-hidden="true"
-            className="mt-0.5 h-3 w-[18px] shrink-0 rounded-sm border-2 bg-white"
-            style={{
-              borderTopColor: COR_DA_BORDA_REGIONAL.nao_viajar,
-              borderRightColor: COR_DA_BORDA_REGIONAL.nao_viajar,
-              borderBottomColor: COR_DA_BORDA_REGIONAL.evitar,
-              borderLeftColor: COR_DA_BORDA_REGIONAL.evitar,
-            }}
-          />
+          {daltonismo ? (
+            <span
+              data-amostra
+              aria-hidden="true"
+              className="mt-0.5 shrink-0"
+              style={amostraDaBorda()}
+            />
+          ) : (
+            <span
+              data-amostra
+              aria-hidden="true"
+              className="mt-0.5 h-3 w-[18px] shrink-0 rounded-sm border-2 bg-white"
+              style={{
+                borderTopColor: bordas.nao_viajar,
+                borderRightColor: bordas.nao_viajar,
+                borderBottomColor: bordas.evitar,
+                borderLeftColor: bordas.evitar,
+              }}
+            />
+          )}
           <span>
             Região mais grave
             <span className="block text-xs text-texto-2">

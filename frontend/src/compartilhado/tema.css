@@ -21,6 +21,16 @@
   --color-visto-borda-da-amostra: #5f5e5a;
   --color-visto-contorno: #1f2a44;
 
+  /* Modo daltonismo (feature 004): os valores também existem em mapa/cor.ts; um teste confere. */
+  --color-daltonismo-sem-alerta: #8ccdfb;
+  --color-daltonismo-evitar: #f1d25f;
+  --color-daltonismo-nao-viajar: #e4605b;
+  --color-daltonismo-nao-verificado: #878c92;
+  --color-daltonismo-borda-nao-viaje: #861212;
+  --color-daltonismo-borda-evite: #8c641a;
+  --color-daltonismo-marcas: #18142c;
+  --color-daltonismo-listras: #0e2a20;
+
   --color-area-neutra: #f1efe8;
   --color-borda-regional-nao-viaje: #a32d2d;
   --color-borda-regional-evite: #854f0b;

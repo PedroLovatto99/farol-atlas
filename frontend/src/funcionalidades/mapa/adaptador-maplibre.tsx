@@ -23,7 +23,7 @@ import urlDoWorker from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { planejarCamera, type ContextoDaCamera } from "./camera";
-import { contornoDosPaises } from "./contorno";
+import { contornoDosPaises, transicaoDoContorno } from "./contorno";
 import { duracaoDoMovimento } from "./enquadramento";
 import { montarFeicoes } from "./feicoes";
 import { Marcador } from "./Marcador";
@@ -37,7 +37,11 @@ import {
   seloDoMarcador,
   varianteDoMarcador,
 } from "./marcadores";
-import { NOME_DA_IMAGEM_DE_LISTRAS, matrizDasListras } from "./padroes";
+import {
+  IMAGENS_DOS_PADROES,
+  LARGURA_DA_BORDA_REGIONAL,
+  TRACEJADO_DA_BORDA_REGIONAL,
+} from "./padroes";
 import type { MapaProps, Margem } from "./tipos";
 import { useGeometria } from "./useGeometria";
 
@@ -59,6 +63,13 @@ const OPACIDADE_DO_PREENCHIMENTO: ExpressionSpecification = [
   "case",
   ["get", "sem_preenchimento"],
   0,
+  ["get", "esmaecido"],
+  OPACIDADE_ESMAECIDA,
+  1,
+];
+/** Opacidade da borda regional, contínua ou tracejada: acompanha o filtro, como o preenchimento. */
+const OPACIDADE_DA_BORDA: ExpressionSpecification = [
+  "case",
   ["get", "esmaecido"],
   OPACIDADE_ESMAECIDA,
   1,
@@ -91,14 +102,14 @@ const ESTILO: StyleSpecification = {
       },
     },
     {
-      // "Isento, entrada com RG" (FR-022a): as listras por cima da base do "Isento"; a imagem leva
-      // a base junto (fill-pattern substitui o preenchimento) e é registrada em `styleimagemissing`
-      id: "padrao-rg",
+      // Listras do "Isento, entrada com RG" (FR-022a) e padrões do modo daltonismo (FR-009), por
+      // cima da cor de base. As imagens são registradas pelo resolvedor do mapa
+      id: "padroes",
       type: "fill",
       source: "paises",
-      filter: ["==", ["get", "padrao"], "rg"],
+      filter: ["has", "imagem_do_padrao"],
       paint: {
-        "fill-pattern": NOME_DA_IMAGEM_DE_LISTRAS,
+        "fill-pattern": ["get", "imagem_do_padrao"],
         "fill-opacity": OPACIDADE_DO_PREENCHIMENTO,
       },
     },
@@ -112,11 +123,37 @@ const ESTILO: StyleSpecification = {
       id: "regional",
       type: "line",
       source: "paises",
-      filter: ["has", "borda_regional"],
+      filter: ["all", ["has", "borda_regional"], ["!", ["has", "borda_tracejada"]]],
       paint: {
         "line-color": ["get", "borda_regional"],
-        "line-width": 2.5,
-        "line-opacity": ["case", ["get", "esmaecido"], OPACIDADE_ESMAECIDA, 1],
+        "line-width": LARGURA_DA_BORDA_REGIONAL,
+        "line-opacity": OPACIDADE_DA_BORDA,
+      },
+    },
+    {
+      // Tampa o contorno escuro sob o tracejado: sem isso os vãos ficam preenchidos por ele, e em
+      // escala de cinza a linha parece contínua (SC-002a)
+      id: "regional-tracejada-fundo",
+      type: "line",
+      source: "paises",
+      filter: ["has", "borda_tracejada"],
+      paint: {
+        "line-color": ["get", "cor"],
+        "line-width": LARGURA_DA_BORDA_REGIONAL,
+        "line-opacity": OPACIDADE_DA_BORDA,
+      },
+    },
+    {
+      // Camada própria para o modo desligado seguir pelo mesmo caminho de desenho (research D4)
+      id: "regional-tracejada",
+      type: "line",
+      source: "paises",
+      filter: ["has", "borda_tracejada"],
+      paint: {
+        "line-color": ["get", "borda_regional"],
+        "line-width": LARGURA_DA_BORDA_REGIONAL,
+        "line-opacity": OPACIDADE_DA_BORDA,
+        "line-dasharray": TRACEJADO_DA_BORDA_REGIONAL,
       },
     },
     {
@@ -196,6 +233,7 @@ function MarcadorNoMapa(props: {
 export function MapaMapLibre({
   territorios,
   modo = "alertas",
+  daltonismo = false,
   postos,
   paisesSemPosto,
   selecionado,
@@ -234,10 +272,11 @@ export function MapaMapLibre({
       ...visaoDoMundo(),
     });
     novo.on("style.load", () => novo.setProjection({ type: "globe" }));
-    novo.on("styleimagemissing", (evento) => {
-      if (evento.id === NOME_DA_IMAGEM_DE_LISTRAS && !novo.hasImage(evento.id)) {
-        novo.addImage(evento.id, matrizDasListras());
-      }
+    // O resolvedor, e não o evento `styleimagemissing`: no MapLibre 6 o evento chega tarde demais
+    // para o pedido em curso, e o padrão só apareceria no `setData` seguinte
+    novo.setMissingStyleImageResolver((id) => {
+      const imagem = IMAGENS_DOS_PADROES[id];
+      if (imagem !== undefined && !novo.hasImage(id)) novo.addImage(id, imagem());
     });
     novo.on("load", () => setMapa(novo));
     novo.on("zoom", () => setZoomAlto(novo.getZoom() >= ZOOM_DOS_MARCADORES));
@@ -276,17 +315,21 @@ export function MapaMapLibre({
   useEffect(() => {
     if (mapa === null || geometria.situacao !== "pronto") return;
     const fonte = mapa.getSource<GeoJSONSource>("paises");
-    const dados = montarFeicoes(geometria.geometria, territorios, modo);
+    const dados = montarFeicoes(geometria.geometria, territorios, modo, daltonismo);
     fonte?.setData(dados as unknown as Parameters<GeoJSONSource["setData"]>[0]);
-  }, [mapa, geometria, territorios, modo]);
+  }, [mapa, geometria, territorios, modo, daltonismo]);
 
-  // Contorno dos países: branco nos alertas, escuro nos vistos
+  // Contorno dos países: branco nos alertas, escuro nos vistos e no modo daltonismo. A transição
+  // vem antes das cores para valer já nesta troca
   useEffect(() => {
     if (mapa === null) return;
-    const { cor, largura } = contornoDosPaises(modo);
+    const transicao = transicaoDoContorno(reduzirMovimento) ?? undefined;
+    mapa.setPaintProperty("fronteiras", "line-color-transition", transicao);
+    mapa.setPaintProperty("fronteiras", "line-width-transition", transicao);
+    const { cor, largura } = contornoDosPaises(modo, daltonismo);
     mapa.setPaintProperty("fronteiras", "line-color", cor);
     mapa.setPaintProperty("fronteiras", "line-width", largura);
-  }, [mapa, modo]);
+  }, [mapa, modo, daltonismo, reduzirMovimento]);
 
   // Contorno da seleção. Kosovo e Malvinas contornam o grupo do soberano (propriedade `zoom`).
   useEffect(() => {

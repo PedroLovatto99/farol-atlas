@@ -188,3 +188,35 @@ describe("LegendaDeVistos: animação", () => {
     expect(animadas).toEqual([]);
   });
 });
+
+describe("LegendaDeVistos: modo daltonismo", () => {
+  const desenhar = (daltonismo?: boolean) =>
+    render(
+      <LegendaDeVistos
+        estado={PRONTO}
+        marcadas={TODAS_AS_CHAVES_DE_VISTO}
+        onAlternar={vi.fn()}
+        onTentarDeNovo={vi.fn()}
+        daltonismo={daltonismo}
+      />,
+    );
+  const listras = () => amostraDe("Isento, entrada com RG")?.style.backgroundImage.toLowerCase();
+
+  it("a amostra do RG usa as listras novas; as outras ficam na mesma cor", () => {
+    desenhar(true);
+    expect(listras()).toMatch(/#0e2a20|rgb\(14, 42, 32\)/);
+    expect(amostraDe("Visto exigido")).toHaveStyle({ backgroundColor: "#3B1C6B" });
+  });
+
+  it("sem a prop, a amostra do RG fica como hoje", () => {
+    desenhar();
+    expect(listras()).toMatch(/#1f2a44|rgb\(31, 42, 68\)/);
+  });
+
+  it("o texto é igual nos dois estados (FR-014)", () => {
+    const { container, unmount } = desenhar(true);
+    const texto = container.textContent;
+    unmount();
+    expect(desenhar(false).container.textContent).toBe(texto);
+  });
+});

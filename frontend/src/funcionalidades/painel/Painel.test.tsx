@@ -800,3 +800,49 @@ describe("Painel: recolher e expandir (FR-030)", () => {
     ).toBeVisible();
   });
 });
+
+describe("Painel: modo daltonismo", () => {
+  function desenhar(daltonismo?: boolean) {
+    const estado: EstadoDoPais = { situacao: "pronto", pais: LIBANO };
+    return render(
+      <Painel
+        estado={estado}
+        onFechar={vi.fn()}
+        onTentarDeNovo={vi.fn()}
+        daltonismo={daltonismo}
+      />,
+    );
+  }
+  const selo = () =>
+    within(painel()).getByText("Evite viagens não essenciais").querySelector<HTMLElement>("span");
+  const bordaDaRegiao = () =>
+    within(painel())
+      .getByText("Sul do Líbano:")
+      .closest("li")
+      ?.querySelector<HTMLElement>('[aria-hidden="true"]');
+
+  it("o selo usa a cor da paleta, sem padrão", () => {
+    desenhar(true);
+    expect(selo()).toHaveStyle({ backgroundColor: "#F1D25F" });
+    expect(selo()?.style.backgroundImage).toBe("");
+  });
+
+  it("a borda da região usa a cor da paleta e continua contínua", () => {
+    desenhar(true);
+    expect(bordaDaRegiao()).toHaveStyle({ borderColor: "#861212" });
+    expect(bordaDaRegiao()?.style.borderStyle).toBe("");
+  });
+
+  it("sem a prop, tudo fica como hoje", () => {
+    desenhar();
+    expect(selo()).toHaveStyle({ backgroundColor: "#FAC775" });
+    expect(bordaDaRegiao()).toHaveStyle({ borderColor: "#A32D2D" });
+  });
+
+  it("o texto é igual nos dois estados (FR-014)", () => {
+    const { container, unmount } = desenhar(true);
+    const texto = container.textContent;
+    unmount();
+    expect(desenhar(false).container.textContent).toBe(texto);
+  });
+});

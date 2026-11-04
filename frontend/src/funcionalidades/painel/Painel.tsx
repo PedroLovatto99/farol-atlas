@@ -7,7 +7,7 @@ import { ehUrlWeb } from "../../compartilhado/urlSegura";
 import type { FontePostos, Pais, PostoNoPainel } from "../../servicos/api/cliente";
 import { URL_DO_PORTAL_CONSULAR } from "../aviso/Aviso";
 import { SobreFronteiras } from "../legenda/SobreFronteiras";
-import { COR_DA_BORDA_REGIONAL } from "../mapa/cor";
+import { paletaDe } from "../mapa/cor";
 import type { ModoDoGlobo } from "../mapa/tipos";
 import { SecaoVisto } from "../vistos/SecaoVisto";
 import { AlertasDoPais } from "./AlertasDoPais";
@@ -32,6 +32,7 @@ interface Props {
   onAlternarRecolhimento?(): void;
   /** O que o globo mostra: a situação da barra recolhida segue o mesmo modo. */
   modoDoGlobo?: ModoDoGlobo;
+  daltonismo?: boolean;
 }
 
 interface ControleDosPostos {
@@ -154,7 +155,7 @@ function Postos({ pais, controle }: { pais: Pais; controle: ControleDosPostos })
   );
 }
 
-function NivelDoPais({ pais }: { pais: Pais }) {
+function NivelDoPais({ pais, daltonismo }: { pais: Pais; daltonismo: boolean }) {
   const nivel = NIVEIS[pais.nivel];
   // só regional: a cor do swatch segue a do mapa (neutra), mas o título não diz "sem alerta"
   const soRegional = pais.regiao_unica_do_alerta === true;
@@ -164,7 +165,7 @@ function NivelDoPais({ pais }: { pais: Pais }) {
         <span
           aria-hidden="true"
           className="h-3 w-[18px] shrink-0 rounded-sm"
-          style={{ backgroundColor: nivel.cor }}
+          style={{ backgroundColor: paletaDe(daltonismo).niveis[pais.nivel] }}
         />
         {soRegional ? ALERTA_SO_REGIONAL.rotulo : nivel.rotulo}
       </p>
@@ -180,8 +181,9 @@ function NivelDoPais({ pais }: { pais: Pais }) {
   );
 }
 
-function Regioes({ pais }: { pais: Pais }) {
+function Regioes({ pais, daltonismo }: { pais: Pais; daltonismo: boolean }) {
   if (pais.regioes.length === 0) return null;
+  const { bordas } = paletaDe(daltonismo);
   return (
     <Secao titulo="Alertas regionais">
       <ul>
@@ -193,7 +195,7 @@ function Regioes({ pais }: { pais: Pais }) {
             <span
               aria-hidden="true"
               className="h-3 w-[18px] shrink-0 rounded-sm border-2 bg-white"
-              style={{ borderColor: COR_DA_BORDA_REGIONAL[regiao.nivel] }}
+              style={{ borderColor: bordas[regiao.nivel] }}
             />
             <span>
               <strong>{regiao.nome}:</strong>{" "}
@@ -206,7 +208,15 @@ function Regioes({ pais }: { pais: Pais }) {
   );
 }
 
-function Conteudo({ pais, controle }: { pais: Pais; controle: ControleDosPostos }) {
+function Conteudo({
+  pais,
+  controle,
+  daltonismo,
+}: {
+  pais: Pais;
+  controle: ControleDosPostos;
+  daltonismo: boolean;
+}) {
   if (pais.eh_brasil) {
     return (
       <p className="text-sm text-texto-2">
@@ -219,8 +229,8 @@ function Conteudo({ pais, controle }: { pais: Pais; controle: ControleDosPostos 
       {pais.observacao !== null && pais.observacao_no_topo && (
         <Observacao texto={pais.observacao} />
       )}
-      <NivelDoPais pais={pais} />
-      <Regioes pais={pais} />
+      <NivelDoPais pais={pais} daltonismo={daltonismo} />
+      <Regioes pais={pais} daltonismo={daltonismo} />
       {pais.observacao !== null && !pais.observacao_no_topo && (
         <Observacao texto={pais.observacao} />
       )}
@@ -245,6 +255,7 @@ export function Painel({
   recolhido = false,
   onAlternarRecolhimento,
   modoDoGlobo = "alertas",
+  daltonismo = false,
 }: Props) {
   const pais = estado.situacao === "pronto" ? estado.pais : null;
   const raiz = useRef<HTMLElement>(null);
@@ -344,7 +355,13 @@ export function Painel({
             </button>
           </div>
         )}
-        {pais !== null && <Conteudo pais={pais} controle={{ postosExpandidos, onAlternarPosto }} />}
+        {pais !== null && (
+          <Conteudo
+            pais={pais}
+            controle={{ postosExpandidos, onAlternarPosto }}
+            daltonismo={daltonismo}
+          />
+        )}
       </div>
     </aside>
   );

@@ -12,6 +12,7 @@ export function MapaFalso(props: MapaProps) {
       <p data-testid="mapa-camera">{props.camera.tipo}</p>
       <p data-testid="mapa-grupos-do-painel">{props.gruposDoPainel.join("|")}</p>
       <p data-testid="mapa-reduzir-movimento">{String(props.reduzirMovimento)}</p>
+      <p data-testid="mapa-daltonismo">{String(props.daltonismo ?? false)}</p>
 
       <ul aria-label="territórios desenhados">
         {props.territorios.map((t) => (

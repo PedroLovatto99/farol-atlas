@@ -194,3 +194,81 @@ describe("montarFeicoes: preenchimento e padrão", () => {
     for (const f of resultado.features) expect("borda_regional" in f.properties).toBe(false);
   });
 });
+
+describe("montarFeicoes com o modo daltonismo", () => {
+  const propriedades = (resultado: ReturnType<typeof montarFeicoes>) =>
+    Object.fromEntries(resultado.features.map((f) => [f.properties.codigo, f.properties]));
+  const comNivel = (codigo: string, nivel: NivelId) =>
+    comPreenchimento(codigo, preenchimentoDeAlerta("pais", nivel, true));
+
+  it("grava a imagem de cada padrão, e nada nos territórios sem padrão", () => {
+    const resultado = montarFeicoes(
+      GEOMETRIA,
+      [comNivel("BO", "sem_alerta"), comNivel("LB", "nao_viajar"), comNivel("XK", "evitar")],
+      "alertas",
+      true,
+    );
+    const feicoes = propriedades(resultado);
+    expect(feicoes["BO"]).not.toHaveProperty("imagem_do_padrao");
+    expect(feicoes["LB"]?.imagem_do_padrao).toBe("hachura-nao-viaje");
+    expect(feicoes["XK"]?.imagem_do_padrao).toBe("pontos-evite");
+    expect(feicoes["AQ"]).not.toHaveProperty("imagem_do_padrao");
+  });
+
+  it("o RG usa as listras do modo ligado; desligado, as de hoje", () => {
+    const rg = comPreenchimento("BO", preenchimentoDeVisto("pais", "isento", true));
+    expect(propriedades(montarFeicoes(GEOMETRIA, [rg], "vistos", true))["BO"]).toMatchObject({
+      imagem_do_padrao: "listras-rg-daltonismo",
+    });
+    expect(propriedades(montarFeicoes(GEOMETRIA, [rg], "vistos"))["BO"]).toMatchObject({
+      imagem_do_padrao: "listras-rg",
+    });
+  });
+
+  it("usa as bordas da paleta, com tracejado só em 'evite'", () => {
+    const resultado = montarFeicoes(
+      GEOMETRIA,
+      [
+        comPreenchimento("BO", preenchimentoDeAlerta("pais", "sem_alerta", true), {
+          bordaRegional: "nao_viajar",
+        }),
+        comPreenchimento("LB", preenchimentoDeAlerta("pais", "sem_alerta", true), {
+          bordaRegional: "evitar",
+        }),
+      ],
+      "alertas",
+      true,
+    );
+    const feicoes = propriedades(resultado);
+    expect(feicoes["BO"]?.borda_regional).toBe("#861212");
+    expect(feicoes["BO"]).not.toHaveProperty("borda_tracejada");
+    expect(feicoes["LB"]?.borda_regional).toBe("#8C641A");
+    expect(feicoes["LB"]?.borda_tracejada).toBe(true);
+  });
+
+  it("com o modo desligado, borda_tracejada nunca existe e as cores são as de hoje (FR-015)", () => {
+    const resultado = montarFeicoes(GEOMETRIA, [
+      comPreenchimento("BO", preenchimentoDeAlerta("pais", "evitar"), { bordaRegional: "evitar" }),
+      comPreenchimento("LB", preenchimentoDeAlerta("pais", "nao_viajar"), {
+        bordaRegional: "nao_viajar",
+      }),
+    ]);
+    for (const f of resultado.features) {
+      expect(f.properties).not.toHaveProperty("borda_tracejada");
+      expect(f.properties).not.toHaveProperty("imagem_do_padrao");
+    }
+    expect(propriedades(resultado)["BO"]?.borda_regional).toBe(COR_DA_BORDA_REGIONAL.evitar);
+  });
+
+  it("território sem dado usa o cinza da paleta ativa; área neutra não muda", () => {
+    const feicoes = propriedades(montarFeicoes(GEOMETRIA, [], "alertas", true));
+    expect(feicoes["BO"]?.cor).toBe("#878C92");
+    expect(feicoes["BO"]?.padrao).toBeNull();
+    expect(feicoes["AQ"]?.cor).toBe(COR_DA_AREA_NEUTRA);
+  });
+
+  it("em 'Vistos', território sem dado continua sem preenchimento", () => {
+    const feicoes = propriedades(montarFeicoes(GEOMETRIA, [], "vistos", true));
+    expect(feicoes["BO"]?.sem_preenchimento).toBe(true);
+  });
+});
