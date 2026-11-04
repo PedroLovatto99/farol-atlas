@@ -2,7 +2,6 @@ import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import {
   COR_DA_BORDA_DA_AMOSTRA,
   COR_DO_BRASIL_NO_MODO_VISTOS,
-  CORES_DE_VISTO,
   ROTULOS_DA_LEGENDA_DE_VISTOS,
   TEXTO_DO_BRASIL_NA_LEGENDA,
   type ChaveDeVisto,
@@ -10,6 +9,7 @@ import {
 import type { EstadoDosVistos } from "../../estado/reducer";
 import { estadoDoIsento } from "../legenda/filtroDeVistos";
 import { SobreFronteiras } from "../legenda/SobreFronteiras";
+import { paletaDe } from "../mapa/cor";
 import { amostraListrada } from "../mapa/padroes";
 
 interface Props {
@@ -17,6 +17,7 @@ interface Props {
   marcadas: readonly ChaveDeVisto[];
   onAlternar(chave: ChaveDeVisto): void;
   onTentarDeNovo(): void;
+  daltonismo?: boolean;
 }
 
 /** A amostra de cor: sempre com borda de contraste e escondida do leitor de tela (o texto diz tudo). */
@@ -31,9 +32,9 @@ function Amostra({ estilo }: { estilo: CSSProperties }) {
   );
 }
 
-function estiloDaAmostra(chave: ChaveDeVisto): CSSProperties {
-  if (chave === "isento_rg") return amostraListrada();
-  return { backgroundColor: CORES_DE_VISTO[chave] };
+function estiloDaAmostra(chave: ChaveDeVisto, daltonismo: boolean): CSSProperties {
+  if (chave === "isento_rg") return amostraListrada(daltonismo);
+  return { backgroundColor: paletaDe(daltonismo).vistos[chave] };
 }
 
 interface CaixaProps {
@@ -41,10 +42,11 @@ interface CaixaProps {
   marcada: boolean;
   misto?: boolean;
   onAlternar(chave: ChaveDeVisto): void;
+  daltonismo: boolean;
 }
 
 /** Caixa de marcar com o rótulo em texto; o estado misto vai por `aria-checked` e por "(parcial)". */
-function Caixa({ chave, marcada, misto = false, onAlternar }: CaixaProps) {
+function Caixa({ chave, marcada, misto = false, onAlternar, daltonismo }: CaixaProps) {
   const entrada = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (entrada.current !== null) entrada.current.indeterminate = misto;
@@ -60,7 +62,7 @@ function Caixa({ chave, marcada, misto = false, onAlternar }: CaixaProps) {
         onChange={() => onAlternar(chave)}
         className="h-5 w-5 shrink-0 accent-marinho"
       />
-      <Amostra estilo={estiloDaAmostra(chave)} />
+      <Amostra estilo={estiloDaAmostra(chave, daltonismo)} />
       <span>
         {ROTULOS_DA_LEGENDA_DE_VISTOS[chave]}
         {misto && <span className="text-xs text-texto-2"> (parcial)</span>}
@@ -69,11 +71,20 @@ function Caixa({ chave, marcada, misto = false, onAlternar }: CaixaProps) {
   );
 }
 
-function Itens({ marcadas, onAlternar }: Pick<Props, "marcadas" | "onAlternar">) {
+function Itens({
+  marcadas,
+  onAlternar,
+  daltonismo,
+}: Pick<Props, "marcadas" | "onAlternar"> & { daltonismo: boolean }) {
   const isento = estadoDoIsento(marcadas);
   const simples = (chave: ChaveDeVisto) => (
     <li key={chave}>
-      <Caixa chave={chave} marcada={marcadas.includes(chave)} onAlternar={onAlternar} />
+      <Caixa
+        chave={chave}
+        marcada={marcadas.includes(chave)}
+        onAlternar={onAlternar}
+        daltonismo={daltonismo}
+      />
     </li>
   );
   return (
@@ -84,6 +95,7 @@ function Itens({ marcadas, onAlternar }: Pick<Props, "marcadas" | "onAlternar">)
           marcada={isento === "marcado"}
           misto={isento === "misto"}
           onAlternar={onAlternar}
+          daltonismo={daltonismo}
         />
         <ul className="ml-7">
           <li>
@@ -91,6 +103,7 @@ function Itens({ marcadas, onAlternar }: Pick<Props, "marcadas" | "onAlternar">)
               chave="isento_rg"
               marcada={marcadas.includes("isento_rg")}
               onAlternar={onAlternar}
+              daltonismo={daltonismo}
             />
           </li>
         </ul>
@@ -113,7 +126,13 @@ function Itens({ marcadas, onAlternar }: Pick<Props, "marcadas" | "onAlternar">)
   );
 }
 
-function Corpo({ estado, marcadas, onAlternar, onTentarDeNovo }: Props): ReactNode {
+function Corpo({
+  estado,
+  marcadas,
+  onAlternar,
+  onTentarDeNovo,
+  daltonismo = false,
+}: Props): ReactNode {
   if (estado.situacao === "erro") {
     return (
       <div role="alert" className="space-y-2">
@@ -139,7 +158,7 @@ function Corpo({ estado, marcadas, onAlternar, onTentarDeNovo }: Props): ReactNo
           Ainda não há dados de visto: todos os países aparecem como sem informação de visto.
         </p>
       )}
-      <Itens marcadas={marcadas} onAlternar={onAlternar} />
+      <Itens marcadas={marcadas} onAlternar={onAlternar} daltonismo={daltonismo} />
     </>
   );
 }

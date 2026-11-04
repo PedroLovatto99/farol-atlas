@@ -24,6 +24,7 @@ interface Props {
   /** O que o globo mostra; sem ele vale "alertas", como na 001. */
   modo?: ModoDoGlobo;
   vistos?: LegendaDeVistosProps;
+  daltonismo?: boolean;
 }
 
 /**
@@ -37,6 +38,7 @@ export function LegendaRecolhivel({
   onAlternarNivel,
   modo = "alertas",
   vistos,
+  daltonismo = false,
 }: Props) {
   const idDoConteudo = useId();
   const [escolha, setEscolha] = useState<boolean | null>(lerPreferenciaDaLegenda);
@@ -78,9 +80,13 @@ export function LegendaRecolhivel({
       {emVistos && <LinhaDaFonteDeVistos estado={vistos.estado} />}
       <div id={idDoConteudo} hidden={!aberta} className="w-full">
         {emVistos ? (
-          <LegendaDeVistos {...vistos} />
+          <LegendaDeVistos {...vistos} daltonismo={daltonismo} />
         ) : (
-          <Legenda niveisMarcados={niveisMarcados} onAlternarNivel={onAlternarNivel} />
+          <Legenda
+            niveisMarcados={niveisMarcados}
+            onAlternarNivel={onAlternarNivel}
+            daltonismo={daltonismo}
+          />
         )}
       </div>
     </div>

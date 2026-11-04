@@ -1358,3 +1358,118 @@ describe("App: chat (FR-020, FR-022)", () => {
     expect(propsDoMapa().camera).toBe(camera);
   });
 });
+
+describe("App: modo daltonismo (feature 004)", () => {
+  const botao = () => screen.getByRole("button", { name: "Modo daltonismo" });
+  const legenda = () => screen.getByRole("region", { name: "Legenda" });
+  const cor = (codigo: string) => desenhado(codigo).getAttribute("data-cor");
+  const padrao = (codigo: string) => desenhado(codigo).getAttribute("data-padrao");
+
+  async function abrirComVistos() {
+    const api = criarApiSimulada({ mapa: MAPA_COM_VISTOS, paises: { DK: PAIS_EXEMPLO } });
+    render(<App cliente={api.cliente} Mapa={MapaEspiao} buscar={buscarGeometria} />);
+    await waitFor(() => expect(desenhado("DK")).toBeInTheDocument());
+    return api;
+  }
+
+  it("a primeira visita abre com o modo desligado e a aparência atual", async () => {
+    await abrir();
+    expect(botao()).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByTestId("mapa-daltonismo")).toHaveTextContent("false");
+    expect(cor("DK")).toBe(NIVEIS.sem_alerta.cor);
+    expect(padrao("LB")).toBe("");
+  });
+
+  it("o botão aparece em 'Alertas' e em 'Vistos'", async () => {
+    await abrirComVistos();
+    expect(botao()).toBeVisible();
+    await userEvent.setup().click(screen.getByRole("radio", { name: "Vistos" }));
+    expect(botao()).toBeVisible();
+  });
+
+  it("alternar muda as cores e os padrões entregues ao mapa, nos dois sentidos", async () => {
+    await abrir();
+    const usuario = userEvent.setup();
+
+    await usuario.click(botao());
+    expect(botao()).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("mapa-daltonismo")).toHaveTextContent("true");
+    expect(cor("DK")).toBe("#8CCDFB");
+    expect(cor("LB")).toBe("#F1D25F");
+    expect(padrao("LB")).toBe("evitar");
+    expect(cor("BO")).toBe("#878C92");
+
+    await usuario.click(botao());
+    expect(cor("DK")).toBe(NIVEIS.sem_alerta.cor);
+    expect(cor("LB")).toBe(NIVEIS.evitar.cor);
+    expect(padrao("LB")).toBe("");
+  });
+
+  it("alternar mantém seleção, filtros, painel, câmera e modo, sem novo pedido (FR-004)", async () => {
+    const api = await abrir();
+    const usuario = userEvent.setup();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    await usuario.click(screen.getByRole("checkbox", { name: "Não viaje" }));
+    const camera = propsDoMapa().camera;
+    const pedidos = () =>
+      [api.obterMapa, api.obterPais, api.obterVistos].map((f) => f.mock.calls.length);
+    const antes = pedidos();
+
+    await usuario.click(botao());
+
+    expect(propsDoMapa().selecionado).toBe("DK");
+    expect(propsDoMapa().camera).toBe(camera);
+    expect(painel()).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Não viaje" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "Alertas" })).toBeChecked();
+    expect(pedidos()).toEqual(antes);
+  });
+
+  it("a troca entre 'Alertas' e 'Vistos' mantém o modo ligado", async () => {
+    await abrirComVistos();
+    const usuario = userEvent.setup();
+    await usuario.click(botao());
+    await usuario.click(screen.getByRole("radio", { name: "Vistos" }));
+    await waitFor(() => expect(cor("AR")).toBe(CORES_DE_VISTO.isento));
+    expect(botao()).toHaveAttribute("aria-pressed", "true");
+    expect(padrao("AR")).toBe("rg");
+    await usuario.click(screen.getByRole("radio", { name: "Alertas" }));
+    expect(cor("DK")).toBe("#8CCDFB");
+  });
+
+  it("com a preferência guardada, o primeiro território entregue já vem na paleta (FR-013)", async () => {
+    window.localStorage.setItem("farol-atlas:daltonismo", "ligado");
+    const cores: (string | null)[] = [];
+    function MapaQueAnota(props: MapaProps) {
+      const primeiro = props.territorios[0];
+      if (primeiro !== undefined) cores.push(primeiro.preenchimento.cor);
+      return <MapaFalso {...props} />;
+    }
+    const api = criarApiSimulada({ mapa: MAPA_EXEMPLO });
+    render(<App cliente={api.cliente} Mapa={MapaQueAnota} buscar={buscarGeometria} />);
+    await waitFor(() => expect(desenhado("DK")).toBeInTheDocument());
+    expect(botao()).toHaveAttribute("aria-pressed", "true");
+    expect(new Set(cores)).toEqual(new Set(["#8CCDFB"]));
+  });
+
+  it("guarda a escolha: ligar grava 'ligado' e desligar grava 'desligado'", async () => {
+    await abrir();
+    const usuario = userEvent.setup();
+    await usuario.click(botao());
+    expect(window.localStorage.getItem("farol-atlas:daltonismo")).toBe("ligado");
+    await usuario.click(botao());
+    expect(window.localStorage.getItem("farol-atlas:daltonismo")).toBe("desligado");
+  });
+
+  it("os textos da legenda e do painel são iguais nos dois estados (FR-014)", async () => {
+    await abrir();
+    const usuario = userEvent.setup();
+    await tocar("DK");
+    await screen.findByRole("heading", { level: 2, name: "Dinamarca" });
+    const textos = () => [legenda().textContent, painel()?.textContent];
+    const antes = textos();
+    await usuario.click(botao());
+    expect(textos()).toEqual(antes);
+  });
+});

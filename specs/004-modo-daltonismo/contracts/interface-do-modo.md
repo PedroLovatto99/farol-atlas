@@ -95,9 +95,12 @@ neutra nunca tem padrão, e as cores do neutro e do oceano não mudam.
 |---|---|
 | `padrao-rg` → `padroes` | Filtro `["has", "imagem_do_padrao"]`; `fill-pattern: ["get", "imagem_do_padrao"]`; mesma opacidade |
 | `regional` | Filtro passa a excluir feições com `borda_tracejada`; o resto fica igual |
-| `regional-tracejada` (nova, logo depois de `regional`) | Filtro `["has", "borda_tracejada"]`; mesma cor, largura e opacidade, mais `line-dasharray: [3, 2]` |
+| `regional-tracejada-fundo` (nova, logo depois de `regional`) | Filtro `["has", "borda_tracejada"]`; linha na cor do próprio país, mesma largura e opacidade. Tampa o contorno escuro, que encheria os vãos do tracejado (SC-002a) |
+| `regional-tracejada` (nova, logo depois da anterior) | Filtro `["has", "borda_tracejada"]`; mesma cor, largura e opacidade, mais `line-dasharray: [3, 2]` |
 
-`styleimagemissing` procura o nome numa tabela de imagens e registra a matriz correspondente.
+`map.setMissingStyleImageResolver` procura o nome numa tabela de imagens e registra a matriz
+correspondente. O evento `styleimagemissing` não serve: no MapLibre 6 ele não resolve o pedido em
+curso, e o padrão só apareceria no `setData` seguinte.
 
 O efeito que aplica o contorno na camada `fronteiras` passa a depender de
 `[mapa, modo, daltonismo, reduzirMovimento]`. Antes das cores, ele define `line-color-transition` e

@@ -14,6 +14,9 @@ export type BordaRegional = "nao_viajar" | "evitar";
 /** O que o globo mostra: os alertas da 001 ou os vistos da 002 (nunca guardado entre visitas). */
 export type ModoDoGlobo = "alertas" | "vistos";
 
+/** "rg": listras do "Isento, entrada com RG"; os níveis: padrões do modo daltonismo. */
+export type PadraoDoPreenchimento = "rg" | "nao_viajar" | "evitar";
+
 /**
  * Como um território é pintado. O adaptador só executa; a cor e o padrão são calculados fora dele
  * (`preenchimentoDeAlerta`, `preenchimentoDeVisto`).
@@ -21,8 +24,8 @@ export type ModoDoGlobo = "alertas" | "vistos";
 export interface Preenchimento {
   /** Cor de base, em hex. `null`: sem preenchimento (carregando ou erro dos vistos), nunca cinza. */
   cor: string | null;
-  /** "rg": listras sobre a cor de base ("Isento, entrada com RG"); `null`: cor lisa. */
-  padrao: "rg" | null;
+  /** O desenho por cima da cor de base; `null`: cor lisa. */
+  padrao: PadraoDoPreenchimento | null;
 }
 
 export interface TerritorioDesenhado {
@@ -88,6 +91,8 @@ export interface MapaProps {
    * "não verificado", como na 001; vistos: sem preenchimento). Sem ele vale "alertas".
    */
   modo?: ModoDoGlobo;
+  /** Paletas acessíveis (feature 004). Sem ele vale `false`. */
+  daltonismo?: boolean;
   postos: readonly PostoDesenhado[];
   paisesSemPosto: readonly PaisSemPostoDesenhado[];
 

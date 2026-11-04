@@ -7,6 +7,11 @@ import { ProvedorDeEstado, useEstado } from "./estado/contexto";
 import { Aviso } from "./funcionalidades/aviso/Aviso";
 import { Busca } from "./funcionalidades/busca/Busca";
 import { BotaoDoChat } from "./funcionalidades/chat/BotaoDoChat";
+import { BotaoDoDaltonismo } from "./funcionalidades/daltonismo/BotaoDoDaltonismo";
+import {
+  gravarPreferenciaDoDaltonismo,
+  lerPreferenciaDoDaltonismo,
+} from "./funcionalidades/daltonismo/preferencia";
 import { nenhumNivelMarcado, territorioEsmaecido } from "./funcionalidades/legenda/filtro";
 import {
   nenhumVistoMarcado,
@@ -68,13 +73,14 @@ const SEM_TERRITORIOS: Mapa["territorios"] = [];
 function territoriosDeAlerta(
   mapa: Mapa,
   niveisMarcados: readonly NivelId[],
+  daltonismo: boolean,
 ): TerritorioDesenhado[] {
   return mapa.territorios.map((t) => {
     const nivel = mapa.dados_obtidos ? t.nivel : NIVEL_PADRAO;
     const regioes = mapa.dados_obtidos ? t.regioes : [];
     return {
       codigo: t.codigo,
-      preenchimento: preenchimentoDeAlerta(t.tipo, nivel),
+      preenchimento: preenchimentoDeAlerta(t.tipo, nivel, daltonismo),
       bordaRegional: bordaRegionalDe(regioes),
       esmaecido: territorioEsmaecido({ nivel, regioes }, niveisMarcados),
     };
@@ -91,6 +97,7 @@ function territoriosDeVisto(
   mapa: Mapa,
   vistos: EstadoDosVistos,
   marcadas: readonly ChaveDeVisto[],
+  daltonismo: boolean,
 ): TerritorioDesenhado[] {
   const porCodigo =
     vistos.situacao === "pronto"
@@ -100,7 +107,7 @@ function territoriosDeVisto(
     if (porCodigo === null) {
       return {
         codigo: t.codigo,
-        preenchimento: preenchimentoDeVisto(t.tipo, null, false),
+        preenchimento: preenchimentoDeVisto(t.tipo, null, false, daltonismo),
         bordaRegional: null,
         esmaecido: false,
       };
@@ -110,7 +117,7 @@ function territoriosDeVisto(
     const aceitaRg = visto?.aceita_rg ?? false;
     return {
       codigo: t.codigo,
-      preenchimento: preenchimentoDeVisto(t.tipo, situacao, aceitaRg),
+      preenchimento: preenchimentoDeVisto(t.tipo, situacao, aceitaRg, daltonismo),
       bordaRegional: null,
       esmaecido: territorioDeVistoEsmaecido({ situacao, aceitaRg }, marcadas),
     };
@@ -123,10 +130,11 @@ function territoriosDesenhados(
   niveisMarcados: readonly NivelId[],
   vistos: EstadoDosVistos,
   vistosMarcados: readonly ChaveDeVisto[],
+  daltonismo: boolean,
 ): TerritorioDesenhado[] {
   return modo === "vistos"
-    ? territoriosDeVisto(mapa, vistos, vistosMarcados)
-    : territoriosDeAlerta(mapa, niveisMarcados);
+    ? territoriosDeVisto(mapa, vistos, vistosMarcados, daltonismo)
+    : territoriosDeAlerta(mapa, niveisMarcados, daltonismo);
 }
 
 function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
@@ -145,13 +153,18 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
   // a pessoa tenha movido o mapa e toque no mesmo país outra vez.
   const [camera, setCamera] = useState<PedidoDeCamera>(CAMERA_INICIAL);
   const cabecalho = useRef<HTMLElement>(null);
+  // Fora do reducer: alternar não tem como mexer em seleção nem em filtros (FR-004)
+  const [daltonismo, setDaltonismo] = useState(lerPreferenciaDoDaltonismo);
 
   const mapa = estado.situacao === "pronto" ? estado.mapa : null;
   const niveisMarcados = selecao.niveisMarcados;
   const vistosMarcados = selecao.vistosMarcados;
   const territorios = useMemo(
-    () => (mapa ? territoriosDesenhados(mapa, modo, niveisMarcados, vistos, vistosMarcados) : []),
-    [mapa, modo, niveisMarcados, vistos, vistosMarcados],
+    () =>
+      mapa
+        ? territoriosDesenhados(mapa, modo, niveisMarcados, vistos, vistosMarcados, daltonismo)
+        : [],
+    [mapa, modo, niveisMarcados, vistos, vistosMarcados, daltonismo],
   );
   const postos = useMemo(() => (mapa ? agruparPostos(mapa.postos) : SEM_POSTOS), [mapa]);
   const paisesSemPosto = useMemo(
@@ -291,6 +304,7 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
       <ComponenteDeMapa
         territorios={territorios}
         modo={modo}
+        daltonismo={daltonismo}
         postos={postos}
         paisesSemPosto={paisesSemPosto}
         selecionado={selecao.selecionado}
@@ -322,10 +336,17 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
           />
           <Busca territorios={mapa?.territorios ?? SEM_TERRITORIOS} onEscolher={selecionar} />
         </div>
-        <div className="pointer-events-auto flex items-center gap-2 self-end sm:self-auto">
+        <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2 self-end sm:self-auto">
           <SeletorDeModo
             modo={modo}
             onTrocar={(novo) => despachar({ tipo: "trocar-modo", modo: novo })}
+          />
+          <BotaoDoDaltonismo
+            ligado={daltonismo}
+            onAlternar={() => {
+              setDaltonismo(!daltonismo);
+              gravarPreferenciaDoDaltonismo(!daltonismo);
+            }}
           />
           <Sobre />
         </div>
@@ -336,6 +357,7 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
         niveisMarcados={niveisMarcados}
         onAlternarNivel={(nivel) => despachar({ tipo: "alternar-nivel", nivel })}
         modo={modo}
+        daltonismo={daltonismo}
         vistos={{
           estado: vistos,
           marcadas: vistosMarcados,
@@ -355,6 +377,7 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
           recolhido={selecao.painelRecolhido}
           onAlternarRecolhimento={alternarRecolhimento}
           modoDoGlobo={modo}
+          daltonismo={daltonismo}
         />
       )}
 

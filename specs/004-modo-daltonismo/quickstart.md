@@ -64,3 +64,24 @@ No Chrome: DevTools > Rendering > *Emulate vision deficiencies*.
 
 A emulação do Chrome não usa as mesmas matrizes do projeto. Ela serve para conferir a olho; o número
 oficial é o do teste do passo 1.
+
+## 6. O que a validação local deixou em aberto (T015)
+
+Conferido no Chrome em 1280 px e 360 px, em tela de densidade 1 e 2, com as emulações do passo 5.
+
+- **Celular de verdade**: não conferido. A densidade 2 só foi simulada; nela hachura e pontos ficam
+  um pouco borrados, mas legíveis.
+- **Leitor de tela**: não conferido com um leitor real. O nome e o `aria-pressed` foram conferidos
+  pela árvore de acessibilidade do navegador.
+- **Reduzir movimento**: conferido de forma indireta, pela contagem de quadros depois da troca.
+
+## 7. Pendências conhecidas
+
+1. **Legenda aberta em 360 px cobre o cabeçalho.** A legenda aberta cobre o botão "Modo daltonismo" e
+   o seletor "Alertas | Vistos". Em "Vistos", isso ocorre até 740 px de altura, ou 800 px com o aviso
+   de dados desatualizados; em "Alertas", a 640 px com esse aviso. O problema é anterior à 004: o
+   seletor já ficava coberto. Recolher a legenda devolve o acesso. Corrigir numa branch própria,
+   limitando a altura da legenda com rolagem.
+2. **Marcas da hachura e contorno escuro quase da mesma cor.** `#18142C` e `#1F2A44` têm 1,25:1 entre
+   si, então a linha some onde a marca a toca. Não há efeito com os dados atuais, porque a borda se
+   lê pela troca de cor com o vizinho. Revisar se dois países "não viaje" ficarem vizinhos.

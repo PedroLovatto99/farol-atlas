@@ -284,3 +284,41 @@ describe("LegendaRecolhivel: modo Vistos (feature 002)", () => {
     expect(screen.getByText("Vistos: dados indisponíveis no momento")).toBeVisible();
   });
 });
+
+describe("LegendaRecolhivel: modo daltonismo", () => {
+  const PRONTO: EstadoDosVistos = { situacao: "pronto", dados: VISTOS_EXEMPLO };
+  const desenhar = (modo: ModoDoGlobo) =>
+    render(
+      <LegendaRecolhivel
+        telaPequena={false}
+        niveisMarcados={ORDEM_DA_LEGENDA}
+        onAlternarNivel={vi.fn()}
+        modo={modo}
+        daltonismo
+        vistos={{
+          estado: PRONTO,
+          marcadas: TODAS_AS_CHAVES_DE_VISTO,
+          onAlternar: vi.fn(),
+          onTentarDeNovo: vi.fn(),
+        }}
+      />,
+    );
+
+  it("repassa a prop à legenda de 'Alertas'", () => {
+    desenhar("alertas");
+    const amostra = screen
+      .getByRole("checkbox", { name: "Não viaje" })
+      .closest("label")
+      ?.querySelector<HTMLElement>("[data-amostra]");
+    expect(amostra).toHaveStyle({ backgroundColor: "#E4605B" });
+  });
+
+  it("repassa a prop à legenda de 'Vistos'", () => {
+    desenhar("vistos");
+    const amostra = screen
+      .getByRole("checkbox", { name: /^Isento, entrada com RG/ })
+      .closest("label")
+      ?.querySelector<HTMLElement>("[data-amostra]");
+    expect(amostra?.style.backgroundImage.toLowerCase()).toMatch(/#0e2a20|rgb\(14, 42, 32\)/);
+  });
+});
