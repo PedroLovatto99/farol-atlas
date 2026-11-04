@@ -99,6 +99,9 @@ def criar_modelo_do_chat(configuracoes: Configuracoes) -> ModeloLangChain | None
     argumentos = argumentos_do_modelo(
         nome, configuracoes, tempo_limite_segundos=PRAZO_MINIMO_DO_GOOGLE_SEGUNDOS
     )
+    if nome.startswith("google_genai:"):
+        # shortcut: só Gemini 3 ou mais novo aceita; num 2.x, trocar por `thinking_budget=0`
+        argumentos["thinking_level"] = "minimal"  # metade da latência, com os mesmos acertos
     try:
         return ModeloLangChain(init_chat_model(nome, max_retries=0, **argumentos))
     except Exception as erro:

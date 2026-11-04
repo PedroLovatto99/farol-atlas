@@ -66,6 +66,7 @@ class Painel:
     regioes: tuple[()] = ()
     regiao_unica_do_alerta: bool = False
     observacao: str | None = None
+    observacao_no_topo: bool = False
     alertas: tuple[()] = ()
 
 

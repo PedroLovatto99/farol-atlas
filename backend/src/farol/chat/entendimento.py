@@ -53,7 +53,8 @@ VISTO = frozenset(
         "entrar", "entrada", "permanencia",
     }
 )  # fmt: skip
-# Conectivos e verbos que não mudam o sentido: "e o Peru?", "me fala do Peru"
+# Conectivos e verbos que não mudam o sentido: "e o Peru?", "me fala do Peru". Os de viagem também
+# dizem que o país logo depois é mesmo o país: "quero conhecer Tailândia", "lua de mel Tailândia"
 CONECTIVOS = frozenset(
     {
         "e", "o", "a", "os", "as", "ao", "aos", "um", "uma", "de", "do", "da", "dos", "das",
@@ -63,6 +64,9 @@ CONECTIVOS = frozenset(
         "gostaria", "preciso", "precisa", "precisam", "posso", "ir", "vou", "indo", "saindo",
         "partindo", "situacao", "agora", "hoje", "atual", "oi", "ola", "favor", "brasileiro",
         "brasileiros", "brasileira", "brasileiras", "info", "informacao", "informacoes",
+        "conhecer", "conhecendo", "conheci", "conheco", "visitar", "visitando", "visitei", "visito",
+        "fui", "vai", "vamos", "irei", "viajando", "viajei", "viajo", "viajarei", "passar",
+        "passando", "passei", "passo", "morar", "morando", "morei", "moro", "ferias", "lua", "mel",
     }
 )  # fmt: skip
 EXPRESSOES = {

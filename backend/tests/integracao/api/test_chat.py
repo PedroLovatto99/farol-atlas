@@ -201,7 +201,7 @@ def conferir_paridade(http: TestClient, codigo: str, termo: str) -> None:
             if alerta["modificado_em"]:
                 assert f"modificado em {data(alerta['modificado_em'])}" in texto
     if pais["observacao"]:
-        assert f"Observação: {pais['observacao']}" in texto
+        assert pais["observacao"] in texto
     if mapa["atualizado_em"]:
         assert (
             f"Portal Consular do Itamaraty, atualizado em {data(mapa['atualizado_em'])}." in texto
@@ -293,6 +293,19 @@ def test_paridade_de_kosovo_malvinas_e_dependencias(
     conferir_paridade(cliente(sessao, relogio), codigo, termo)
 
 
+@pytest.mark.parametrize(("codigo", "termo"), [("XK", "Kosovo"), ("FK", "Malvinas")])
+def test_kosovo_e_malvinas_abrem_o_alerta_com_a_nota_do_painel(
+    sessao: Session, relogio: "RelogioFalso", codigo: str, termo: str
+) -> None:
+    executar(sessao, DADOS, AGORA)
+    coleta_completa(sessao)
+    http = cliente(sessao, relogio)
+    pais = http.get(f"/api/v1/paises/{codigo}").json()
+    assert pais["observacao_no_topo"] is True
+    primeiro = perguntar(http, f"alerta {termo}")["paragrafos"][0]
+    assert "".join(t["texto"] for t in primeiro) == pais["observacao"]
+
+
 def test_a_serbia_e_a_argentina_nao_viram_ambiguas(
     sessao: Session, relogio: "RelogioFalso"
 ) -> None:
@@ -363,6 +376,12 @@ def test_sem_llm_chat_responde_pelo_codigo(sessao: Session, relogio: "RelogioFal
     executar(sessao, DADOS, AGORA)
     corpo = perguntar(cliente(sessao, relogio, llm_chat=""), "visto Japão")
     assert (corpo["tipo"], corpo["codigo"]) == ("visto", "JP")
+
+
+def test_verbo_de_viagem_responde_pelo_codigo(sessao: Session, relogio: "RelogioFalso") -> None:
+    executar(sessao, DADOS, AGORA)
+    corpo = perguntar(cliente(sessao, relogio, llm_chat=""), "quero conhecer Tailândia")
+    assert (corpo["tipo"], corpo["codigo"]) == ("alerta_e_visto", "TH")
 
 
 @pytest.mark.parametrize(

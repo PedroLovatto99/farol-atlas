@@ -1,6 +1,7 @@
 """Parágrafos de alerta e de visto a partir das visões do painel (contracts/textos-do-chat.md).
 
-Ordem (FR-003): frase direta, dados, observação da fonte, fonte e data, avisos.
+Ordem (FR-003): frase direta, dados, observação da fonte, fonte e data, avisos. Em Kosovo e Malvinas
+a nota vem antes de tudo, como no painel: a frase direta traz o nome do soberano.
 """
 
 from farol.chat import textos
@@ -38,20 +39,22 @@ def _dados_dos_alertas(painel: PainelLido) -> list[Paragrafo]:
 
 
 def paragrafos_do_alerta(painel: PainelLido, mapa: MapaLido) -> tuple[Paragrafo, ...]:
-    paragrafos = [
+    nota_no_topo = painel.observacao if painel.observacao_no_topo else None
+    paragrafos = [_simples(nota_no_topo)] if nota_no_topo else []
+    paragrafos.append(
         _simples(
             textos.frase_do_alerta(
                 painel.nivel, painel.nome, painel.regiao_unica_do_alerta, mapa.dados_obtidos
             )
         )
-    ]
+    )
     if painel.regioes:
         regioes = "; ".join(
             f'{r.nome} ("{textos.ROTULOS_DE_NIVEL[r.nivel]}")' for r in painel.regioes
         )
         paragrafos.append(_simples(f"Regiões com nível próprio: {regioes}."))
     paragrafos += _dados_dos_alertas(painel)
-    if painel.observacao:
+    if painel.observacao and not painel.observacao_no_topo:
         paragrafos.append(_simples(f"Observação: {painel.observacao}"))
 
     data = f", atualizado em {textos.data(mapa.atualizado_em)}" if mapa.atualizado_em else ""

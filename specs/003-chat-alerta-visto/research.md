@@ -69,7 +69,8 @@ lista enviada ao modelo usa `rotulo_busca` para Kosovo e Malvinas, que têm o `n
   prazo menor que 10 s (visto no teste com a chave real). Os 5 s do FR-029 ficam no `entender`, que
   roda a chamada numa thread e espera no máximo 5 s; isso vale para qualquer provedor. Chamada que
   estourou o prazo ainda na fila é cancelada. A sessão do banco é confirmada antes do modelo, para
-  a conexão não ficar presa durante a espera.
+  a conexão não ficar presa durante a espera. No Google, `thinking_level=minimal`: a mediana caiu de
+  4,2 s para 2,0 s, com os mesmos acertos (8 chamadas por configuração).
 - **O modelo nunca escreve a resposta:** o que ele devolve só escolhe o tipo e o país; o texto vem
   sempre de `textos.py`.
 

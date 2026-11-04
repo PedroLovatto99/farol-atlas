@@ -321,3 +321,41 @@ def test_kosovo_e_malvinas_tem_o_rotulo_nos_nomes() -> None:
 def test_serbia_e_kosovo_aparecem_com_nomes_diferentes() -> None:
     nomes = [p.nome for p in ler("visto para a Sérvia e o Kosovo").paises]
     assert nomes == ["Sérvia", "Kosovo (Sérvia)"]
+
+
+# --------------------------------------------------------------------------- verbos de viagem
+@pytest.mark.parametrize(
+    ("pergunta", "codigo"),
+    [
+        ("quero conhecer Tailândia", "TH"),
+        ("conhecendo Tailândia", "TH"),
+        ("conheci Peru", "PE"),
+        ("visitar Japão", "JP"),
+        ("visitando Japão", "JP"),
+        ("visitei Peru", "PE"),
+        ("ir Chile", "CL"),
+        ("vou Peru", "PE"),
+        ("fui Peru", "PE"),
+        ("vamos Chile", "CL"),
+        ("viajar Chile", "CL"),
+        ("viajando Chile", "CL"),
+        ("viajei Itália", "IT"),
+        ("passar Itália", "IT"),
+        ("passando França", "FR"),
+        ("passei França", "FR"),
+        ("morar Japão", "JP"),
+        ("morando Japão", "JP"),
+        ("moro Japão", "JP"),
+        ("férias Líbano", "LB"),
+        ("lua de mel Tailândia", "TH"),
+    ],
+)
+def test_palavra_de_viagem_antes_do_pais_nao_e_lugar_suspeito(pergunta: str, codigo: str) -> None:
+    entendimento = ler(pergunta)
+    assert [p.codigos for p in entendimento.paises] == [(codigo,)]
+    assert entendimento.entendeu
+
+
+def test_palavra_de_viagem_nao_esconde_o_lugar_suspeito() -> None:
+    assert not ler("visitar Nova Jersey").entendeu
+    assert ler("visitar Nova Jersey").paises == ()

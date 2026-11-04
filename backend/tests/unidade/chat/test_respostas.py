@@ -41,6 +41,7 @@ class Painel:
     regioes: tuple[Regiao, ...] = ()
     regiao_unica_do_alerta: bool = False
     observacao: str | None = None
+    observacao_no_topo: bool = False
     alertas: tuple[Alerta, ...] = ()
 
 
@@ -283,3 +284,20 @@ def test_visto_sem_palavra_proibida_e_com_fonte_e_data(situacao: str) -> None:
     assert not [p for p in PROIBIDAS if p in texto]
     assert "fonte:" in texto
     assert "23/10/2026" in texto
+
+
+def test_kosovo_e_malvinas_tem_a_nota_antes_de_tudo_como_no_painel() -> None:
+    """Sem ela, "Para Sérvia…" não diz que a resposta é sobre o Kosovo."""
+    nota = "Kosovo: o Brasil não reconhece a independência."
+    painel = Painel(observacao=nota, observacao_no_topo=True)
+    paragrafos = textos_de(paragrafos_do_alerta(painel, Mapa()))
+    assert paragrafos[0] == nota
+    assert not any(p.startswith("Observação:") for p in paragrafos)
+    assert sum(nota in p for p in paragrafos) == 1
+
+
+def test_outra_dependencia_tem_a_observacao_depois_dos_dados() -> None:
+    painel = Painel(observacao="Uma observação.")
+    paragrafos = textos_de(paragrafos_do_alerta(painel, Mapa()))
+    assert paragrafos[0] != "Uma observação."
+    assert "Observação: Uma observação." in paragrafos

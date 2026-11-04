@@ -32,7 +32,8 @@ Dados, nesta ordem, cada um só quando o painel o tem:
 - Alerta que define o nível (`define_nivel`): "Alerta que define o nível: " + trecho
   `{título}` com `url` do gov.br + " (publicado em {data}; modificado em {data})".
 - Não verificado com alerta `pendente`: "Confira o alerta original: " + trecho `{título}` com `url`.
-- Observação do território (`observacao`, ex.: Kosovo, Malvinas, dependências): "Observação: {observacao}".
+- Observação do território (`observacao`, ex.: dependências): "Observação: {observacao}". Em Kosovo e
+  Malvinas (`observacao_no_topo`), a nota vem antes da frase direta, sem o "Observação:", como no painel.
 
 Fonte: "Fonte: " + trecho "Portal Consular do Itamaraty" (url do Portal Consular) + ", atualizado em
 {atualizado_em}." Sem coleta, sem a data. Desatualizado (`VisaoDoMapa.desatualizado`): "Dados

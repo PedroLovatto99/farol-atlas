@@ -160,6 +160,20 @@ def test_google_recebe_o_prazo_minimo_dele_e_nenhuma_nova_tentativa(
     assert argumentos["nome"] == "google_genai:outro-modelo"
     assert argumentos["timeout"] == 10
     assert argumentos["max_retries"] == 0
+    assert argumentos["thinking_level"] == "minimal"
+
+
+def test_outro_provedor_nao_recebe_o_parametro_do_gemini(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Parâmetro desconhecido faria o modelo não ser criado, e o chat ficaria sem ele."""
+    argumentos: dict[str, Any] = {}
+
+    def init_falso(nome: str, **kwargs: Any) -> ModeloFalso:
+        argumentos.update(kwargs)
+        return modelo_falso({"codigos": [], "assunto": "visto"})
+
+    monkeypatch.setattr(modelo_langchain, "init_chat_model", init_falso)
+    criar_modelo_do_chat(configuracoes(llm_chat="ollama:outro-modelo"))
+    assert "thinking_level" not in argumentos
 
 
 def test_modelo_que_nao_se_cria_vale_como_sem_modelo(
