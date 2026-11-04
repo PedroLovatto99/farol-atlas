@@ -54,3 +54,16 @@ legenda, linha de fonte e painel voltam como estavam; modo, seleção e câmera 
 Depois do deploy, pelo domínio do frontend: uma pergunta funciona (CORS com POST em `/chat`); um
 `OPTIONS` com `Access-Control-Request-Method: POST` em `/api/v1/mapa` não traz
 `Access-Control-Allow-Origin`.
+
+## Conferência local (2026-11-04)
+
+Conferido com a API no Docker, o frontend em `npm run dev` e o Chrome em 1280 e 360 px: seções 2 a 4,
+com `LLM_CHAT=google_genai:gemini-3.5-flash-lite` e a chave real.
+
+Não conferido localmente:
+
+- Seção 5: só depois do deploy.
+- Teclado virtual e leitor de tela em um celular de verdade.
+
+Diferença encontrada: a resposta sai "para Japão", sem artigo, como em `contracts/textos-do-chat.md`
+(`{país}`), e não "para o Japão", como na tabela da seção 3.

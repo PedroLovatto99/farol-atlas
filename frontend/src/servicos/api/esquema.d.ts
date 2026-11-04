@@ -66,6 +66,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Responde uma pergunta sobre o alerta e/ou o visto de um país
+         * @description A resposta é sempre um texto fixo preenchido com os dados do painel do país (os mesmos de
+         *     GET /paises/{codigo} e de GET /mapa); o modelo de linguagem, quando usado, só identifica o
+         *     país e o assunto. Nada é guardado: nem a pergunta nem o IP junto dela. Limite de
+         *     perguntas por IP (CHAT_PERGUNTAS_POR_HORA, padrão 20); pergunta inválida (vazia, só espaços
+         *     ou com mais de 300 caracteres) recebe 422 e não conta no limite. Sem cache.
+         */
+        post: operations["perguntarAoChat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/saude": {
         parameters: {
             query?: never;
@@ -326,6 +350,25 @@ export interface components {
             /** @description Os mesmos territórios de /mapa (países e dependências), com a situação já resolvida. */
             territorios: components["schemas"]["TerritorioDeVisto"][];
         };
+        PerguntaDoChat: {
+            /** @description Texto livre; espaços nas pontas são removidos antes de validar. */
+            pergunta: string;
+        };
+        /** @enum {string} */
+        TipoDeRespostaDoChat: "alerta" | "visto" | "alerta_e_visto" | "qual_dos_paises" | "pedir_pais" | "um_pais_por_vez" | "brasil" | "fora_do_assunto" | "reformular";
+        TrechoDoChat: {
+            /** @description Sempre texto puro; o frontend nunca o trata como HTML. */
+            texto: string;
+            /** @description Só os links que o painel mostra (alerta no gov.br, Portal Consular, Wikipédia). */
+            url: string | null;
+        };
+        RespostaDoChat: {
+            tipo: components["schemas"]["TipoDeRespostaDoChat"];
+            /** @description Território respondido (alerta, visto, alerta_e_visto); nulo nos demais tipos. */
+            codigo: string | null;
+            /** @description Parágrafos na ordem de leitura; cada um é uma sequência de trechos. */
+            paragrafos: components["schemas"]["TrechoDoChat"][][];
+        };
         Saude: {
             /** @enum {string} */
             banco: "ok" | "falha";
@@ -424,6 +467,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VistosDoMapa"];
+                };
+            };
+        };
+    };
+    perguntarAoChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PerguntaDoChat"];
+            };
+        };
+        responses: {
+            /** @description Resposta montada (inclusive pergunta de volta e mensagens fixas) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaDoChat"];
+                };
+            };
+            /** @description Pergunta vazia ou acima de 300 caracteres */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erro"];
+                };
+            };
+            /** @description Limite de perguntas do IP atingido; `Retry-After` traz os segundos de espera */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erro"];
                 };
             };
         };

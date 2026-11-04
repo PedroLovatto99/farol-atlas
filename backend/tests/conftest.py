@@ -26,7 +26,13 @@ from sqlalchemy.engine.interfaces import DBAPICursor, ExecutionContext
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from farol.dominio import CategoriaDeVisto, ColetaVistos, RequisitoVisto, ResultadoDaColetaDeVistos
+from farol.dominio import (
+    CategoriaDeVisto,
+    ColetaVistos,
+    MotivoOutraSituacao,
+    RequisitoVisto,
+    ResultadoDaColetaDeVistos,
+)
 from farol.infra import Pagina
 from farol.vistos import ResumoDaColetaDeVistos, ServicoDeColetaDeVistos, Tradutor
 from farol.vistos.fonte import TABELA_DE_TERRITORIOS, TABELA_NAO_RECONHECIDOS, LinhaDaFonte
@@ -343,6 +349,7 @@ class GravadorDeVisto(Protocol):
         rotulo: str = ...,
         observacoes: Sequence[tuple[str, str | None]] = ...,
         aceita_rg: bool = ...,
+        motivo_outra: MotivoOutraSituacao | None = ...,
     ) -> RequisitoVisto: ...
 
 
@@ -375,6 +382,7 @@ def gravar_visto(sessao: Session, relogio: RelogioFalso) -> GravadorDeVisto:
         rotulo: str = "Visa not required",
         observacoes: Sequence[tuple[str, str | None]] = (),
         aceita_rg: bool = False,
+        motivo_outra: MotivoOutraSituacao | None = None,
     ) -> RequisitoVisto:
         instante = relogio.agora()
         coleta = ColetaVistos(
@@ -389,6 +397,7 @@ def gravar_visto(sessao: Session, relogio: RelogioFalso) -> GravadorDeVisto:
         requisito = RequisitoVisto(
             territorio_codigo=codigo,
             categoria=categoria,
+            motivo_outra=motivo_outra,
             rotulo_original=rotulo,
             linhas_fonte=[],
             hash_fonte="0" * 64,

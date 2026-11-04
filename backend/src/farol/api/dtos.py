@@ -1,14 +1,14 @@
 """DTOs (Pydantic) de entrada e saída da API. Nenhuma rota devolve objetos do banco.
 
-Os nomes e a forma seguem specs/002-visto-brasileiros/contracts/openapi.yaml (a API v1.1, que contém
-a v1.0 da 001 por inteiro); um teste de contrato compara o OpenAPI gerado com ele.
+Os nomes e a forma seguem specs/003-chat-alerta-visto/contracts/openapi.yaml (a API v1.2, que contém
+a v1.1 da 002 por inteiro); um teste de contrato compara o OpenAPI gerado com ele.
 """
 
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from farol.dominio import MotivoOutraSituacao, TipoPosto
 
@@ -25,18 +25,22 @@ __all__ = [
     "OrigemDoVisto",
     "Pais",
     "PaisSemPosto",
+    "PerguntaDoChat",
     "Permanencia",
     "PostoNoMapa",
     "PostoNoPainel",
     "Regiao",
+    "RespostaDoChat",
     "Saude",
     "SituacaoDeVisto",
     "SituacaoNoGlobo",
     "TerritorioDeVisto",
     "TerritorioNoMapa",
     "TipoDePermanencia",
+    "TipoDeRespostaDoChat",
     "TipoPosto",
     "TipoTerritorio",
+    "TrechoDoChat",
     "Visto",
     "VistosDoMapa",
 ]
@@ -259,3 +263,33 @@ class VistosDoMapa(BaseModel):
     desatualizado: bool
     fonte: Fonte
     territorios: list[TerritorioDeVisto]
+
+
+# --------------------------------------------------------------------------- /chat
+class PerguntaDoChat(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pergunta: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+
+
+class TipoDeRespostaDoChat(StrEnum):
+    ALERTA = "alerta"
+    VISTO = "visto"
+    ALERTA_E_VISTO = "alerta_e_visto"
+    QUAL_DOS_PAISES = "qual_dos_paises"
+    PEDIR_PAIS = "pedir_pais"
+    UM_PAIS_POR_VEZ = "um_pais_por_vez"
+    BRASIL = "brasil"
+    FORA_DO_ASSUNTO = "fora_do_assunto"
+    REFORMULAR = "reformular"
+
+
+class TrechoDoChat(BaseModel):
+    texto: str
+    url: str | None
+
+
+class RespostaDoChat(BaseModel):
+    tipo: TipoDeRespostaDoChat
+    codigo: str | None
+    paragrafos: list[list[TrechoDoChat]]

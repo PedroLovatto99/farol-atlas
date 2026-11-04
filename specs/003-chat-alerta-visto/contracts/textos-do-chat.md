@@ -3,7 +3,8 @@
 Texto final das respostas (a spec deixa o fechamento para o planejamento). Ficam em
 `backend/src/farol/chat/textos.py`; cada linha desta página tem um teste. `{país}` é o nome que o
 painel mostra (no visto de Kosovo e Malvinas, `territorio_nome`). Datas em `dd/mm/aaaa`, fuso
-`America/Sao_Paulo`, como `formatarData` do frontend. Os rótulos entre aspas são **os mesmos** do
+`America/Sao_Paulo`, como `formatarData` do frontend. Nas mensagens fixas, Kosovo e Malvinas
+aparecem como "Kosovo (Sérvia)" e "Malvinas (Argentina)" (`rotulo_busca`). Os rótulos entre aspas são **os mesmos** do
 painel (`compartilhado/niveis.ts` e `compartilhado/vistos.ts`); um teste fixa cada um.
 
 Toda resposta é uma lista de parágrafos; cada parágrafo, uma lista de trechos `{texto, url}`
@@ -65,7 +66,7 @@ viagem." Desatualizado: "Estes dados podem estar desatualizados: foram lidos da 
 
 | `tipo` | Texto |
 |---|---|
-| `qual_dos_paises` | Qual deles você quer saber: {A} ou {B}? Pergunte de novo com o nome do país. (3+ opções: "{A}, {B} ou {C}") |
+| `qual_dos_paises` | Qual deles você quer saber: {A} ou {B}? Pergunte de novo com o nome do país. (3+ opções: "{A}, {B} ou {C}"; na Geórgia, "Geórgia (país)" e "Geórgia (estado americano)") |
 | `pedir_pais` | De qual país você quer saber? Pergunte citando o nome, por exemplo: "Preciso de visto para o Japão?" |
 | `um_pais_por_vez` | Entendi que você perguntou sobre {A} e {B}. Pergunte sobre um país de cada vez, por favor. |
 | `brasil` | Eu respondo sobre viagens de brasileiros ao exterior. Para qual país você vai? |

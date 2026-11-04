@@ -34,6 +34,13 @@ def test_google_sem_chave_nao_leva_api_key() -> None:
     assert argumentos == {"temperature": 0, "timeout": 90}
 
 
+def test_tempo_limite_pode_ser_menor_para_o_chat() -> None:
+    argumentos = argumentos_do_modelo(
+        "google_genai:gemini-3.6-flash", configuracoes(), tempo_limite_segundos=5
+    )
+    assert argumentos == {"temperature": 0, "timeout": 5}
+
+
 def test_ollama_usa_a_url_base() -> None:
     argumentos = argumentos_do_modelo(
         "ollama:llama3", configuracoes(ollama_base_url="http://ollama:11434")

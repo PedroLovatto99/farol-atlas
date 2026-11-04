@@ -123,6 +123,8 @@ O `.env` **só existe no servidor** (`.gitignore` já o ignora). Variáveis de p
 | `CONTATO_COLETA` | URL ou e-mail que vai no User-Agent da coleta (não deixe o valor de exemplo) |
 | `GOOGLE_API_KEY` | a chave do Gemini |
 | `LLM_CLASSIFICADOR` / `LLM_TRADUTOR` | opcionais (padrão `google_genai:gemini-3.6-flash`) |
+| `LLM_CHAT` | opcional: o modelo que entende as perguntas do chat. Vazia, o chat responde só pelo código. **Não pode ser igual a `LLM_CLASSIFICADOR`**: a API não sobe (a cota gratuita é por modelo) |
+| `CHAT_PERGUNTAS_POR_HORA` | opcional: perguntas por hora por IP (padrão 20) |
 | `LIMITE_PEDIDOS_POR_MINUTO` / `LIMITE_RAJADA` | opcionais (padrão 120 e 40) |
 
 Não coloque `DATABASE_URL` nem `AMBIENTE` no `.env`: o compose de produção monta a URL do banco com

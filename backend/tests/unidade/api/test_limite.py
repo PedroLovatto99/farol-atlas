@@ -87,6 +87,17 @@ def test_retry_after_e_o_tempo_ate_a_proxima_ficha() -> None:
     assert balde.tentar("a") == 10
 
 
+def test_balde_do_chat_vinte_por_hora() -> None:
+    """20 por hora = uma ficha a cada 3 min; a 21ª pergunta seguida espera (SC-004)."""
+    tempo = Tempo()
+    balde = BaldeDeFichas(por_minuto=20 / 60, rajada=20, relogio=tempo)
+    assert all(balde.tentar("a") is None for _ in range(20))
+    assert balde.tentar("a") == 180
+    tempo.agora += 180
+    assert balde.tentar("a") is None
+    assert balde.tentar("a") is not None
+
+
 def test_baldes_parados_sao_esquecidos() -> None:
     tempo = Tempo()
     balde = BaldeDeFichas(60, 2, tempo)

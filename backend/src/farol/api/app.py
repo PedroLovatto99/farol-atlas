@@ -1,8 +1,8 @@
 """Fábrica do app FastAPI.
 
-Princípios (constituição): a API só devolve JSON; todas as rotas públicas são de leitura; o CORS
-aceita só as origens configuradas; a documentação interativa (/docs e /redoc) só existe em
-desenvolvimento, por variável de ambiente.
+Princípios (constituição): a API só devolve JSON; as rotas públicas são de leitura, menos o chat,
+que responde sem gravar nada; o CORS aceita só as origens configuradas; a documentação interativa
+(/docs e /redoc) só existe em desenvolvimento, por variável de ambiente.
 
 Camadas de middleware, de fora para dentro: CORS, IP real (atrás do proxy), limite de pedidos,
 compressão e cache de leitura. O 429 do limite sai com os cabeçalhos do CORS; o cache guarda o corpo
@@ -18,12 +18,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from farol.api.cache import CacheDeLeitura, VersaoMemorizada
 from farol.api.dependencias import sessao_da_requisicao
 from farol.api.ip_real import IpReal
-from farol.api.limite import LimiteDePedidos
-from farol.api.rotas import mapa, paises, saude, vistos
+from farol.api.limite import BaldeDeFichas, LimiteDePedidos
+from farol.api.rotas import chat, mapa, paises, saude, vistos
+from farol.chat import criar_modelo_do_chat
 from farol.infra import (
     Configuracoes,
     configurar_logs,
@@ -33,10 +35,35 @@ from farol.infra import (
 )
 
 PREFIXO = "/api/v1"
+CAMINHO_DO_CHAT = f"{PREFIXO}/chat"
 
 __all__ = ["criar_app", "sessao_da_requisicao"]
 
 _log = obter_logger("farol.api")
+
+
+class CorsPorCaminho:
+    """Dois CORS sobre o mesmo app: POST e `Content-Type` só no chat; o resto, só GET (D7)."""
+
+    def __init__(self, app: ASGIApp, *, origens: list[str]) -> None:
+        self._leitura = CORSMiddleware(
+            app,
+            allow_origins=origens,
+            allow_methods=["GET"],
+            allow_headers=[],
+            allow_credentials=False,
+        )
+        self._chat = CORSMiddleware(
+            app,
+            allow_origins=origens,
+            allow_methods=["GET", "POST"],
+            allow_headers=["Content-Type"],
+            allow_credentials=False,
+        )
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        eh_chat = scope["type"] == "http" and scope["path"] == CAMINHO_DO_CHAT
+        await (self._chat if eh_chat else self._leitura)(scope, receive, send)
 
 
 def criar_app(
@@ -49,7 +76,7 @@ def criar_app(
     docs = config.api_docs_habilitada
     app = FastAPI(
         title="Farol Atlas API",
-        version="1.1.0",
+        version="1.2.0",
         description=(
             "Mapa de alertas de viagem do Itamaraty e requisitos de visto para brasileiros."
             " Serviço não oficial."
@@ -58,6 +85,13 @@ def criar_app(
         redoc_url="/redoc" if docs else None,
         openapi_url=f"{PREFIXO}/openapi.json",
     )
+
+    perguntas_por_hora = config.chat_perguntas_por_hora
+    app.state.chat_perguntas_por_hora = perguntas_por_hora
+    app.state.balde_do_chat = BaldeDeFichas(
+        por_minuto=perguntas_por_hora / 60, rajada=perguntas_por_hora, relogio=relogio_monotonico
+    )
+    app.state.modelo_do_chat = criar_modelo_do_chat(config)
 
     def ler_versao() -> int:
         # Usa a mesma fonte de sessão das rotas (os testes a trocam por uma sessão deles)
@@ -87,17 +121,13 @@ def criar_app(
             relogio=relogio_monotonico,
         )
     app.add_middleware(IpReal, redes_confiaveis=config.redes_confiaveis)
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=config.cors_origens,
-        allow_methods=["GET"],
-        allow_headers=[],
-        allow_credentials=False,
-    )
+    app.add_middleware(CorsPorCaminho, origens=config.cors_origens)
 
     @app.exception_handler(StarletteHTTPException)
     async def erro_http(_: Request, erro: StarletteHTTPException) -> JSONResponse:
-        return JSONResponse({"detalhe": str(erro.detail)}, status_code=erro.status_code)
+        return JSONResponse(
+            {"detalhe": str(erro.detail)}, status_code=erro.status_code, headers=erro.headers
+        )
 
     @app.exception_handler(RequestValidationError)
     async def erro_de_validacao(_: Request, erro: RequestValidationError) -> JSONResponse:
@@ -114,5 +144,6 @@ def criar_app(
     app.include_router(mapa.roteador, prefix=PREFIXO)
     app.include_router(paises.roteador, prefix=PREFIXO)
     app.include_router(vistos.roteador, prefix=PREFIXO)
+    app.include_router(chat.roteador, prefix=PREFIXO)
     app.include_router(saude.roteador, prefix=PREFIXO)
     return app

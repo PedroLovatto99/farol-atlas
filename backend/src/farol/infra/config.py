@@ -54,6 +54,10 @@ class Configuracoes(BaseSettings):
     llm_classificador: str = "google_genai:gemini-3.6-flash"
     # Tradutor das observações de visto; vazio = o mesmo modelo do classificador
     llm_tradutor: str = ""
+    # Modelo do chat (só entende país e assunto); vazio = o chat entende só pelo código. Não pode
+    # ser o do classificador: no plano gratuito a cota é por modelo (FR-030)
+    llm_chat: str = ""
+    chat_perguntas_por_hora: int = Field(20, ge=1)
     google_api_key: SecretStr | None = None
     ollama_base_url: str = "http://host.docker.internal:11434"
 
@@ -112,6 +116,13 @@ class Configuracoes(BaseSettings):
     @model_validator(mode="after")
     def _tradutor_padrao(self) -> Self:
         self.llm_tradutor = self.llm_tradutor.strip() or self.llm_classificador
+        return self
+
+    @model_validator(mode="after")
+    def _chat_com_modelo_proprio(self) -> Self:
+        self.llm_chat = self.llm_chat.strip()
+        if self.llm_chat and self.llm_chat == self.llm_classificador:
+            raise ValueError("LLM_CHAT não pode ser o mesmo modelo de LLM_CLASSIFICADOR")
         return self
 
 

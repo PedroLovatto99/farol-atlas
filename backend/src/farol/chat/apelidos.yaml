@@ -1,0 +1,46 @@
+# Nomes que a busca do site não conhece, mas que as pessoas usam ao perguntar (research D3).
+# Os nomes, rótulos e termos da busca (de /mapa) já valem; aqui só o que falta. A chave é comparada
+# sem acento e sem maiúsculas, por palavra inteira. Cada entrada tem um caso em
+# tests/unidade/chat/test_apelidos.py, e o código é conferido contra os territórios ao carregar.
+
+# termo: código
+apelidos:
+  eua: US
+  estados unidos da america: US
+  inglaterra: GB
+  escocia: GB
+  holanda: NL
+  republica democratica do congo: CD
+  republica do congo: CG
+  tchequia: CZ
+  eslovaquia: SK
+  essuatini: SZ
+  birmania: MM
+  bielorrussia: BY
+  macedonia do norte: MK
+  emirados: AE
+  dubai: AE
+  # Lugares cujo nome contém o de outro país
+  irlanda do norte: GB
+  novo mexico: US
+  nova escocia: CA
+  # As saídas da pergunta "Geórgia (país) ou Geórgia (estado americano)?"
+  georgia pais: GE
+  pais georgia: GE
+  georgia estado americano: US
+  estado da georgia: US
+  georgia eua: US
+  georgia nos eua: US
+
+# Nome que vale para mais de um território: o chat pergunta qual (FR-012). A chave é o nome
+# mostrado na mensagem "Entendi que você perguntou sobre ...".
+ambiguos:
+  Congo: [CG, CD]
+  Guiné: [GN, GW, GQ]
+  Coreia: [KR, KP]
+  Geórgia: [GE, US]
+
+# Opções da pergunta de volta quando o nome do site não distingue (sem isto, "Estados Unidos").
+# Cada uma precisa levar a uma resposta, senão repetir a opção cai na mesma pergunta.
+opcoes_dos_ambiguos:
+  Geórgia: [Geórgia (país), Geórgia (estado americano)]

@@ -6,6 +6,7 @@ import { useTelaPequena } from "./compartilhado/useTelaPequena";
 import { ProvedorDeEstado, useEstado } from "./estado/contexto";
 import { Aviso } from "./funcionalidades/aviso/Aviso";
 import { Busca } from "./funcionalidades/busca/Busca";
+import { BotaoDoChat } from "./funcionalidades/chat/BotaoDoChat";
 import { nenhumNivelMarcado, territorioEsmaecido } from "./funcionalidades/legenda/filtro";
 import {
   nenhumVistoMarcado,
@@ -270,8 +271,8 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
   useEffect(() => {
     if (!painelAberto) return;
     function aoTeclar(evento: KeyboardEvent) {
-      if (evento.key !== "Escape") return;
-      // Com um diálogo aberto (Sobre, fronteiras), o Esc é dele
+      if (evento.key !== "Escape" || evento.defaultPrevented) return;
+      // Com um diálogo aberto (Sobre, fronteiras, chat), o Esc é dele
       if (document.querySelector('[role="dialog"]') !== null) return;
       verMundo();
     }
@@ -356,6 +357,8 @@ function Tela({ cliente, Mapa: ComponenteDeMapa, buscar }: Props) {
           modoDoGlobo={modo}
         />
       )}
+
+      <BotaoDoChat cliente={cliente} />
 
       {mapa !== null && modo === "alertas" && nenhumNivelMarcado(niveisMarcados) && (
         <SemNiveisMarcados onMarcarTodos={() => despachar({ tipo: "marcar-todos-niveis" })} />

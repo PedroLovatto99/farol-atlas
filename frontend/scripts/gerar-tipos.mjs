@@ -8,8 +8,8 @@
 //   npm run gerar-tipos -- openapi.json
 import { execFileSync } from "node:child_process";
 
-// O contrato COMPLETO da API v1.1 (feature 002): contém o da 001 por inteiro mais vistos
-const contrato = "../specs/002-visto-brasileiros/contracts/openapi.yaml";
+// O contrato COMPLETO da API v1.2 (feature 003): contém o da 002 por inteiro mais o chat
+const contrato = "../specs/003-chat-alerta-visto/contracts/openapi.yaml";
 const entrada = process.argv[2] ?? contrato;
 const saida = "src/servicos/api/esquema.d.ts";
 

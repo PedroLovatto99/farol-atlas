@@ -27,7 +27,7 @@ class _Balde:
 
 class BaldeDeFichas:
     def __init__(
-        self, por_minuto: int, rajada: int, relogio: Callable[[], float] = time.monotonic
+        self, por_minuto: float, rajada: int, relogio: Callable[[], float] = time.monotonic
     ) -> None:
         self._por_segundo = por_minuto / 60
         self._rajada = rajada
@@ -49,12 +49,14 @@ class BaldeDeFichas:
                 self._baldes[chave] = balde
             else:
                 decorrido = max(0.0, agora - balde.atualizado_em)
-                balde.fichas = min(self._rajada, balde.fichas + decorrido * self._por_segundo)
+                # Arredonda: com `por_minuto` fracionário (20/60) o float erraria por um fio
+                fichas = round(balde.fichas + decorrido * self._por_segundo, 9)
+                balde.fichas = min(self._rajada, fichas)
                 balde.atualizado_em = agora
             if balde.fichas >= 1:
                 balde.fichas -= 1
                 return None
-            return max(1, math.ceil((1 - balde.fichas) / self._por_segundo))
+            return max(1, math.ceil(round((1 - balde.fichas) / self._por_segundo, 6)))
 
     def _limpar(self, agora: float) -> None:
         """Descarta os baldes que já estariam cheios: esquecê-los não muda nada."""
@@ -75,7 +77,7 @@ class LimiteDePedidos:
         self,
         app: ASGIApp,
         *,
-        por_minuto: int,
+        por_minuto: float,
         rajada: int,
         relogio: Callable[[], float] = time.monotonic,
     ) -> None:

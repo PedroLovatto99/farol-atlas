@@ -4,6 +4,7 @@ import type {
   Mapa,
   Pais,
   PostoNoPainel,
+  RespostaDoChat,
   TerritorioNoMapa,
   Visto,
   VistosDoMapa,
@@ -531,5 +532,20 @@ export const VISTOS_EXEMPLO: VistosDoMapa = {
     { codigo: "US", situacao: "visto_exigido", aceita_rg: false },
     { codigo: "FK", situacao: "isento", aceita_rg: false },
     { codigo: "BR", situacao: "nao_se_aplica", aceita_rg: false },
+  ],
+};
+
+export const RESPOSTA_DO_CHAT_EXEMPLO: RespostaDoChat = {
+  tipo: "visto",
+  codigo: "JP",
+  paragrafos: [
+    [{ texto: "Não, brasileiros não precisam de visto para o Japão.", url: null }],
+    [
+      { texto: "Fonte: ", url: null },
+      {
+        texto: "Wikipédia",
+        url: "https://en.wikipedia.org/wiki/Visa_requirements_for_Brazilian_citizens",
+      },
+    ],
   ],
 };

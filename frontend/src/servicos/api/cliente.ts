@@ -26,6 +26,8 @@ export type SituacaoDeVisto = Esquemas["SituacaoDeVisto"];
 export type SituacaoNoGlobo = Esquemas["SituacaoNoGlobo"];
 export type VistosDoMapa = Esquemas["VistosDoMapa"];
 export type TerritorioDeVisto = Esquemas["TerritorioDeVisto"];
+export type RespostaDoChat = Esquemas["RespostaDoChat"];
+export type TrechoDoChat = Esquemas["TrechoDoChat"];
 
 export class ErroDeApi extends Error {
   readonly status: number;
@@ -122,6 +124,16 @@ class Leitor {
     });
   }
 
+  /** Lista de listas de objetos: cada item externo é lido como uma `lista`. */
+  listaDeListas<T>(campo: string, ler: (item: Leitor) => T): T[][] {
+    const valor = this.origem[campo];
+    if (!Array.isArray(valor)) return this.falhar(campo);
+    return valor.map((itens: unknown, indice) => {
+      const nome = `${campo}[${indice}]`;
+      return new Leitor({ [nome]: itens }, this.caminho, this.status).lista(nome, ler);
+    });
+  }
+
   listaDeTextos(campo: string): string[] {
     const valor = this.origem[campo];
     if (!Array.isArray(valor) || !valor.every((item) => typeof item === "string")) {
@@ -163,6 +175,17 @@ const TIPOS_DE_PERMANENCIA = [
   "original",
   "prazos_divergentes",
   "varia_conforme_motivo",
+] as const;
+const TIPOS_DE_RESPOSTA_DO_CHAT = [
+  "alerta",
+  "visto",
+  "alerta_e_visto",
+  "qual_dos_paises",
+  "pedir_pais",
+  "um_pais_por_vez",
+  "brasil",
+  "fora_do_assunto",
+  "reformular",
 ] as const;
 const TIPOS_DE_POSTO = [
   "Embaixada",
@@ -334,6 +357,19 @@ export function validarVistos(dados: unknown, status = 200): VistosDoMapa {
   };
 }
 
+function lerTrechoDoChat(l: Leitor): TrechoDoChat {
+  return { texto: l.texto("texto"), url: l.textoOuNulo("url") };
+}
+
+export function validarRespostaDoChat(dados: unknown, status = 200): RespostaDoChat {
+  const l = raiz(dados, status);
+  return {
+    tipo: l.um("tipo", TIPOS_DE_RESPOSTA_DO_CHAT),
+    codigo: l.textoOuNulo("codigo"),
+    paragrafos: l.listaDeListas("paragrafos", lerTrechoDoChat),
+  };
+}
+
 export function validarSaude(dados: unknown, status = 200): Saude {
   const l = raiz(dados, status);
   return {
@@ -351,7 +387,12 @@ export interface ClienteDaApi {
   /** Os vistos de todos os territórios, para pintar o globo; só é pedido no modo "Vistos". */
   obterVistos(sinal?: AbortSignal): Promise<VistosDoMapa>;
   obterSaude(sinal?: AbortSignal): Promise<Saude>;
+  /** A única chamada que não é de leitura; só acontece quando a pessoa pergunta. */
+  perguntarAoChat(pergunta: string): Promise<RespostaDoChat>;
 }
+
+/** Folga sobre os 5 s do modelo: passou disso, a rede travou e o campo não pode ficar preso. */
+const PRAZO_DO_CHAT_MS = 15_000;
 
 async function detalheDoErro(resposta: Response): Promise<string> {
   try {
@@ -373,10 +414,15 @@ export function criarCliente(
     caminho: string,
     validar: (dados: unknown, status: number) => T,
     sinal?: AbortSignal,
+    opcoes: RequestInit = {},
   ): Promise<T> {
     let resposta: Response;
     try {
-      resposta = await buscar(`${prefixo}${caminho}`, { method: "GET", signal: sinal ?? null });
+      resposta = await buscar(`${prefixo}${caminho}`, {
+        method: "GET",
+        signal: sinal ?? null,
+        ...opcoes,
+      });
     } catch (erro) {
       if (erro instanceof DOMException && erro.name === "AbortError") throw erro;
       throw new ErroDeApi(0, "Não foi possível falar com o servidor");
@@ -399,5 +445,11 @@ export function criarCliente(
       pedir(`/paises/${encodeURIComponent(codigo)}`, validarPais, sinal),
     obterVistos: (sinal) => pedir("/vistos", validarVistos, sinal),
     obterSaude: (sinal) => pedir("/saude", validarSaude, sinal),
+    perguntarAoChat: (pergunta) =>
+      pedir("/chat", validarRespostaDoChat, AbortSignal.timeout(PRAZO_DO_CHAT_MS), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pergunta }),
+      }),
   };
 }

@@ -11,12 +11,14 @@ from farol.infra.config import Configuracoes
 TEMPO_LIMITE_SEGUNDOS = 90
 
 
-def argumentos_do_modelo(nome: str, configuracoes: Configuracoes) -> dict[str, Any]:
+def argumentos_do_modelo(
+    nome: str, configuracoes: Configuracoes, *, tempo_limite_segundos: int = TEMPO_LIMITE_SEGUNDOS
+) -> dict[str, Any]:
     """Argumentos de `init_chat_model` para o modelo `nome` ("provedor:modelo"), temperatura 0."""
     provedor = nome.split(":", 1)[0]
     argumentos: dict[str, Any] = {"temperature": 0}
     if provedor == "google_genai":
-        argumentos["timeout"] = TEMPO_LIMITE_SEGUNDOS
+        argumentos["timeout"] = tempo_limite_segundos
         if configuracoes.google_api_key is not None:
             argumentos["api_key"] = configuracoes.google_api_key.get_secret_value()
     elif provedor == "ollama":

@@ -49,6 +49,11 @@ Ordem (função pura `entender(pergunta, nomes)` em `chat/entendimento.py`):
 - **Por quê:** a maioria das perguntas cita o país pelo nome; assim o modelo raramente é chamado
   (cota, FR-030) e o chat responde com o modelo fora do ar (FR-029).
 
+Ajustes da revisão: país logo depois de uma palavra desconhecida ("Novo México", "Nova Jersey") não
+vale, e a pergunta vai ao modelo ou recebe `reformular`; "Geórgia" sozinha pergunta de volta (país ou
+estado americano); "seguro viagem" é fora do assunto, e "seguro" sozinho continua sendo alerta. A
+lista enviada ao modelo usa `rotulo_busca` para Kosovo e Malvinas, que têm o `nome` do soberano.
+
 ## D4. A chamada ao modelo
 
 - **Decisão:** `chat/modelo_langchain.py`, igual ao classificador: `init_chat_model(LLM_CHAT,
@@ -60,7 +65,11 @@ Ordem (função pura `entender(pergunta, nomes)` em `chat/entendimento.py`):
   exceção ou tempo esgotado = "o modelo não respondeu" → `reformular` (ou a resposta do código, se
   ele achou o país). Só o nome da classe da exceção vai ao log, nunca a pergunta.
 - **Tempo:** `argumentos_do_modelo` ganha o parâmetro opcional `tempo_limite_segundos` (padrão o
-  atual, 90); o chat passa 5 e `max_retries=0`.
+  atual, 90); o chat passa 10 e `max_retries=0`, porque a API do Google recusa com 400 qualquer
+  prazo menor que 10 s (visto no teste com a chave real). Os 5 s do FR-029 ficam no `entender`, que
+  roda a chamada numa thread e espera no máximo 5 s; isso vale para qualquer provedor. Chamada que
+  estourou o prazo ainda na fila é cancelada. A sessão do banco é confirmada antes do modelo, para
+  a conexão não ficar presa durante a espera.
 - **O modelo nunca escreve a resposta:** o que ele devolve só escolhe o tipo e o país; o texto vem
   sempre de `textos.py`.
 
