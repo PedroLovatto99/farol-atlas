@@ -43,7 +43,9 @@ testadas com `distanciaEntreCores` e `simularDaltonismo`.
 mesmo que trocar entre "Alertas" e "Vistos".
 
 **Constraints**: com o modo desligado, a aparência é exatamente a atual (FR-015). Nenhum texto muda
-além do botão (FR-014).
+além do botão (FR-014). A transição do MapLibre só é zerada com `prefers-reduced-motion`; sem essa
+preferência, as animações atuais continuam, inclusive na troca entre "Alertas" e "Vistos" com o modo
+desligado (research D9).
 
 **Scale/Scope**: 1 botão, 1 preferência, 2 paletas, 2 padrões novos e 1 estilo de linha.
 
@@ -58,7 +60,7 @@ além do botão (FR-014).
 | III. Arquitetura | Passa | Regras em funções puras (`cor.ts`, `padroes.ts`, `feicoes.ts`); o adaptador só registra imagens e camadas, e continua sendo o único a importar `maplibre-gl`. O botão recebe tudo por props. Carregamento do mapa intacto. |
 | IV. Coleta responsável | Não se aplica | Nada de coleta. |
 | V. Informação confiável | Passa | Nenhum dado, nível ou texto muda. "Não verificado" continua cinza e sem padrão, e território sem dado continua "não verificado". |
-| VI. Acessível e celular | Passa | É o objetivo da feature: padrões e tracejado tiram a dependência da cor. Botão com `aria-pressed`, teclado, foco visível e alvo de 44 px; funciona em 360 px; nenhuma animação nova. |
+| VI. Acessível e celular | Passa | É o objetivo da feature: padrões e tracejado tiram a dependência da cor. Botão com `aria-pressed`, teclado, foco visível e alvo de 44 px; funciona em 360 px; nenhuma animação nova, e a do contorno é zerada com movimento reduzido. |
 | VII. Simples e gratuito | Passa | Nada novo na infra. |
 | VIII. Segurança | Passa | A preferência fica no navegador; nada vai ao servidor. O valor guardado é comparado com um literal, e qualquer outro vale "desligado". |
 | Idioma | Passa | Tudo em português. |
@@ -93,11 +95,11 @@ frontend/src/
 │   │   └── preferencia.ts (+ teste)       # mesmo padrão de legenda/preferencia.ts
 │   ├── mapa/
 │   │   ├── cor.ts                         # paletas e `paletaDe`; preenchimentos com `daltonismo`
-│   │   ├── contorno.ts                    # `contornoDosPaises(modo, daltonismo)`
+│   │   ├── contorno.ts                    # `contornoDosPaises(modo, daltonismo)`, `transicaoDoContorno`
 │   │   ├── padroes.ts                     # matriz genérica, hachura, pontos, amostras
 │   │   ├── feicoes.ts                     # `imagem_do_padrao`, `borda_tracejada`
 │   │   ├── tipos.ts                       # `Preenchimento.padrao`, `MapaProps.daltonismo`
-│   │   └── adaptador-maplibre.tsx         # imagens, camadas de padrões e tracejada, contorno
+│   │   └── adaptador-maplibre.tsx         # imagens, camadas de padrões e tracejada, contorno e transição
 │   ├── legenda/Legenda.tsx                # amostras com padrão e amostra da borda
 │   ├── legenda/LegendaRecolhivel.tsx      # repassa `daltonismo`
 │   ├── vistos/LegendaDeVistos.tsx         # listras e cores pela paleta
@@ -120,6 +122,7 @@ o painel já importam. Backend, `esquema.d.ts` e OpenAPI não mudam.
 | `lerPreferenciaDaLegenda`, `gravarPreferenciaDaLegenda` | Mesmo try/catch, em `daltonismo/preferencia.ts` |
 | `CONTORNO_DO_MODO_VISTOS` (`contorno.ts`) | O mesmo contorno, usado também em "Alertas" com o modo ligado |
 | `SeletorDeModo` | Mesmo visual de ativo (fundo escuro e negrito) e mesmo foco |
+| `reduzirMovimento` (`MapaProps`, `useMovimentoReduzido`) | Já chega ao adaptador; decide a transição do contorno, como `duracaoDoMovimento` decide a da câmera |
 
 ## Riscos
 

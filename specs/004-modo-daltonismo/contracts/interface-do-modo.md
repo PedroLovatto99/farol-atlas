@@ -77,6 +77,8 @@ export function montarFeicoes(geometria: Geometria, territorios: readonly Territ
 
 // mapa/contorno.ts: CONTORNO_DO_MODO_VISTOS quando modo === "vistos" ou daltonismo
 export function contornoDosPaises(modo: ModoDoGlobo, daltonismo?: boolean): Contorno;
+// mapa/contorno.ts: { duration: 0, delay: 0 } com movimento reduzido; null sem essa preferência
+export function transicaoDoContorno(reduzirMovimento: boolean): { duration: number; delay: number } | null;
 ```
 
 `preenchimentoDeAlerta` só devolve padrão com o modo ligado e nível `nao_viajar` ou `evitar`. Área
@@ -97,8 +99,11 @@ neutra nunca tem padrão, e as cores do neutro e do oceano não mudam.
 
 `styleimagemissing` procura o nome numa tabela de imagens e registra a matriz correspondente.
 
-O efeito que aplica o contorno na camada `fronteiras` passa a depender de `[mapa, modo, daltonismo]`, e
-`ESTILO` ganha `transition: { duration: 0, delay: 0 }`, para a troca sair sem animação.
+O efeito que aplica o contorno na camada `fronteiras` passa a depender de
+`[mapa, modo, daltonismo, reduzirMovimento]`. Antes das cores, ele define `line-color-transition` e
+`line-width-transition` com `transicaoDoContorno(reduzirMovimento)`. Com movimento reduzido, a troca
+sai sem animação; sem essa preferência, `null` mantém a transição padrão do MapLibre, como hoje. O
+`ESTILO` não ganha `transition`.
 
 ## O que não muda
 

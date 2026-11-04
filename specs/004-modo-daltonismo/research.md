@@ -114,9 +114,10 @@ navegador para navegador. Modo desligado: a amostra atual, sem mudança.
 
 ## D9 · Contorno escuro em Alertas
 
-**Decisão** (ajuste do responsável, 2026-11-04): com o modo ligado, "Alertas" usa o contorno do modo
-"Vistos", `#1F2A44`, 0,6 px. Com o modo desligado, segue o branco. O estilo do mapa passa a ter
-`transition: { duration: 0, delay: 0 }`.
+**Decisão** (ajustes do responsável, 2026-11-04): com o modo ligado, "Alertas" usa o contorno do modo
+"Vistos", `#1F2A44`, 0,6 px. Com o modo desligado, segue o branco. A transição do contorno é zerada
+**só** quando o usuário prefere movimento reduzido (`prefers-reduced-motion`). Sem essa preferência,
+as animações atuais continuam, inclusive na troca entre "Alertas" e "Vistos" com o modo desligado.
 
 **Por quê**: "sem alerta" virou azul-claro, perto do oceano: 13,5 de distância no pior caso, e contorno
 branco com 1,72:1 contra ele e 1,24:1 contra o oceano. O contorno escuro dá 8,31:1 e 11,45:1, e o
@@ -124,8 +125,14 @@ mínimo entre as quatro cores sobe para 4,16:1. A distância não mudou; o que s
 a linha.
 
 O contorno é trocado por `setPaintProperty`, que o MapLibre anima por 300 ms por padrão, e a spec pede
-troca sem animação com movimento reduzido. Só a camada `fronteiras` é alterada assim, então zerar a
-transição do estilo resolve em uma linha. Efeito no modo desligado: a troca "Alertas" × "Vistos" deixa
-de ter a transição de 300 ms no contorno; as cores finais são as mesmas.
+troca sem animação com movimento reduzido. Só a camada `fronteiras` é alterada assim; as cores dos
+países vêm por `setData`, que não anima. Por isso basta tratar `line-color` e `line-width` dessa
+camada: o mesmo efeito que aplica o contorno define antes `line-color-transition` e
+`line-width-transition` com o valor de `transicaoDoContorno(reduzirMovimento)`, função pura em
+`contorno.ts`. Com movimento reduzido, o valor é `{ duration: 0, delay: 0 }`; sem ele, é `null`, que
+devolve a camada ao padrão do MapLibre. O `ESTILO` não muda, então o modo desligado segue igual ao
+atual (FR-015), e a preferência vale mesmo se mudar com a página aberta.
 
-**Alternativa**: zerar a transição só com movimento reduzido, o que exigiria mais um efeito no adaptador.
+**Alternativa**: `transition: { duration: 0, delay: 0 }` no `ESTILO`, em uma linha. Descartada porque
+tirava de todo mundo a transição de 300 ms do contorno, inclusive de quem não pediu menos movimento e
+está com o modo desligado.
